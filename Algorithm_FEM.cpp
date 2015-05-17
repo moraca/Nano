@@ -1,5 +1,6 @@
 //===========================================================================
 // Algorithm_FEM.cpp
+// 算法及有限元实现模块类成员函数
 // Member functions in classes to implement algorithm and finite element method
 //===========================================================================
 #include "Algorithm_FEM.h"
