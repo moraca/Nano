@@ -969,7 +969,7 @@ int GeoNano::Generate_nanotube_networks(const struct RVE_Geo &cell_geo, const st
                 //hout << " Struc#=" << structure.size()-1 << " of size " << structure.back().size() << endl;
                 cnts_radius.push_back(cnt_rad);			//记录纳米管半径
                 if (!(cnts_points.size() % 5000))
-                    hout << "CNTs generated: " << cnts_points.size() << endl;
+                    hout << "CNTs generated: " << cnts_points.size() << " points generated: " << global_point_coord.size() << endl;
             }
         }
 	}
@@ -979,6 +979,7 @@ int GeoNano::Generate_nanotube_networks(const struct RVE_Geo &cell_geo, const st
 		hout << "    生成的纳米管所占体积百分比约为：" << vol_sum/cell_geo.volume << endl;
 	}
     hout << "Total number of CNTs generated: " << cnts_points.size() << endl;
+    hout << "Total number of points generated: " << global_point_coord.size() << endl;
     hout << "Total number of penetrating points: " << penetrating_points << endl;
     hout << "Total number of CNTs rejected: " << rejects << endl;
 	return 1;

@@ -93,9 +93,10 @@ public:
     void Clear_vectors();
     int Make_CNT_clusters(struct CNT_Geo cnts_geo, vector<Point_3D> points_in, vector<vector<long int> > structure);
     int Single_cluster(int cnt_seed, int start, vector<int> &vec, vector<vector<int> > &contacts_vector);
-    int Single_cluster(int cnt_seed, vector<int> &vec, vector<vector<int> > &contacts_vector, vector<short int> &cluster_flag);
+    int Single_cluster(int cnt_seed, int start, vector<int> &vec, vector<vector<int> > &contacts_vector, vector<short int> &cluster_flag);
     int Check_clusters_percolation(vector<Point_3D> points_in, vector<vector<long int> > structure);
     int Check_percolation_single_cluster(vector<int> cluster, int &family);
+    int Check_percolation_single_cluster(vector<short int> cluster_flag, int &family);
     int Intersection(vector<int> vec1, vector<int> vec2);
     int Find_spheres(vector<Point_3D> points_in, vector<vector<long int> > structure);
     int Split_cnts(vector<Point_3D> &points_in, vector<double> &cnts_radius, vector<vector<long int> > &structure);

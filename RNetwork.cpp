@@ -7,6 +7,7 @@
 //
 
 /* v16
+ Improved the new way to create clusters. The improvemente in time is around 5%. Not so ggod but is something.
  
  //*/
 #include "RNetwork.h"
@@ -31,12 +32,12 @@ int RNetwork::Construct(ifstream &infile, string structure_type, const int &samp
         ct_begin = clock();
         if(!Print_input_data_files(sectioned_domain_cnt, points_in, cnts_radius, cell_geo, cnts_geo, cnt_regions)) return 0;
         ct_end = clock();
-        hout << "Print_input_data_files  " << (double)(ct_end-ct_begin)/CLOCKS_PER_SEC << " secs " << endl;        
+        hout << "Print_input_data_files  " << (double)(ct_end-ct_begin)/CLOCKS_PER_SEC << " secs " << endl;
     } else if(structure_type != "file") {
         hout << "Invalid input. Only 'structure' and 'file' are accepted values. Inpur string: " << structure_type << endl;
         return 0;
     }
-        
+    
     //initialize the size of the box with the largest possible value
     double window = window0;
     
@@ -57,8 +58,8 @@ int RNetwork::Construct(ifstream &infile, string structure_type, const int &samp
         s = sprintf(command, "mkdir iter_%.4d", it);
         system(command);
         s = sprintf(command, "mv Single*.dat iter_%.4d", it);
-        system(command);
-        it++;//*/
+        system(command);//*/
+        it++;
         
         //update the size of the box
         window = window + dwindow;
@@ -139,24 +140,24 @@ int RNetwork::Read_parameters(ifstream &infile, const struct RVE_Geo cell_geo, C
     }
     
     /*/ Check that the regions are not too small for the maximum cutoff distance 2r_max+tunnel
-    if ((lx/(double)secx) < 2*cutoff) {
-        hout << "The regions along x are too many for the cutoff distance for tunneling." <<  endl;
-        hout << "The length of the region along each direction has to be at least twice the cutoff distance" << endl;
-        hout << "2cutoff = 2(2r_max+tunnel) = " << 2*cutoff << ", size of region along x = " << (lx/(double)secx) << endl;
-        return 0;
-    }
-    if ((ly/(double)secy) < 2*cutoff) {
-        hout << "The regions along y are too many for the cutoff distance for tunneling." <<  endl;
-        hout << "The length of the region along each direction has to be at least twice the cutoff distance" << endl;
-        hout << "2cutoff = 2(2r_max+tunnel) = " << 2*cutoff << ", size of region along y = " << (ly/(double)secy) << endl;
-        return 0;
-    }
-    if ((lz/(double)secz) < 2*cutoff) {
-        hout << "The regions along z are too many for the cutoff distance for tunneling." <<  endl;
-        hout << "The length of the region along each direction has to be at least twice the cutoff distance" << endl;
-        hout << "2cutoff = 2(2r_max+tunnel) = " << 2*cutoff << ", size of region along z = " << (lz/(double)secz) << endl;
-        return 0;
-    }//*/
+     if ((lx/(double)secx) < 2*cutoff) {
+     hout << "The regions along x are too many for the cutoff distance for tunneling." <<  endl;
+     hout << "The length of the region along each direction has to be at least twice the cutoff distance" << endl;
+     hout << "2cutoff = 2(2r_max+tunnel) = " << 2*cutoff << ", size of region along x = " << (lx/(double)secx) << endl;
+     return 0;
+     }
+     if ((ly/(double)secy) < 2*cutoff) {
+     hout << "The regions along y are too many for the cutoff distance for tunneling." <<  endl;
+     hout << "The length of the region along each direction has to be at least twice the cutoff distance" << endl;
+     hout << "2cutoff = 2(2r_max+tunnel) = " << 2*cutoff << ", size of region along y = " << (ly/(double)secy) << endl;
+     return 0;
+     }
+     if ((lz/(double)secz) < 2*cutoff) {
+     hout << "The regions along z are too many for the cutoff distance for tunneling." <<  endl;
+     hout << "The length of the region along each direction has to be at least twice the cutoff distance" << endl;
+     hout << "2cutoff = 2(2r_max+tunnel) = " << 2*cutoff << ", size of region along z = " << (lz/(double)secz) << endl;
+     return 0;
+     }//*/
     
     //Get the magnitude of voltage between these two directions
     istringstream istr_magnitude(Get_Line(infile));
@@ -205,7 +206,7 @@ int RNetwork::Print_input_data_files(vector<vector<int> > sectioned_domain_cnt, 
     //These if-statements are placed because in tests a small number is stored in the variables of O(10^-310)
     //which is way below e_machine. It caused some errors when using the option to read the data
     //from files. Somehow after reading these small values, reading the following values gave a wrong number
-    //For instance, the type (CNT/CF) did not appear and more values we O(10^-310).
+    //For instance, the type (CNT/CF) did not appear and more values were O(10^-310).
     //With this the cutoff for tunneling was practically zero, so all CNTs were maked as isolated.
     //Probably these are just unused variables.
     if (cell_geo.density < Zero)
@@ -420,9 +421,9 @@ void RNetwork::Get_boundary_cnts(int &sx0, int &sx1, int &sy0, int &sy1, int &sz
     //Gather all CNTs on the boundary regions
     long int t;
     /*hout << "2 ";
-    hout << "s..." << sx0 << ' ' << sx1 << ' ' << sy0 << ' ' << sy1 << ' ' << sz0 << ' ' << sz1 << ' ';
-    hout << "box..." << box_geometry.poi_min.x << ' ' << box_geometry.poi_min.y << ' ' << box_geometry.poi_min.z << ' ';
-    hout << "cnts..." << cnt_regions.lx << ' ' << cnt_regions.ly << ' ' << cnt_regions.lz << ' ';//*/
+     hout << "s..." << sx0 << ' ' << sx1 << ' ' << sy0 << ' ' << sy1 << ' ' << sz0 << ' ' << sz1 << ' ';
+     hout << "box..." << box_geometry.poi_min.x << ' ' << box_geometry.poi_min.y << ' ' << box_geometry.poi_min.z << ' ';
+     hout << "cnts..." << cnt_regions.lx << ' ' << cnt_regions.ly << ' ' << cnt_regions.lz << ' ';//*/
     //Fixed sx:
     for (int j = sy0; j <= sy1; j++) {
         for (int k = sz0; k <= sz1; k++) {
@@ -515,8 +516,8 @@ int RNetwork::Locate_and_trim_boundary_cnts(vector<Point_3D> &points_in, vector<
     boundary_flags.assign(points_in.size(), empty);
     //Empty vector to increase size of other vectors
     vector<short int> empty_short;
-    //Resize the vector of percolation_flags with empty vector
-    //boundary_flags_cnt.assign(structure.size(), empty_short);
+    //Resize the vector of boundary_flags_cnt with empty vector
+    boundary_flags_cnt.assign(structure.size(), empty_short);
     //hout << "cnts_inside.size() = "<<cnts_inside.size()<<endl;
     for (long int i = 0; i < cnts_inside.size(); i++) {
         CNT = cnts_inside[i];
@@ -775,8 +776,8 @@ void RNetwork::Trim_CNT(vector<Point_3D> &points_in, vector<vector<long int> > &
     //Here check which point is the current point
     vector<long int> empty;
     structure.push_back(empty);
-    vector<short int> zero_flag(6,0);
-    //boundary_flags_cnt.push_back(zero_flag);
+    vector<short int> empty_short;
+    boundary_flags_cnt.push_back(empty_short);
     //The CNT will bre trimed from the point after the boundary point and until the last point
     structure.back().insert(structure.back().begin(),structure[CNT].begin()+boundary+1, structure[CNT].end());
     //Erase form CNT
@@ -805,35 +806,35 @@ void RNetwork::Add_to_boundary_vectors(Point_3D point3d, long int point)
     double z = point3d.z;
     int CNT = point3d.flag;
     if (x == xmin){
-        Add_CNT_to_boundary(bbdyx1_cnt, CNT);
+        //Add_CNT_to_boundary(bbdyx1_cnt, CNT);
         boundary_flags[point].push_back(0);
         boundary_flags[point].push_back(0);
-        //boundary_flags_cnt[CNT].push_back(0);
+        boundary_flags_cnt[CNT].push_back(0);
     } else if (x == xmin+lx){
-        Add_CNT_to_boundary(bbdyx2_cnt, CNT);
+        //Add_CNT_to_boundary(bbdyx2_cnt, CNT);
         boundary_flags[point].push_back(0);
         boundary_flags[point].push_back(1);
-        //boundary_flags_cnt[CNT].push_back(1);
+        boundary_flags_cnt[CNT].push_back(1);
     } else if (y == ymin){
-        Add_CNT_to_boundary(bbdyy1_cnt, CNT);
+        //Add_CNT_to_boundary(bbdyy1_cnt, CNT);
         boundary_flags[point].push_back(1);
         boundary_flags[point].push_back(0);
-        //boundary_flags_cnt[CNT].push_back(2);
+        boundary_flags_cnt[CNT].push_back(2);
     } else if (y == ymin+ly){
-        Add_CNT_to_boundary(bbdyy2_cnt, CNT);
+        //Add_CNT_to_boundary(bbdyy2_cnt, CNT);
         boundary_flags[point].push_back(1);
         boundary_flags[point].push_back(1);
-        //boundary_flags_cnt[CNT].push_back(3);
+        boundary_flags_cnt[CNT].push_back(3);
     } else if (z == zmin) {
-        Add_CNT_to_boundary(bbdyz1_cnt, CNT);
+        //Add_CNT_to_boundary(bbdyz1_cnt, CNT);
         boundary_flags[point].push_back(2);
         boundary_flags[point].push_back(0);
-        //boundary_flags_cnt[CNT].push_back(4);
+        boundary_flags_cnt[CNT].push_back(4);
     } else if (z == zmin+lz) {
-        Add_CNT_to_boundary(bbdyz2_cnt, CNT);
+        //Add_CNT_to_boundary(bbdyz2_cnt, CNT);
         boundary_flags[point].push_back(2);
         boundary_flags[point].push_back(1);
-        //boundary_flags_cnt[CNT].push_back(5);
+        boundary_flags_cnt[CNT].push_back(5);
     }
 }
 
@@ -897,17 +898,17 @@ int RNetwork::Assign_region(const struct RVE_Geo cell_geo, vector<Point_3D> poin
     if (dx < 2*cutoff) {
         dx = 2*cutoff;
         sx = (int)(lx/dx);
-        hout << "Modified the number of sections along x. " << "sx = " << sx << '\t' << "dx = " << dx << endl;
+        //hout << "Modified the number of sections along x. " << "sx = " << sx << '\t' << "dx = " << dx << endl;
     }
     if (dy < 2*cutoff) {
         dy = 2*cutoff;
         sy = (int)(ly/dy);
-        hout << "Modified the number of sections along y. " << "sy = " << sy << '\t' << "dy = " << dy << endl;
+        //hout << "Modified the number of sections along y. " << "sy = " << sy << '\t' << "dy = " << dy << endl;
     }
     if (dz < 2*cutoff) {
         dz = 2*cutoff;
         sz = (int)(lz/dz);
-        hout << "Modified the number of sections along z. " << "sz = " << sz << '\t' << "dz = " << dz  << endl;
+        //hout << "Modified the number of sections along z. " << "sz = " << sz << '\t' << "dz = " << dz  << endl;
     }
     
     
@@ -1178,6 +1179,9 @@ void RNetwork::Clear_vectors()
     bbdyy2_cnt.clear();
     bbdyz1_cnt.clear();
     bbdyz2_cnt.clear();
+    //Percolation flags
+    boundary_flags_cnt.clear();
+    percolation_flags.clear();
     //contacts vectors
     contacts.clear();
     contacts_cnt.clear();
@@ -1227,6 +1231,16 @@ int RNetwork::Make_CNT_clusters(struct CNT_Geo cnts_geo, vector<Point_3D> points
                     vector<int> empty;
                     clusters_cnt.push_back(empty);
                     clusters_cnt.back().push_back(CNT);
+                    //Update the boundary_flags_cnt vector
+                    //Initialize the vector of flags the cluster
+                    vector<short int> cluster_flag(7,0);
+                    //Add corresponding flags
+                    for (int a = 0; a < (int)boundary_flags_cnt[CNT].size(); a++) {
+                        short int flag = boundary_flags_cnt[CNT][a];
+                        cluster_flag[flag] = 1;
+                    }
+                    //Add to vector of cluster flags
+                    percolation_flags.push_back(cluster_flag);
                 } else {
                     //hout << "Check3b " << endl;
                     isolated.push_back(empty);
@@ -1246,7 +1260,7 @@ int RNetwork::Make_CNT_clusters(struct CNT_Geo cnts_geo, vector<Point_3D> points
             }
         }
     }
-    //hout << "Check7 ";
+    //hout << "Check7 " << "clusters_cnt.size() " << clusters_cnt.size() << ' ';
     
     //Then make clusters of CNTs
     int count;
@@ -1261,7 +1275,7 @@ int RNetwork::Make_CNT_clusters(struct CNT_Geo cnts_geo, vector<Point_3D> points
         //hout << "Check7.1 ";
         if (contacts_cnt_tmp[CNT].size()) {
             vec = contacts_cnt_tmp[CNT];
-            //vector<short int> cluster_flag(6,0);
+            vector<short int> cluster_flag(7,0);
             //hout << "Check7.2 ";
             count = -1;
             //This will help save time when creating the clusters. Instead of scanning all CNTs from the beginning at every loop
@@ -1269,8 +1283,8 @@ int RNetwork::Make_CNT_clusters(struct CNT_Geo cnts_geo, vector<Point_3D> points
             int start = 0;
             do {
                 //hout << "Check7.3 ";
-                count = Single_cluster(CNT, start, vec, contacts_cnt_tmp);
-                //count = Single_cluster(CNT, vec, contacts_cnt_tmp,cluster_flag);
+                //count = Single_cluster(CNT, start, vec, contacts_cnt_tmp);
+                count = Single_cluster(CNT, start, vec, contacts_cnt_tmp,cluster_flag);
                 
                 Discard_repeated(vec);
                 //At the following loop, the search of CNT contacts has to start from the first newly added CNT
@@ -1289,7 +1303,7 @@ int RNetwork::Make_CNT_clusters(struct CNT_Geo cnts_geo, vector<Point_3D> points
             //hout << "Check7.6 ";
             //Now in contacts_cnt_tmp[CNT] we have a cluster. So save it in the vector of CNT clusters
             clusters_cnt.push_back(contacts_cnt_tmp[CNT]);
-            //percolation_flags.push_back(cluster_flag);
+            percolation_flags.push_back(cluster_flag);
             //Clear the vector variable to find the next cluster
             vec.clear();
             //hout << "Check7.7 ";
@@ -1322,13 +1336,13 @@ int RNetwork::Single_cluster(int cnt_seed, int start, vector<int> &vec, vector<v
 }
 
 //This function creates one cluster at a time
-int RNetwork::Single_cluster(int cnt_seed, vector<int> &vec, vector<vector<int> > &contacts_vector, vector<short int> &cluster_flag)
+int RNetwork::Single_cluster(int cnt_seed, int start, vector<int> &vec, vector<vector<int> > &contacts_vector, vector<short int> &cluster_flag)
 {
     int CNT;
     int count = 0;
     int limit = (int)vec.size();
     //hout << "\nCNT base = " << index << endl;
-    for (int i = 0; i < limit; i++) {
+    for (int i = start; i < limit; i++) {
         CNT = vec[i];
         //hout << "CNT=" << CNT << " v2[CNT].size()=" << v2[CNT].size() << ' ';
         if ( (contacts_vector[CNT].size()) && (CNT != cnt_seed) ) {
@@ -1360,10 +1374,12 @@ int RNetwork::Check_clusters_percolation(vector<Point_3D> points_in, vector<vect
         //This variable will store the family number given by CheckPercolationSingleCluster
         int fam;
         for (int i = size - 1; i >= 0 ; i--) {
-            //hout <<"CheckPercolationSingleCluster " << i << " size " << clusters_cnt.size() << '\n';
-            if (!Check_percolation_single_cluster(clusters_cnt[i], fam)){
+            //hout <<"Check_clusters_percolation " << i << " size " << clusters_cnt.size() << endl;
+            //hout << "percolation_flags.size()=" << percolation_flags.size() << endl;
+            //if (!Check_percolation_single_cluster(clusters_cnt[i], fam)){
+            if (!Check_percolation_single_cluster(percolation_flags[i], fam)){
                 //percolation_flags and clusters_cnt have the same size
-                //hout << "\tNO\n";
+                //hout << "NO\n";
                 isolated.push_back(clusters_cnt[i]);
                 //remove the non-percolating cluster
                 clusters_cnt.erase(clusters_cnt.begin()+i);
@@ -1431,6 +1447,34 @@ int RNetwork::Check_percolation_single_cluster(vector<int> cluster, int &family)
     percolating[0] = Boundary[0] && Boundary[1]; //x-x only
     percolating[1] = Boundary[2] && Boundary[3]; //y-y only
     percolating[2] = Boundary[4] && Boundary[5]; //z-z only
+    percolating[3] = percolating[0] && percolating[1]; //x-x and y-y only
+    percolating[4] = percolating[0] && percolating[2]; //x-x and z-z only
+    percolating[5] = percolating[1] && percolating[2]; //y-y and z-z only
+    percolating[6] = percolating[0] && percolating[1] && percolating[2]; //x-x, y-y and z-z
+    
+    //Scan the percolating array backwards
+    for (int i = 6; i >=0 ; i--)
+        if (percolating[i]){
+            //If there is a non-zero percolating[i], then this cluster percolates and belongs to family i
+            family = i;
+            return 1;
+        }
+    //If all percolating[i] were 0, then there is no percolation in the cluster
+    return 0;
+    
+}
+
+//This function will check if there is percolation for a single cluster in x, y and/or z directions
+int RNetwork::Check_percolation_single_cluster(vector<short int> cluster_flag, int &family)
+{
+    ///*
+    //Falgs that will tell me the family the cluster belogns to
+    int percolating[] = {0, 0, 0, 0, 0, 0, 0};
+    
+    //Boolean operations to find the different percolation directions
+    percolating[0] = cluster_flag[0] && cluster_flag[1]; //x-x only
+    percolating[1] = cluster_flag[2] && cluster_flag[3]; //y-y only
+    percolating[2] = cluster_flag[4] && cluster_flag[5]; //z-z only
     percolating[3] = percolating[0] && percolating[1]; //x-x and y-y only
     percolating[4] = percolating[0] && percolating[2]; //x-x and z-z only
     percolating[5] = percolating[1] && percolating[2]; //y-y and z-z only
@@ -2003,10 +2047,10 @@ MathMatrix RNetwork::Solve_DEA_equations_CG_SSS(long int nodes, vector<long int>
     X.element.insert(X.element.begin(), d1.element[1]);
     X.element.insert(X.element.begin(), d1.element[0]);
     /*Print2DVec(X.element, "voltages.txt");
-    Print1DVec(col_ind, "col_ind.txt");
-    Print1DVec(row_ptr, "row_ptr.txt");
-    Print1DVec(values, "values.txt");
-    Print1DVec(diagonal, "diagonal.txt");//*/
+     Print1DVec(col_ind, "col_ind.txt");
+     Print1DVec(row_ptr, "row_ptr.txt");
+     Print1DVec(values, "values.txt");
+     Print1DVec(diagonal, "diagonal.txt");//*/
     
     return X;
 }
