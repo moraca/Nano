@@ -3,6 +3,12 @@
 *.lo
 *.o
 *.obj
+*.pdb
+*.idb
+*.tlog
+*.log
+*.suo
+*.lastbuildstate
 
 # Precompiled Headers
 *.gch
@@ -26,3 +32,12 @@
 *.exe
 *.out
 *.app
+
+*.vcxproj
+*.filters
+*.sln
+*.sdf
+*.opensdf
+*.bak
+unsuccessfulbuild
+
