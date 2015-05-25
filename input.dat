@@ -1,0 +1,157 @@
+%"the number of samples"
+1
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%-------------------------------- AMC
+% This is a switch that defines if the structure of the CNTs is created or read from a file. There are two possible options:
+% structure: to create a new structure
+% file: to read the data structure from a file
+structure
+%file
+%-------------------------------- AMC
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define material stiffness for local model"
+%Please input the type and Young's modulus, Poisson radio and Shear modulus of every material, one material in one line.
+%Where the type equal to (0: isotropic; 1: transversely isotropic 2: orthotropic) and the units of modulus are the same.
+%The input order in every row likes: type0 E v (isotropic), type1 E1 E2 v1 v2 G2 and type2 E11 E22 E33 Nu12 Nu23 Nu13 G12 G23 G13 (orthotropic).
+0 4.54 0.35
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define material stiffness for nonlocal model"
+%Please input the type and Young's modulus, Poisson radio and Shear modulus of every material, one material in one line.
+%Where the type equal to (0: isotropic; 1: transversely isotropic(input poisson's ratio) 2: orthotropic 3:transversely isotropic(input shear modulus)) 
+%the units of modulus are the same.
+%The input order in every row likes: type0 E (isotropic), type1 E1 E2 v2 (transversely isotropic v2=v13 or v23, but v31=v13*E33/E11 or v32=v23*E33/E22) 
+%and type2 E11 E22 E33 Nu12 Nu23 Nu13 (orthotropic), type3 E1 E2 G2 (transversely isotropic: One may get negative v12 if input an unsuitable G2).
+1 4.54 825 0.0014693
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define the coefficients of decaying function"
+%Please respectively input the mode of decaying function, scaling coeficient C and the radius of influence l.
+0.08 0.004
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"estimate the effective stiffness for the local model"
+%Please input the size of grids
+0.1 0.1 0.1
+%Please the number (0<num<100) of Gauss points in 1D for the effective stiff matrix
+8
+%"define the domain of RVE: the lower-left corner point of RVE and the length, width and height of RVE"
+0 0 0 1.000000 1.000000 1.000000
+%———————Lakshmi:begin
+%Define the type of network: (CF or CNT)
+CNT
+%———————Lakshmi:end
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define the initial growth direction type (random or specific)in the RVE"
+%if you input "random", that means the initial growth directions of cnts are random
+%if you input "specific", that means the initial growth directions of cnts are along a specific direction,
+%and also please input the direction angles(in spherical coordinates) if you input "specific" type
+%for example specific 0 0
+random
+%specific 0 0
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define the normal distribution range [-omega,omega] of the growth direction"
+%PI/2=1.5707963267948966; PI/4=0.7853981633974483; PI/6=0.5235987755982989; PI/12=0.2617993877991494; PI/36=0.087266462599716479; PI/60=0.05235987755982981
+%please input the angle omega 
+%0.087266462599716479
+1.5707963267948966
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define the step length of nanotube growth"
+0.01
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define the distribution type (uniform or normal) of length and the length range (min,max) of nanotubes in the RVE"
+%if you input "uniform", that means it satisfies the uniform distribution, or if you input "normal", that means it satisfies the normal distribution
+uniform 1.000000 1.000000
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define the distribution type (uniform or normal) of radius and the radius range (min,max) of nanotubes in the RVE"
+%if you input "uniform", that means it satisfies the uniform distribution, or if you input "normal", that means it satisfies the normal distribution
+uniform 0.005000 0.005000
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define the volume or weight fraction of nanotubes in the RVE"
+%if you input "vol", the volume fraction is the criterion and the mode of accumulation, for example: vol 0.01 0
+%or if you input "wt", the weight fraction is the criterion and the mode of accumulation and the linear density (1E-12g/'nu'm) of CNT and the density (1E-12g/'nu'm^3)of polymer are needed.
+%the mode of accumulation: 0 means every sample uses the same fraction; 1 or 2 mean every sample uses the accumulated fraction by different ways
+%nwt 0.005 0 5.8E-5 1.06
+vol 0.005000 0
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define the parameters of ellipsoid cluster of CNTs"
+%please input the volume fraction of ellipsoid, the length of axes of ellipsoids and the growth probability of a cnt in the cluster: v amin amax bmin cmin p
+%where the long axis a of ellipsoid obays the uniform distribution among (amin, amax), the middle axis b obays the uniform distribution among (bmin, a),
+%and the short axis c obays the uniform distribution among (cmin, b);
+%if bmin=cmin=0, then the spheres will be produced with radii among (amin, amax)
+%the growth probability p of a cnt in a cluster: 0 <= p <= 1
+%0.00418879 0.1 0.1 0 0 1 0.4774648
+0
+%-------------------------------- AMC
+%dx dy dz, which are the number of regions in each direction in which the RVE is going to be divided to look for penetrating CNTs
+50 50 50
+% van der Waals distance
+0.000340
+%-------------------------------- AMC
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"Grid's size"
+%"define the size of background grids (length, width and height)"
+%For example: 0.2 0.1 0.1
+%0.1 0.1 0.1
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define material property of element"(keep specially for the future: sorts of materials)
+%Please input a sign to define material property of element, the different number denotes the different definition.
+%0 denotes the case of pure material; 1 denotes the case of fiber composites, in this case please input another parameter: the radius of fiber.
+%1 0.4
+%0
+%-------------------------------- AMC
+%Cutoff distance for tunneling
+0.001800
+%dx dy dz, which are the number of regions in each direction in which the RVE is going to be divided to look for penetrating CNTs
+50 50 50
+%Final size of the observation window, 
+%step size to decrease the size of the observation window and initial (restart)
+%size of the observation window
+1.000000 0.25000000 1.000000
+%This defines the size box inside the sample. First the three coordinates of the central point are given, 
+%then the length of the box in each direction
+%0 0 0 1 1 1
+%0.0000 0.00000 0.00000 1.000000 1.000000 1.000000
+%Provide the magnitude of the applied voltage
+1
+%Provide the value of resistivity of the carbon fiber
+0.001
+%-------------------------------- AMC
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define the computatioanl model"
+%Please input the string that denotes the different models: "fem" represents to only compute RVE by FEM; 
+%"nonlocal" represents to only compute RVE by Nonlocal model; "hybrid" represents to compute RVE by FEM + Nonlocal model
+hybrid
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define read or write model"
+%Please input the string "read_all", "read_solution" or "write": "read_all" denotes read the backup of displacement and equivalent energy data, 
+%"read_solution" denotes read the backup of displacement data, "write" denotes write the displacement and equivalent energy data
+write
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define the number (0<num<100) of Gauss points in 1D for stiff matrices in FEA"
+8
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define the range and order of weight function"
+%Please input the maxmium distance of range(1d) and the order of weight function.
+%if the maxmium distance of range(1d) is -1, it denotes the special case that the weight function is equal to 1 everywhere, and the following order isn't needed. 
+%if the order is 0, please input the value of constant. For example: (0,0.5) denotes constant and value, 
+%if the order is 1, it denotes linear; if the order is 3, it denotes cubic. The order can also be chosen by -1 or -2 power functions.
+%-1
+0.025 1
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%"define the displacement constraints"
+%Please respectively input constraint condition: n boundary_case x0 y0 z0 Fixed_displacment_x Fixed_displacement_y. n denotes the number of constraint condition. 
+%if n=0, no constraint; n>1 the later parameters will be inputed n times with different conditions.
+%boundary_case denotes the kind of boundary. boundary_case=Point represents a point, (x0,y0,z0) is the coordinates of this point. 
+%boundary_case=Surface represents a surface, (a,b,c,d) is the coefficents of a plane a*x+b*y+c*z+d=0.
+%Fixed_displacement is a sign denoting the value of fixed displacement will be followed.
+3
+%Surface 1 0 0 0 Fixed_displacement_x 0.0
+%Surface 1 0 0 -1 Fixed_displacement_x 0.1
+%Surface 0 1 0 0 Fixed_displacement_y 0.0
+%Surface 0 1 0 -1 Fixed_displacement_y 0.1
+%Surface 0 0 1 0 Fixed_displacement_z 0.0
+%Surface 0 0 1 -1 Fixed_displacement_z 0.1
+%Point 0.4 0.0 0.4 Fixed_displacement_z 0.0
+%Point 0.4 0.4 0.0 Fixed_displacement_y 0.0
+Point 1.0 0.5 0.5 Fixed_displacement_y 0.0
+Point 0.5 1.0 0.5 Fixed_displacement_z 0.0
+Point 0.5 0.5 1.0 Fixed_displacement_x 0.0

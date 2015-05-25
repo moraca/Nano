@@ -1,46 +1,165 @@
 //===========================================================================
-//Non-local Elasticity models for Composite Analysis (NECA)
-//在整个工程的开始加这么一段程序的目的是为了以后做动态问题时
-//需要多时间步循环运算做准备
+//SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
+//CODE FILE:	MainProg.cpp
+//OBJECTIVE:	Main program beginning
+//AUTHOR:		Fei Han; Angel Mora
+//E-MAIL:			fei.han@kaust.edu.sa;  angel.mora@kaust.edu.sa
 //===========================================================================
-#include "Neca.h"
+
 #include <string>
-#include <sys/time.h>
+#include "time.h"
+#include "Hns.h"
+using namespace hns;
+
+#include "Input_Reader.h"
+#include "Neca.h"
+
 int main(int argc, char** argv)
 {
-	long double timer;
-	struct  timeval  start, end;
-	gettimeofday(&start, NULL);
-
-	//将输入文件名记录在infile中
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Read input file name into in_file
 	string in_file;
-	if(argc > 1)
-	{
-		in_file = argv[1];
-	}
+	if(argc > 1)	in_file = argv[1];
 	else
 	{
-		cout << "请输入用户输入参数文本文件名： " << endl;
+		cout << "The input file name is:  ";
 		in_file = "input.dat";
 		cout << in_file << endl;
-	};
-
-	//将输入文件名记录在outfile中
-	string out_file;
-	if(argc > 2)
-	{
-		out_file = argv[2];
 	}
+	//Open the input file
+	ifstream infile;
+	infile.open(in_file.c_str());
+	if(!infile) { hout << "Failed to open input file: "  << in_file << endl;  return 0; }
+
+	//Read output file name into out_file
+	string out_file;
+	if(argc > 2)	out_file = argv[2];
 	else
 	{
-		cout << "请输入程序运行记录及输出文本文件名： " << endl;
+		cout << "The output file name is:  ";
 		out_file = "output.dat";
 		cout << out_file << endl;
 	};
+	//Open the output stream
+	if(out_file.size()>0) open_deffo_stream( (char*)out_file.c_str() );
 
-	//开始计算
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Identification Tag
+	cout<<endl;
+	cout<<"*************************************************"<<endl;
+	cout<<"*                  NECN   v0.1                  *"<<endl;
+	cout<<"*                                               *"<<endl;
+	cout<<"*          Fei Han            Angel Mora        *"<<endl;
+	cout<<"*                                               *"<<endl;
+	cout<<"*     Propriety of KAUST/COHMAS Laboratory      *"<<endl;
+	cout<<"* fei.han@kaust.edu.sa  angel.mora@kaust.edu.sa *"<<endl;
+	cout<<"*************************************************"<<endl;
+	cout<<endl;
+	cout<<endl;
 
-	//确定输出文件
+	hout<<endl;
+	hout<<"*************************************************"<<endl;
+	hout<<"*                  NECN   v0.1                  *"<<endl;
+	hout<<"*                                               *"<<endl;
+	hout<<"*          Fei Han            Angel Mora        *"<<endl;
+	hout<<"*                                               *"<<endl;
+	hout<<"*     Propriety of KAUST/COHMAS Laboratory      *"<<endl;
+	hout<<"* fei.han@kaust.edu.sa  angel.mora@kaust.edu.sa *"<<endl;
+	hout<<"*************************************************"<<endl;
+	hout<<endl;
+	hout<<endl;
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Call for application cases
+
+	//Time markers for total simulation
+	time_t it_begin, it_end;
+	it_begin = time(NULL);
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Input file reader
+	hout<<"======================================================" << endl;
+	hout<<"-_- Input file reader......"<<endl;
+	cout<<endl;
+	cout<<"-------------------------------------------------"<<endl;
+	cout<<"|                Data input                     |"<<endl;
+	cout<<"-------------------------------------------------"<<endl;
+	cout<<endl;
+	Input *Init = new Input;
+	if(Init->Data_Initialization())
+	{ 
+//		if(Init->Read_Infile(infile)==0) return 0;
+	}
+	else return 0;
+	it_end= time(NULL);
+	hout<<"    Operation done in "<<(int)(it_end-it_begin)<<"secs."<<endl;
+	hout<<"^_^ Input achieves"<<endl<<endl;
+	cout<<"^_^ Input achieves"<<endl<<endl;
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Implementation
+	if(Init->app_name.str=="App_Fracture")
+	{
+		//Definition
+//		App_Fracture *Compute =  new  App_Fracture;
+//		if(Compute->Application_fracture(Init)==0) return 0;
+//		delete Compute;
+	}
+
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+	//Delete the pointer of classes
+	delete Init;
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Time markers for total simulation
+	it_end = time(NULL);
+	cout<<endl;
+	cout<<"*******************************************************************"<<endl;
+	cout<<"    The simulation took "<<(int)(it_end-it_begin)<<"secs."<<endl;
+	cout<<"^_^ End of simulation "<<endl;
+	cout<<"*******************************************************************"<<endl;
+	hout<<endl;
+	hout<<"*******************************************************************"<<endl;
+	hout<<"    The simulation took "<<(int)(it_end-it_begin)<<"secs."<<endl;
+	hout<<"^_^ End of simulation "<<endl;
+	hout<<"*******************************************************************"<<endl;
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//End comments
+	cout<< endl;
+	cout<<"*************************************************"<<endl;
+	cout<<"*             Hope it helped ;)                 *"<<endl;
+	cout<<"*                                               *"<<endl;
+	cout<<"*          Fei Han            Angel Mora        *"<<endl;
+	cout<<"*                                               *"<<endl;
+	cout<<"*     Propriety of KAUST/COHMAS Laboratory      *"<<endl;
+	cout<<"* fei.han@kaust.edu.sa  angel.mora@kaust.edu.sa *"<<endl;
+	cout<<"*************************************************"<<endl;
+	cout<<endl;
+	cout<<endl;
+
+	hout<<endl;
+	hout<<endl;
+	hout<<"*************************************************"<<endl;
+	hout<<"*             Hope it helped ;)                 *"<<endl;
+	hout<<"*                                               *"<<endl;
+	hout<<"*          Fei Han            Angel Mora        *"<<endl;
+	hout<<"*                                               *"<<endl;
+	hout<<"*     Propriety of KAUST/COHMAS Laboratory      *"<<endl;
+	hout<<"* fei.han@kaust.edu.sa  angel.mora@kaust.edu.sa *"<<endl;
+	hout<<"*************************************************"<<endl;
+	hout<<endl;
+	hout<<endl;
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Close the output stream
+	close_deffo_stream();
+	return 1;
+
+/*	//确定输出文件
 	if( out_file.size() > 0 ) open_deffo_stream( (char*)out_file.c_str() );
 	//-----------------------------------------------------------------------------------------------------------------------------------------
 	//定义计算样本
@@ -88,6 +207,6 @@ int main(int argc, char** argv)
 	//关闭输出文件
 	close_deffo_stream();
 
-	return 1;
+	return 1;*/
 }
 //===========================================================================
