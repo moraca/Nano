@@ -59,14 +59,14 @@ int main(int argc, char** argv)
 	cout<<endl;
 
 	hout<<endl;
-	hout<<"*************************************************"<<endl;
-	hout<<"*                  NECN   v0.1                  *"<<endl;
-	hout<<"*                                               *"<<endl;
-	hout<<"*          Fei Han            Angel Mora        *"<<endl;
-	hout<<"*                                               *"<<endl;
-	hout<<"*     Propriety of KAUST/COHMAS Laboratory      *"<<endl;
-	hout<<"* fei.han@kaust.edu.sa  angel.mora@kaust.edu.sa *"<<endl;
-	hout<<"*************************************************"<<endl;
+	hout<<"******************************************"<<endl;
+	hout<<"                   NECN   v0.1										"<<endl;
+	hout<<" 																			"<<endl;
+	hout<<"           Fei Han            Angel Mora						"<<endl;
+	hout<<" 																			"<<endl;
+	hout<<"      Propriety of KAUST/COHMAS Laboratory	"<<endl;
+	hout<<"  fei.han@kaust.edu.sa  angel.mora@kaust.edu.sa	"<<endl;
+	hout<<"******************************************"<<endl;
 	hout<<endl;
 	hout<<endl;
 
@@ -143,14 +143,14 @@ int main(int argc, char** argv)
 
 	hout<<endl;
 	hout<<endl;
-	hout<<"*************************************************"<<endl;
-	hout<<"*             Hope it helped ;)                 *"<<endl;
-	hout<<"*                                               *"<<endl;
-	hout<<"*          Fei Han            Angel Mora        *"<<endl;
-	hout<<"*                                               *"<<endl;
-	hout<<"*     Propriety of KAUST/COHMAS Laboratory      *"<<endl;
-	hout<<"* fei.han@kaust.edu.sa  angel.mora@kaust.edu.sa *"<<endl;
-	hout<<"*************************************************"<<endl;
+	hout<<"******************************************"<<endl;
+	hout<<"              Hope it helped ;)											"<<endl;
+	hout<<" 																				"<<endl;
+	hout<<"           Fei Han            Angel Mora							"<<endl;
+	hout<<" 																				"<<endl;
+	hout<<"      Propriety of KAUST/COHMAS Laboratory		"<<endl;
+	hout<<"  fei.han@kaust.edu.sa  angel.mora@kaust.edu.sa		"<<endl;
+	hout<<"******************************************"<<endl;
 	hout<<endl;
 	hout<<endl;
 

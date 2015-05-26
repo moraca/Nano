@@ -2,14 +2,6 @@
 %Please input the name of application case
 Application_Name
 App_Electrical_Network_3D
-%------------------------------------------------------------------------------------------------------------------------------------------------------------
-%-------------------------------- AMC
-%This is a switch that defines if the structure of the CNTs is created or read from a file. There are two possible options: 'Create_Network' and 'Read_Network'
-%Create_Network:	to create a new structure
-%Read_Network:	to read the data of network from a file
-Create_Read_Network
-Create_Network
-%Read_Network
 %========================================================================================================
 %Please input the paramters of simulation
 Simulation_Parameters
@@ -19,13 +11,19 @@ Test
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
 %Please input the number of samples
 1
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%This is a switch that defines if the structure of the CNTs is created or read from a file. There are two possible options: 'Create_Network' and 'Read_Network'
+%Create_Network:	to create a new structure
+%Read_Network:	to read the data of network from a file
+Create_Network
+%Read_Network
 %--------------------------------To end
 %
 %
 %
 %========================================================================================================
 %-------------------------------- AMC
-%Define the related parameters of RVE
+%Define the geometric and related parameters of RVE
 RVE_Geometry
 %--------------------------------To start
 %Define the domain of RVE: the lower-left corner point of RVE and the length, width and height of RVE
@@ -47,8 +45,8 @@ RVE_Geometry
 %
 %
 %========================================================================================================
-%Define the parameters of nanotubes
-Nanotube_Parameters
+%Define the geometric parameters of nanotubes
+Nanotube_Geometry
 %--------------------------------To start
 %Define the initial growth direction type (random or specific) in a RVE
 %If you input "random", that means the initial growth directions of nanotubes are random
@@ -80,8 +78,14 @@ uniform 0.005000 0.005000
 %the mode of accumulation: 0 means every sample uses the same fraction; 1 or 2 mean every sample uses the accumulated fraction by different ways
 %nwt 0.005 0 5.8E-5 1.06
 vol 0.005000 0
-%------------------------------------------------------------------------------------------------------------------------------------------------------------
-%Define the parameters of ellipsoid cluster of CNTs
+%--------------------------------To end
+%
+%
+%
+%========================================================================================================
+%Define the geometric parameters of ellipsoid cluster of CNTs
+Cluster_Geometry
+%--------------------------------To start
 %Please input the volume fraction of ellipsoid, the length of axes of ellipsoids and the growth probability of a cnt in the cluster: v amin amax bmin cmin p
 %where the long axis a of ellipsoid obays the uniform distribution among (amin, amax), the middle axis b obays the uniform distribution among (bmin, a),
 %and the short axis c obays the uniform distribution among (cmin, b);
@@ -96,7 +100,7 @@ vol 0.005000 0
 %========================================================================================================
 %-------------------------------- AMC
 %Define the cutoff distances
-Cutoff_Distance
+Cutoff_Distances
 %--------------------------------To start
 %Define van der Waals distance
 0.000340
