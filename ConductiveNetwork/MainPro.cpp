@@ -90,7 +90,7 @@ int main(int argc, char** argv)
 	Input *Init = new Input;
 	if(Init->Data_Initialization())
 	{ 
-//		if(Init->Read_Infile(infile)==0) return 0;
+		if(Init->Read_Infile(infile)==0) return 0;
 	}
 	else return 0;
 	it_end= time(NULL);
@@ -100,7 +100,7 @@ int main(int argc, char** argv)
 
 	//-----------------------------------------------------------------------------------------------------------------------------------------
 	//Implementation
-	if(Init->app_name.str=="App_Fracture")
+	if(Init->app_name.str=="App_Electrical_Network_3D")
 	{
 		//Definition
 //		App_Fracture *Compute =  new  App_Fracture;

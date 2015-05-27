@@ -19,6 +19,7 @@
 #include "Hns.h"
 using namespace hns;
 
+#include "Gauss.h"
 #include "Geometry_3D.h"
 
 //---------------------------------------------------------------------------
@@ -43,6 +44,7 @@ struct Geom_RVE{
 			Point_3D origin;
 			double len_x, wid_y, hei_z;
 			double volume;
+			double density;
 			int Nx, Ny, Nz;													//Define 'Nx Ny Nz' which are the number of segments in each direction by which the RVE is going to be divided (for looking for penetrating nanotubes)
 			double win_max_x, win_max_y, win_max_z;		//Define the size range of the cutoff window and descrement by every step in x, y and z directions
 			double win_min_x, win_min_y, win_min_z;

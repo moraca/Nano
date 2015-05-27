@@ -198,9 +198,11 @@ int Input::Read_rve_geometry(struct Geom_RVE &geom_rve, ifstream &infile)
 	}
 	else geom_rve.mark = true;
 
-	istringstream istr(Get_Line(infile));
-	istr >> geom_rve.origin.x >> geom_rve.origin.y >> geom_rve.origin.z;
-	istr >> geom_rve.len_x >> geom_rve.wid_y >> geom_rve.hei_z;
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Define the domain of RVE: the lower-left corner point of RVE and the length, width and height of RVE
+	istringstream istr0(Get_Line(infile));
+	istr0 >> geom_rve.origin.x >> geom_rve.origin.y >> geom_rve.origin.z;
+	istr0 >> geom_rve.len_x >> geom_rve.wid_y >> geom_rve.hei_z;
 	if(geom_rve.len_x<0||geom_rve.wid_y<0||geom_rve.hei_z<0)
 	{
 		cout << "Error: the sizes of RVE should be positive!" << endl;
@@ -208,6 +210,47 @@ int Input::Read_rve_geometry(struct Geom_RVE &geom_rve, ifstream &infile)
 		return 0;
 	}
 	geom_rve.volume = geom_rve.len_x*geom_rve.wid_y*geom_rve.hei_z;
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Define 'Nx Ny Nz' which are the number of segments in each direction by which the RVE is going to be divided (for looking for penetrating nanotubes)
+	istringstream istr1(Get_Line(infile));
+	istr1 >> geom_rve.Nx >> geom_rve.Ny >> geom_rve.Nz;
+	if(geom_rve.Nx<0||geom_rve.Ny<0||geom_rve.Nz<0)
+	{
+		cout << "Error: the number of segments in each direction of RVE should be positive!" << endl;
+		hout << "Error: the number of segments in each direction of RVE should be positive" << endl;
+		return 0;
+	}
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Define the size range of the observation window and descrement by every step in x, y and z directions
+	istringstream istr2(Get_Line(infile));
+	istr2 >> geom_rve.win_max_x >> geom_rve.win_max_y >> geom_rve.win_max_z;
+	istringstream istr3(Get_Line(infile));
+	istr3 >> geom_rve.win_delt_x >> geom_rve.win_delt_y >> geom_rve.win_delt_z;
+	istringstream istr4(Get_Line(infile));
+	istr4 >> geom_rve.win_min_x >> geom_rve.win_min_y >> geom_rve.win_min_z;
+
+	if(geom_rve.win_max_x<0.0||geom_rve.win_max_y<0.0||geom_rve.win_max_z<0.0||
+	   geom_rve.win_max_x>geom_rve.len_x||geom_rve.win_max_y>geom_rve.wid_y||geom_rve.win_max_y>geom_rve.hei_z)
+	{
+		cout << "Error: the win_max in each direction of RVE should be positive and must be smaller than the size of RVE." << endl;
+		hout << "Error: the win_max in each direction of RVE should be positive and must be smaller than the size of RVE." << endl;
+		return 0;
+	}
+	if(geom_rve.win_min_x<0.0||geom_rve.win_min_y<0.0||geom_rve.win_min_z<0.0||
+	   geom_rve.win_min_x>geom_rve.win_max_x||geom_rve.win_min_y>geom_rve.win_max_y||geom_rve.win_min_z>geom_rve.win_max_z)
+	{
+		cout << "Error: the win_min in each direction of RVE should be positive and must be smaller than max." << endl;
+		hout << "Error: the win_min in each direction of RVE should be positive and must be smaller than max." << endl;
+		return 0;
+	}
+	if(geom_rve.win_delt_x<0.0||geom_rve.win_delt_y<0.0||geom_rve.win_delt_z<0.0)
+	{
+		cout << "Error: the win_delt in each direction of RVE should be positive." << endl;
+		hout << "Error: the win_delt in each direction of RVE should be positive." << endl;
+		return 0;
+	}
 
 	return 1;
 }
@@ -223,7 +266,91 @@ int Input::Read_nanotube_geo_parameters(struct Nanotube_Geo &nanotube_geo, ifstr
 	}
 	else nanotube_geo.mark = true;
 
-	istringstream istr(Get_Line(infile));
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Define the initial growth direction type (random or specific) in a RVE
+	istringstream istr_initial_direction(Get_Line(infile));
+	istr_initial_direction >> nanotube_geo.dir_distrib_type;
+	if(nanotube_geo.dir_distrib_type!="random"&&nanotube_geo.dir_distrib_type!="specific"){ hout << "Error: the direction distribution type must be either random or specific." << endl;	return 0; }
+	if(nanotube_geo.dir_distrib_type=="specific")
+	{
+		istr_initial_direction  >> nanotube_geo.ini_sita >> nanotube_geo.ini_pha;
+		if(nanotube_geo.ini_sita<0||nanotube_geo.ini_sita>PI||nanotube_geo.ini_pha<0||nanotube_geo.ini_pha>=2*PI)
+		{
+			hout << "Error: the specified angle is not in the acceptable range of (0, 2PI)." << endl;
+			return 0;
+		}
+	}
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Define the normal distribution range [-omega, omega] of the growth direction
+	istringstream istr_angle_range(Get_Line(infile));
+	istr_angle_range >> nanotube_geo.angle_max;
+	if(nanotube_geo.angle_max>0.5*PI){ hout << "Error: the specified angle is not in the acceptable range of (-PI/2, PI/2)." << endl;	 return 0; }
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Define the step length (unit: micromether) of nanotube growth
+	istringstream istr_step_len(Get_Line(infile));
+	istr_step_len >> nanotube_geo.step_length;
+	if(nanotube_geo.step_length<=0||
+	   nanotube_geo.step_length>=0.25*geom_rve.len_x||
+	   nanotube_geo.step_length>=0.25*geom_rve.wid_y||
+       nanotube_geo.step_length>=0.25*geom_rve.hei_z)
+	{ hout << "Error: the step length must be positive and 0.25 times lesser than the dimension of the RVE box." << endl;	return 0; }
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+    //Define the distribution type (uniform or normal) of the length (unit: micromether) of nanotubes and the length range (min, max) of nanotubes in a RVE
+    istringstream istr_cnt_len(Get_Line(infile));
+    istr_cnt_len >> nanotube_geo.len_distrib_type;
+    if(nanotube_geo.len_distrib_type!="uniform"&&nanotube_geo.len_distrib_type!="normal"){ hout << "Error: the distribution of the length should be either normal or uniform." << endl;	return 0; }
+    istr_cnt_len >> nanotube_geo.len_min >> nanotube_geo.len_max;
+    if(nanotube_geo.len_min<0||nanotube_geo.len_max<0||nanotube_geo.len_max<nanotube_geo.len_min){ hout << "Error: the length must be non-negative and min must be smaller than max." << endl; return 0; }
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Define the distribution type (uniform or normal) of the radius (unit: micromether) of nanotubes and the radius range (min, max) of nanotubes in a RVE
+    istringstream istr_cnt_rad(Get_Line(infile));
+    istr_cnt_rad >> nanotube_geo.rad_distrib_type;
+    if(nanotube_geo.rad_distrib_type!="uniform"&&nanotube_geo.rad_distrib_type!="normal"){ hout << "Error: the distribution of the radius should be either normal or uniform." << endl;	return 0; }
+    istr_cnt_rad >> nanotube_geo.rad_min >> nanotube_geo.rad_max;
+    if(nanotube_geo.rad_min<0||nanotube_geo.rad_max<0||nanotube_geo.rad_max<nanotube_geo.rad_min||
+	   nanotube_geo.rad_min>3*nanotube_geo.step_length||nanotube_geo.rad_max>0.05*nanotube_geo.len_min)
+	{ hout << "Error: the radius must be non-negative, min must be smaller than max, min must be smaller than 3*step_length and max must be smaller than 0.05*len_min." << endl; return 0; }
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Define the volume or weight fraction of nanotubes in the RVE
+	istringstream istr_cnt_vol(Get_Line(infile));
+	istr_cnt_vol >> nanotube_geo.criterion;
+	if(nanotube_geo.criterion=="vol")
+	{
+		istr_cnt_vol >> nanotube_geo.volume_fraction;
+		if(nanotube_geo.volume_fraction>1||nanotube_geo.volume_fraction<0){ hout << "Error: the volume fraction must be between 0 and 1." << endl; return 0; }
+		hout << "    The volume fraction is "<< nanotube_geo.volume_fraction << endl;
+        
+		istr_cnt_vol >> nanotube_geo.accum_mode;
+		if(nanotube_geo.accum_mode<0&&nanotube_geo.accum_mode>2){ hout <<"Error: the mode of accumulation should be between 0 and 2." << endl; return 0; }
+        
+		//The total volume of the nanotube network
+		nanotube_geo.real_volume = nanotube_geo.volume_fraction*geom_rve.volume;
+	}
+	else if(nanotube_geo.criterion=="wt")
+	{
+		istr_cnt_vol >> nanotube_geo.weight_fraction;
+		if(nanotube_geo.weight_fraction>1||nanotube_geo.weight_fraction<0){ hout << "Error: the volume fraction must be between 0 and 1." << endl; return 0; }
+		hout << "    The weight fraction is " << nanotube_geo.weight_fraction << endl;
+        
+		istr_cnt_vol >> nanotube_geo.accum_mode;
+		if(nanotube_geo.accum_mode<0&&nanotube_geo.accum_mode>2){ hout <<"Error: the mode of accumulation should be between 0 and 2." << endl; return 0;  }
+        
+		istr_cnt_vol >> nanotube_geo.linear_density;		//Read the linear density of a nanotube
+		if(nanotube_geo.linear_density<0){ hout << "Error: the linear density of a nanotube should be non-nagetive." << endl; return 0; }
+		
+		istr_cnt_vol >> geom_rve.density;	 //Read the density of RVE. Here we ignore the volume of nantubes, so the density of RVE actually approximates to the density of matix
+		if(geom_rve.density<0){ hout << "Error: the density of RVE should be non-nagetive." << endl; return 0; }
+		if(nanotube_geo.linear_density>=nanotube_geo.matrix_density){ hout << "Error: the density of matrix or the linear density of a nanotube is wrong." << endl; return 0; }
+        
+		//The real weight of nanotubes
+		nanotube_geo.real_weight = nanotube_geo.weight_fraction*geom_rve.volume*geom_rve.density;
+	}
+	else { hout << "Error: the criterian of generation is neither 'vol' nor 'wt'." << endl; return 0; }
 
 	return 1;
 }
@@ -239,7 +366,31 @@ int Input::Read_cluster_geo_parameters(struct Cluster_Geo &cluster_geo, ifstream
 	}
 	else cluster_geo.mark = true;
 
-	istringstream istr(Get_Line(infile));
+	istringstream istr_clust_para(Get_Line(infile));
+	istr_clust_para >> cluster_geo.vol_fra_criterion;
+	if(cluster_geo.vol_fra_criterion>1||cluster_geo.vol_fra_criterion<0){ hout << "Error: the volume fraction of clusters must be between 0 and 1." << endl; return 0; }
+	if(cluster_geo.vol_fra_criterion!=0)  //0 means that it doesn't need to generate nanotube clusters
+	{
+		istr_clust_para >> cluster_geo.amin >> cluster_geo.amax;
+		if(cluster_geo.amin<0||cluster_geo.amax<0||cluster_geo.amin>cluster_geo.amax){ hout << "Error: the length of a long axis must be non-negative and min must be smaller than max."<< endl; return 0; }
+		
+		istr_clust_para >> cluster_geo.bmin >> cluster_geo.cmin;
+		if(cluster_geo.bmin<0||cluster_geo.bmin>cluster_geo.amin||
+		   cluster_geo.cmin<0||cluster_geo.cmin>cluster_geo.bmin||
+           cluster_geo.cmin>cluster_geo.amin)
+		{ 
+			hout << "Error: the lengths of middle and short axis must be non-negative;" << endl;
+			hout << "or error: min of middle and short axes must be smaller than min of long axis;" << endl;
+			hout << "or error: min of short axis must be smaller than min of middle axis." << endl;
+			return 0; 
+		}
+		
+		istr_clust_para >> cluster_geo.growth_probability;
+		if(cluster_geo.growth_probability<0||cluster_geo.growth_probability>1){ hout << "Error: the growth probability of nanotubes in clusters must be between 0 and 1." << endl; return 0; }
+		
+		istr_clust_para >> cluster_geo.wt_fra_cluster;
+		if(cluster_geo.wt_fra_cluster<0||cluster_geo.wt_fra_cluster>1) { hout << "Error: the weight fraction of nanotubes in clusters must be between 0 and 1." << endl; return 0; }
+	}
 
 	return 1;
 }
@@ -256,10 +407,10 @@ int Input::Read_cutoff_distances(struct Cutoff_dist &cutoff_dist, ifstream &infi
 	else cutoff_dist.mark = true;
 
 	istringstream istr0(Get_Line(infile));
-	cutoff_dist.van_der_Waals_dist;
+	istr0 >> cutoff_dist.van_der_Waals_dist;
 
 	istringstream istr1(Get_Line(infile));
-	cutoff_dist.tunneling_dist;
+	istr1 >> cutoff_dist.tunneling_dist;
 
 	return 1;
 }
@@ -276,10 +427,10 @@ int Input::Read_electrical_paramters(struct Electric_para &electric_para, ifstre
 	else electric_para.mark = true;
 
 	istringstream istr0(Get_Line(infile));
-	electric_para.applied_voltage;		
+	istr0 >> electric_para.applied_voltage;		
 
 	istringstream istr1(Get_Line(infile));
-	electric_para.resistivity_CF;
+	istr1 >> electric_para.resistivity_CF;
 
 	return 1;
 }

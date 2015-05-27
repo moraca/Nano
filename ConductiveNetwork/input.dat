@@ -2,6 +2,9 @@
 %Please input the name of application case
 Application_Name
 App_Electrical_Network_3D
+%
+%
+%
 %========================================================================================================
 %Please input the paramters of simulation
 Simulation_Parameters
@@ -68,7 +71,7 @@ random
 %If you input "uniform", that means it satisfies the uniform distribution, or if you input "normal", that means it satisfies the normal distribution
 uniform 1.000000 1.000000
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
-%Define the distribution type (uniform or normal) of the radius (unit: micromether) of nanotubes and the radius range (min,max) of nanotubes in a RVE
+%Define the distribution type (uniform or normal) of the radius (unit: micromether) of nanotubes and the radius range (min, max) of nanotubes in a RVE
 %If you input "uniform", that means it satisfies the uniform distribution, or if you input "normal", that means it satisfies the normal distribution
 uniform 0.005000 0.005000
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
