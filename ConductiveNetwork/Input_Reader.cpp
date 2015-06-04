@@ -38,6 +38,10 @@ int Input::Read_Infile(ifstream &infile)
 			return 0; 
 		}
 
+		if(nanotube_geo.mark&&geom_rve.mark) 
+		{
+
+		}
 	}
 
 	cout << "Reading the keywords is finished!" << endl;
@@ -180,9 +184,12 @@ int Input::Read_simulation_parameters(struct Simu_para &simu_para, ifstream &inf
 
 	istringstream istr1(Get_Line(infile));
 	istr1 >> simu_para.sample_num;			//Read the number of samples
+	if(simu_para.sample_num<1)	 {	hout << "Error: the number of samples less than 1." << endl; return 0; }
 
 	istringstream istr2(Get_Line(infile));		
 	istr2 >> simu_para.create_read_network;		//Read a signal to show if create a new network or read a previouse network from a file
+	if(simu_para.create_read_network!="Create_Network"&&simu_para.create_read_network!="Read_Network")
+	{ hout << "Error: the 'create_read_network' is neither 'Create_Network' nor 'Read_Network'." << endl; return 0; }
 
 	return 1;
 }
@@ -251,6 +258,19 @@ int Input::Read_rve_geometry(struct Geom_RVE &geom_rve, ifstream &infile)
 		hout << "Error: the win_delt in each direction of RVE should be positive." << endl;
 		return 0;
 	}
+
+	//Details: +Zero for reducing the error of division
+	int num[3] = {	(int)((geom_rve.win_max_x-geom_rve.win_min_x + Zero)/geom_rve.win_delt_x), 
+							(int)((geom_rve.win_max_y-geom_rve.win_min_y + Zero)/geom_rve.win_delt_y), 
+							(int)((geom_rve.win_max_z-geom_rve.win_min_z + Zero)/geom_rve.win_delt_z)	};
+
+	if(num[0]!=num[1]||num[0]!=num[2])
+	{
+		cout << "Error: the numbers of cutoff times are different in three directions (x, y, z)." << endl;
+		hout << "Error: the numbers of cutoff times are different in three directions (x, y, z)." << endl;
+		return 0;
+	}
+	else geom_rve.cut_num = num[0];
 
 	return 1;
 }

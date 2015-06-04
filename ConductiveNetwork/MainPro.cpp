@@ -3,7 +3,7 @@
 //CODE FILE:	MainProg.cpp
 //OBJECTIVE:	Main program beginning
 //AUTHOR:		Fei Han; Angel Mora
-//E-MAIL:			fei.han@kaust.edu.sa;  angel.mora@kaust.edu.sa
+//E-MAIL:			fei.han@kaust.edu.sa	;	angel.mora@kaust.edu.sa
 //===========================================================================
 
 #include <string>
@@ -12,12 +12,10 @@
 using namespace hns;
 
 #include "Input_Reader.h"
-#include "Neca.h"
+#include "App_Network_3D.h"
 
 int main(int argc, char** argv)
 {
-	//-----------------------------------------------------------------------------------------------------------------------------------------
-	//-----------------------------------------------------------------------------------------------------------------------------------------
 	//Read input file name into in_file
 	string in_file;
 	if(argc > 1)	in_file = argv[1];
@@ -102,10 +100,13 @@ int main(int argc, char** argv)
 	//Implementation
 	if(Init->app_name.str=="App_Electrical_Network_3D")
 	{
-		//Definition
-//		App_Fracture *Compute =  new  App_Fracture;
-//		if(Compute->Application_fracture(Init)==0) return 0;
-//		delete Compute;
+		 //--------------------------------------------------------------------------------------------------
+		//Define an application to create a 3D network of nanotubes
+		App_Network_3D *Network3D =  new  App_Network_3D;
+		int count = Init->simu_para.sample_num;
+		//Implement all samples
+		for(int i=1; i<=count; i++)	if(Network3D->Create_network_3D(Init)==0) return 0;
+		delete Network3D;
 	}
 
     //-----------------------------------------------------------------------------------------------------------------------------------------
@@ -159,54 +160,5 @@ int main(int argc, char** argv)
 	close_deffo_stream();
 	return 1;
 
-/*	//确定输出文件
-	if( out_file.size() > 0 ) open_deffo_stream( (char*)out_file.c_str() );
-	//-----------------------------------------------------------------------------------------------------------------------------------------
-	//定义计算样本
-	Neca *Compute =  new  Neca;
-
-	int samples_count = 0;	//执行样本计数器
-	int samples_num=1;		//设定样本数，最少为1
-	do									//执行每个样本
-	{
-		//-----------------------------------------------------------------------------------------------
-		//计算样本数累计
-		samples_count++;
-
-		//-----------------------------------------------------------------------------------------------
-		//打开用户输入参数文本文件
-		ifstream infile;
-		infile.open(in_file.c_str());
-		if(!infile) { hout << "不能打开输入文件: "  << in_file << endl;  return 0; }
-
-		//---------------------------------------------------------------------------------------------
-		string s;		//读入信息一行
-		getline(infile,s);	//跳过注释行  
-		while(!infile.eof() && s.substr(0,1)=="%")	getline(infile,s);
-		istringstream istr(s);		//读取计算样本数信息
-		istr >> samples_num;
-		if(samples_num<1) { hout << "样本数输入错误！请检查！ " << endl;  return 0; }
-
-		//----------------------------------------------------------------------------------------------
-		//计算样本
-		if(Compute->Begin(infile, samples_count)==0) return 0;
-
-		//----------------------------------------------------------------------------------------------
-	}while(samples_count<samples_num);
-	
-	//删除计算样本
-	delete Compute;
-
-	//-----------------------------------------------------------------------------------------------------------------------------------------
-	//输出真实时间
-	gettimeofday( &end, NULL);
-	timer = end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)/1000000.0; 
-	hout << "真实计算总共耗时：" << timer << "秒" << endl;
-
-	//-----------------------------------------------------------------------------------------------------------------------------------------
-	//关闭输出文件
-	close_deffo_stream();
-
-	return 1;*/
 }
 //===========================================================================

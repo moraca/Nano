@@ -3,7 +3,7 @@
 //CODE FILE:	Input_Reader.h
 //OBJECTIVE:	Reading the input data
 //AUTHOR:		Fei Han; Angel Mora
-//E-MAIL:			fei.han@kaust.edu.sa;  angel.mora@kaust.edu.sa
+//E-MAIL:			fei.han@kaust.edu.sa	;	angel.mora@kaust.edu.sa
 //====================================================================================
 
 #ifndef INPUTREADER_H
@@ -43,12 +43,15 @@ struct Geom_RVE{
 			bool mark;
 			Point_3D origin;
 			double len_x, wid_y, hei_z;
+			Point_3D ex_origin;											//Define an origin point for an extended RVE to generate network with an acurrate control  
+			double ex_len, ey_wid, ez_hei;							//Define length, widethit for an extended RVE for generation with an acurrate control  
 			double volume;
 			double density;
 			int Nx, Ny, Nz;													//Define 'Nx Ny Nz' which are the number of segments in each direction by which the RVE is going to be divided (for looking for penetrating nanotubes)
 			double win_max_x, win_max_y, win_max_z;		//Define the size range of the cutoff window and descrement by every step in x, y and z directions
 			double win_min_x, win_min_y, win_min_z;
 			double win_delt_x, win_delt_y, win_delt_z;
+			int cut_num;														//Define the number of cutoff times (0: the maxmum size, n: the maxmum size - n*step_length(delta), n>=1)
 		};
 //The nanotube parameters in a network
 struct Nanotube_Geo{
