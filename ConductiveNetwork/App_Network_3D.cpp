@@ -11,11 +11,11 @@
 //Generate 3D conductive nanotube network separated by backbone paths, dead branches and isolated clusters
 int App_Network_3D::Create_conductive_network_3D(const Input *Init)const
 {
-	//-----------------------------------------------------------------------------------------------------------------------------------------
-	//Network Generation with overlapping
-	
 	//Time markers for total simulation
 	time_t ct0, ct1;
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Network Generation with overlapping
 	ct0 = time(NULL);
 	
 	hout << "-_- To generate networks with overlapping......"<<endl;
@@ -35,12 +35,19 @@ int App_Network_3D::Create_conductive_network_3D(const Input *Init)const
 	{
 		//-----------------------------------------------------------------------------------------------------------------------------------------
 		//Hoshen-Kopelman algorithm
+		Hoshen_Kopelman *HoKo = new Hoshen_Kopelman;
+		if(HoKo->Determinate_nanotube_clusters(Init)==0) return 0;
 
 		//-----------------------------------------------------------------------------------------------------------------------------------------
 		//Direct Electrifying algorithm
+		Direct_Electrifying *Direlect = new Direct_Electrifying;
+		if(Direlect->Calculate_voltage_field(Init)==0) return 0;
 
 		//-----------------------------------------------------------------------------------------------------------------------------------------
 		//Determine the backbone and dead branckes
+		Backbone_Network *Backbonet = new Backbone_Network;
+		if(Backbonet->Determinate_backbone_network(Init)==0) return 0;
+
 	}
 
 }

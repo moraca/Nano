@@ -16,6 +16,9 @@ using namespace hns;
 #include "Input_Reader.h"
 #include "GenNetwork.h"
 #include "Cutoff_Wins.h"
+#include "Hoshen_Kopelman.h"
+#include "Direct_Electrifying.h"
+#include "Backbone_Network.h"
 
 //---------------------------------------------------------------------------
 class App_Network_3D

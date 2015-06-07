@@ -1,15 +1,10 @@
 //====================================================================================
 //SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
-//CODE FILE:	Cutoff_Wins.cpp
-//OBJECTIVE:	To cutoff the windows
+//CODE FILE:	Tecplot_Export.h
+//OBJECTIVE:	To export the 3D geometric images through Tecplot data files
 //AUTHOR:		Fei Han; Angel Mora
 //E-MAIL:			fei.han@kaust.edu.sa	;	angel.mora@kaust.edu.sa
 //====================================================================================
 
-#include "Cutoff_Wins.h"
+#include "Tecplot_Export.h"
 
-//Generate back ground grides to determine the local structure in cutoff windows
-int Cutoff_Wins::Generate_background_grids(const Input *Init)const
-{
-
-}
