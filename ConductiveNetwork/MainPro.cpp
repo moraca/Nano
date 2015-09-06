@@ -105,7 +105,7 @@ int main(int argc, char** argv)
 		App_Network_3D *Network3D =  new  App_Network_3D;
 		int count = Init->simu_para.sample_num;
 		//Implement all samples
-		for(int i=1; i<=count; i++)	if(Network3D->Create_network_3D(Init)==0) return 0;
+		for(int i=1; i<=count; i++)	if(Network3D->Create_conductive_network_3D(Init)==0) return 0;
 		delete Network3D;
 	}
 
