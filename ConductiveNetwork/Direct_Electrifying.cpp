@@ -11,5 +11,5 @@
 //Calculate the voltage values at contact points and endpoints
 int Direct_Electrifying::Calculate_voltage_field(const Input *Init)const
 {
-
+	return 1;
 }
