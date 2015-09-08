@@ -11,5 +11,5 @@
 //To determinate nanotube clusters using Hoshen Kopelman Algorithm
 int Hoshen_Kopelman::Determinate_nanotube_clusters(const Input *Init)const
 {
-	return 1;
+
 }

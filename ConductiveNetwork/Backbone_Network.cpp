@@ -11,5 +11,5 @@
 //To determinate the backbone network and the dead branches in the percolation network
 int Backbone_Network::Determinate_backbone_network(const Input *Init)const
 {
-	return 1;
+
 }

@@ -29,7 +29,7 @@ int App_Network_3D::Create_conductive_network_3D(const Input *Init)const
 	//-----------------------------------------------------------------------------------------------------------------------------------------
 	//Determine the local networks in cutoff windons
 	Cutoff_Wins *Cutwins = new Cutoff_Wins;
-//	if(Cutwins->Generate_background_grids(Init)==0) return 0;
+	if(Cutwins->Generate_background_grids(Init)==0) return 0;
 
 	for(int i=0; i<=Init->geom_rve.cut_num; i++)
 	{
