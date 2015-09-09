@@ -1,12 +1,4 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-    hh
-=======
 
->>>>>>> parent of 9c60620... dummy changes 9/8/2015
-=======
-
->>>>>>> parent of 9c60620... dummy changes 9/8/2015
 ******************************************
                    NECN   v0.1										
  																			
@@ -23,28 +15,4 @@
 
 Reading input file...
     The volume fraction is 0.005
-Reading the keywords is finished!
-    Operation done in 0secs.
-^_^ Input achieves
-
--_- To generate networks with overlapping......
-Network generation time: 0 secs.
-^_^ End of network generation with overlapping.
-
-
-*******************************************************************
-    The simulation took 0secs.
-^_^ End of simulation 
-*******************************************************************
-
-
-******************************************
-              Hope it helped ;)											
- 																				
-           Fei Han            Angel Mora							
- 																				
-      Propriety of KAUST/COHMAS Laboratory		
-  fei.han@kaust.edu.sa  angel.mora@kaust.edu.sa		
-******************************************
-
-
+Error: the print_key of cluster_geo is not 0, 1 and 2.

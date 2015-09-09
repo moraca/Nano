@@ -123,6 +123,7 @@ int Input::Data_Initialization()
 	//Initialize the geometric paramters of nanotube clusters
 	cluster_geo.keywords = "Cluster_Geometry";
 	cluster_geo.mark = false;
+	cluster_geo.print_key = 1;
 	cluster_geo.vol_fra_criterion = 0;
 	cluster_geo.amin = 0.0;
 	cluster_geo.amax = 0.0;
@@ -410,6 +411,12 @@ int Input::Read_cluster_geo_parameters(struct Cluster_Geo &cluster_geo, ifstream
 		
 		istr_clust_para >> cluster_geo.wt_fra_cluster;
 		if(cluster_geo.wt_fra_cluster<0||cluster_geo.wt_fra_cluster>1) { hout << "Error: the weight fraction of nanotubes in clusters must be between 0 and 1." << endl; return 0; }
+
+		istr_clust_para >> cluster_geo.print_key;
+		if(cluster_geo.print_key!=0&&cluster_geo.print_key!=1&&cluster_geo.print_key!=2) { hout << "Error: the print_key of cluster_geo is not 0, 1 and 2." << endl; return 0; }
+
+		//clear ellipsoid vector
+		cluster_geo.ellips.clear();
 	}
 
 	return 1;

@@ -94,7 +94,7 @@ Cluster_Geometry
 %and the short axis c obays the uniform distribution among (cmin, b);
 %if bmin=cmin=0, then the spheres will be produced with radii among (amin, amax)
 %the growth probability p of a cnt in a cluster: 0 <= p <= 1
-%0.00418879 0.1 0.1 0 0 1 0.4774648
+%0.00418879 0.1 0.1 0 0 1 0.4774648 1
 0
 %--------------------------------To end
 %

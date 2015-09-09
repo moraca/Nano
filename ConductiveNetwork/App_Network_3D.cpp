@@ -20,7 +20,7 @@ int App_Network_3D::Create_conductive_network_3D(const Input *Init)const
 	
 	hout << "-_- To generate networks with overlapping......"<<endl;
 	GenNetwork *Genet = new GenNetwork;
-	if(Genet->Generate_geometric_networks(Init)==0) return 0;
+	if(Genet->Generate_geometric_networks(Init->cluster_geo)==0) return 0;
 
 	ct1 = time(NULL);
 	hout << "Network generation time: "<<(int)(ct1-ct0)<<" secs."<<endl;
@@ -29,7 +29,7 @@ int App_Network_3D::Create_conductive_network_3D(const Input *Init)const
 	//-----------------------------------------------------------------------------------------------------------------------------------------
 	//Determine the local networks in cutoff windons
 	Cutoff_Wins *Cutwins = new Cutoff_Wins;
-	if(Cutwins->Generate_background_grids(Init)==0) return 0;
+//	if(Cutwins->Generate_background_grids(Init)==0) return 0;
 
 	for(int i=0; i<=Init->geom_rve.cut_num; i++)
 	{

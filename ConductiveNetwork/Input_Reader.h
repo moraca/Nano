@@ -77,6 +77,7 @@ struct Nanotube_Geo{
 //The parameters of nanotube clusters
 struct Cluster_Geo{
 			string keywords;
+			int print_key;								//0 denotes "no print"; 1 denotes "only print the nanotubes in the ellipsoids"; 2 denotes "print the nanotubes in the ellipsolds and the surfaces of all ellipsoids".
 			bool mark;
 			double wt_fra_cluster;				//Define the weight fraction of nanotubes in clusters
 			double vol_fra_criterion;			//Define the volume fraction of clusters in the RVE
@@ -88,6 +89,7 @@ struct Cluster_Geo{
 			double real_volume_fraction;		//Define the real volume fraction of nanotubes in clusters
 			double cnt_real_weight;				//Define the real weight of nanotubes in clusters
 			double cnt_real_volume;			//Define the real volume of nanotubes in clusters
+			vector<struct elliparam> ellips;  //Define the vector of ellipsoids for nanotube cluster zones
 		};
 //The cutoff distances
 struct Cutoff_dist{

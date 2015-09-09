@@ -15,6 +15,17 @@
 using namespace hns;
 
 //---------------------------------------------------------------------------
+//A structure data for a ellipsoid
+struct elliparam		
+{	
+	double x, y, z;		//the center point (x,y,z) of an ellipsoid
+	double a, b, c;		//the long, middle and short axis of an ellipsoid
+	double alpha1, alpha2, alpha3;	//[(alpha1,beta1,gamma1),(alpha2,beta2,gamma2),(alpha3,beta3,gamma3)] 
+	double beta1, beta2, beta3;		//are 9 angles between three axes of ellipsoid (a,b,c) with three coordinate axes (ox,oy,oz).
+	double gamma1, gamma2, gamma3;
+};
+
+//---------------------------------------------------------------------------
 //定义三维空间点类
 class Point_3D
 {
