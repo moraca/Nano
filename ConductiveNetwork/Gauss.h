@@ -1,8 +1,10 @@
-//===========================================================================
-// Gauss.h
-// 高斯积分点类头文件
-// A class of Gauss integral points
-//===========================================================================
+//====================================================================================
+//SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
+//CODE FILE:	Gauss.h
+//OBJECTIVE:	A class definition for Gaussian quadratrure points
+//AUTHOR:		Fei Han;
+//E-MAIL:			fei.han@kaust.edu.sa	;
+//====================================================================================
 
 #ifndef GAUSS_H
 #define GAUSS_H
@@ -21,24 +23,24 @@ const double PI = 3.1415926535897932384626433832795;
 class Gauss
 {
 public:
-	//数据变量
+	//Data Member
 	vector<Node> gauss; 
     vector<double> weight;
 
-    //构造函数；
+    //Constructor
 	Gauss(int ipre=3){ precision=ipre; }
 	
-	//成员函数
-	//生成三维高斯节点
+	//Member Functions
+	//Generate 3D Gaussian quadrature points
 	int Generate_gauss(ifstream &infile);
 
 private:
-
-	//数据变量；
+	//Data Member
 	int precision;
 
-	//用于生成高斯点序列
+	//Generate a sequence of Gaussian quadrature points
 	int Generate_gauss_array(vector<double> &gauss, vector<double> &weight)const;
+
 	//读入信息一行，跳过注释行（以%开头）
 	string Get_Line(ifstream &infile)const;
 };//-----------------------------------------------------

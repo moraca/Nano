@@ -22,23 +22,16 @@ F77    	=	f77
 	${CC} ${CFLAGS} $< -c
 
 
-objects	=  Algorithm_FEM.o Fem_3D.o Gauss.o Geometry_3D.o \
-	  			GeoNano.o Global_Stiff_Matrix.o Hns.o Input_Reader.o\
-	  			MatBase.o MathMatrix.o MatPro.o Mesher.o Neca.o Postprocessor.o \
-	  			Preprocessor.o SolveEqu.o RNetwork.o MainPro.o \
+objects	=  App_Network_3D.o Backbone_Network.o Cutoff_Wins.o Direct_Electrifying.o \
+	   Fem_3D.o GenNetwork.o Geometry_3D.o Hns.o Input_Reader.o \
+	   Hoshen_Kopelman.o MathMatrix.o Tecplot_Export.o MainPro.o \
 	                   
 necn : $(objects)        
 	${C++} ${PARFLAGS} -o necn $(objects)
 	              
-MainPro.o : MainPro.cpp Neca.h
+MainPro.o : MainPro.cpp
 	${C++} ${CXXFLAGS} MainPro.cpp -c
 
-Global_Stiff_Matrix.o : Global_Stiff_Matrix.cpp
-	${C++} ${PARFLAGS} ${CXXFLAGS} $< -c 
-
-Algorithm_FEM.o : Algorithm_FEM.cpp
-	${C++} ${PARFLAGS} ${CXXFLAGS} $< -c 
-		
 # 伪目标文件
 .PHONY : clean
 clean :

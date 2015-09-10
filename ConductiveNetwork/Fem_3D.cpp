@@ -1,35 +1,33 @@
-//===========================================================================
-// Fem.cpp
-// 三维有限单元类成员函数
-// Member functions in a class of FEM
-//===========================================================================
+//====================================================================================
+//SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
+//CODE FILE:	Fem_3D.h
+//OBJECTIVE:	Member functions in a class of finite element method (FEM)
+//AUTHOR:		Fei Han;
+//E-MAIL:			fei.han@kaust.edu.sa	;
+//====================================================================================
 
 #include "Fem_3D.h"
 
-//---------------------------------------------------------------------------
-//Node类构造函数；
+//=========================================
+//Constructor function for node class
 Node::Node(const double ix, const double iy, const double iz)
 {
 	x=ix;
 	y=iy;
 	z=iz;
-}//---------------------------------------
+}
 //---------------------------------------------------------------------------
-//距离；
+//To calculate the distance
 double Node::distance_to(const Node& n)
 {
 	return(sqrt( (x-n.x)*(x-n.x)+(y-n.y)*(y-n.y)+(z-n.z)*(z-n.z)) );
-}//----------------------------------------
+}
 
-//=================================================================
+//=========================================
+//Constructor function for element class
 
-//Element 构造/成员函数；
-
-//=================================================================
-
-//Hexahedron 构造/成员函数；
-//---------------------------------------------------------------------------
-//六面体单元构造函数
+//=========================================
+//Constructor function for hexahedron class
 Hexahedron::Hexahedron(int n1, int n2, int n3, int n4, int n5, int n6, int n7, int n8)
 {
 	nodesId[0] = n1; nodesId[1] = n2;
