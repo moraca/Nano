@@ -32,7 +32,7 @@ class App_Network_3D
 		App_Network_3D(){};
 
 		//Member Functions
-		int Create_conductive_network_3D(const Input *Init)const;
+		int Create_conductive_network_3D(Input *Init)const;
 };
 //---------------------------------------------------------------------------
 #endif

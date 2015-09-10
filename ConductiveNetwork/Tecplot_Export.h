@@ -6,7 +6,7 @@
 //E-MAIL:			fei.han@kaust.edu.sa	;	angel.mora@kaust.edu.sa
 //====================================================================================
 
-#ifndef TECPLOTEXPORT_H
+#ifndef  TECPLOTEXPORT_H
 #define TECPLOTEXPORT_H
 
 #include "Input_Reader.h"

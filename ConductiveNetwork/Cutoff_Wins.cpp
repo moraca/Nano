@@ -11,5 +11,5 @@
 //Generate back ground grides to determine the local structure in cutoff windows
 int Cutoff_Wins::Generate_background_grids(const Input *Init)const
 {
-
+	return 1;
 }

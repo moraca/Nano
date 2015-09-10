@@ -36,15 +36,19 @@ class GenNetwork
 		GenNetwork(){};
 
 		//Member Functions
-		int Generate_geometric_networks(const struct Geom_RVE &geom_rve, struct Cluster_Geo &cluster_geo)const;
+		int Generate_geometric_networks(const struct Geom_RVE &geom_rve, struct Cluster_Geo &clust_geo)const;
 
 	private:
 		//Data Member
 
 		//Generate a number of ellipsoids
-		int Get_ellip_clusters(const struct Geom_RVE &cell, struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const;
-		//生成特定位置的圆球团簇序列(避免随机情况时大数量椭球无法生成)
-//		int Get_specific_sphere_clusters(const struct RVE_Geo &cell, struct Clust_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle, vector<struct elliparam> &ellips, const int &export_mod)const;   
+		int Get_ellip_clusters(const struct cuboid &cub, struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const;
+		//Generate a number of sperical clusters in regular arrangement
+		int Get_spherical_clusters_regular_arrangement(const struct cuboid &cub, struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const;
+		//Print the ellipsoid surfaces by grids
+		void Export_cluster_ellipsoids_mesh(const struct cuboid &cub, const vector<struct elliparam> &ellips)const;
+		//Export the data of ellipsoid surfaces
+		void Export_cluster_ellipsoids_data(const vector<struct elliparam> &ellips, const double &ellip_ratio)const;
 };
 //-------------------------------------------------------
 #endif

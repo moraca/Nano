@@ -15,17 +15,6 @@
 using namespace hns;
 
 //---------------------------------------------------------------------------
-//A structure data for a ellipsoid
-struct elliparam		
-{	
-	double x, y, z;		//the center point (x,y,z) of an ellipsoid
-	double a, b, c;		//the long, middle and short axis of an ellipsoid
-	double alpha1, alpha2, alpha3;	//[(alpha1,beta1,gamma1),(alpha2,beta2,gamma2),(alpha3,beta3,gamma3)] 
-	double beta1, beta2, beta3;		//are 9 angles between three axes of ellipsoid (a,b,c) with three coordinate axes (ox,oy,oz).
-	double gamma1, gamma2, gamma3;
-};
-
-//---------------------------------------------------------------------------
 //定义三维空间点类
 class Point_3D
 {
@@ -56,7 +45,6 @@ class Point_3D
     double dot(Point_3D &point);
 
 };
-
 //---------------------------------------------------------------------------
 //定义三维线(段)类
 class Line_3D
@@ -106,5 +94,22 @@ class Plane_3D
 		int contain(const double dx, const double dy, const double dz)const;    //判断空间平面包含一个点
 };
 //---------------------------------------------------------------------------
+//Structural data for an ellipsoid
+struct elliparam		
+{	
+	double x, y, z;		//the center point (x,y,z) of an ellipsoid
+	double a, b, c;		//the long, middle and short axis of an ellipsoid
+	double alpha1, alpha2, alpha3;	//[(alpha1,beta1,gamma1),(alpha2,beta2,gamma2),(alpha3,beta3,gamma3)] 
+	double beta1, beta2, beta3;		//are 9 angles between three axes of ellipsoid (a,b,c) with three coordinate axes (ox,oy,oz).
+	double gamma1, gamma2, gamma3;
+};
+//---------------------------------------------------------------------------
+//Structural data for a cuboid
+struct cuboid	
+{	
+	Point_3D poi_min;					//Define an origin point for a cubid
+	double len_x, wid_y, hei_z;		//Define length, width and height for a cuboid
+	double volume;							//Define the volume of a cuboid
+};
 #endif
 //===========================================================================

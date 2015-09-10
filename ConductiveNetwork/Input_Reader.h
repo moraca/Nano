@@ -41,10 +41,10 @@ struct Simu_para{
 struct Geom_RVE{
 			string keywords;
 			bool mark;
-			Point_3D origin;
-			double len_x, wid_y, hei_z;
+			Point_3D origin;												//Define an origin point for a RVE
+			double len_x, wid_y, hei_z;								//Define length, width and height for an extended RVE for generation with an acurrate control 
 			Point_3D ex_origin;											//Define an origin point for an extended RVE to generate network with an acurrate control  
-			double ex_len, ey_wid, ez_hei;							//Define length, widethit for an extended RVE for generation with an acurrate control  
+			double ex_len, ey_wid, ez_hei;							//Define length, width and height for an extended RVE for generation with an acurrate control  
 			double volume;
 			double density;
 			int Nx, Ny, Nz;													//Define 'Nx Ny Nz' which are the number of segments in each direction by which the RVE is going to be divided (for looking for penetrating nanotubes)
