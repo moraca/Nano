@@ -35,13 +35,13 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
 	{
 		//-----------------------------------------------------------------------------------------------------------------------------------------
 		//Hoshen-Kopelman algorithm
-		Hoshen_Kopelman *HoKo = new Hoshen_Kopelman;
-		if(HoKo->Determinate_nanotube_clusters(Init)==0) return 0;
+		//Hoshen_Kopelman *HoKo = new Hoshen_Kopelman;
+		//if(HoKo->Determinate_nanotube_clusters(Init)==0) return 0;
 
 		//-----------------------------------------------------------------------------------------------------------------------------------------
 		//Direct Electrifying algorithm
-		Direct_Electrifying *Direlect = new Direct_Electrifying;
-		if(Direlect->Calculate_voltage_field(Init)==0) return 0;
+		//Direct_Electrifying *Direlect = new Direct_Electrifying;
+		//if(Direlect->Calculate_voltage_field(Init)==0) return 0;
 
 		//-----------------------------------------------------------------------------------------------------------------------------------------
 		//Determine the backbone and dead branckes
