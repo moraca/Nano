@@ -77,7 +77,7 @@ int Hoshen_Kopelman::Contacts_and_HK76(vector<Point_3D> points_in, vector<double
     //Variable for an inner loop
     long int inner;
     
-    for (long int i = 0; i < sectioned_domain.size(); i++) {
+    for (long int i = 0; i < (int)sectioned_domain.size(); i++) {
         inner = sectioned_domain[i].size();
         for (long int j = 0; j < inner-1; j++) {
             P1 = sectioned_domain[i][j];
@@ -132,7 +132,7 @@ void Hoshen_Kopelman::Fill_contact_vectors(long int P1, long int P2, int CNT1, i
 //This function checks if the point Point is in the vector region
 int Hoshen_Kopelman::Check_repeated(vector<long int> region, long int Point)
 {
-    for (long int i = 0; i < region.size(); i++) {
+    for (long int i = 0; i < (int)region.size(); i++) {
         if (Point == region[i]) {
             return 1;
         }

@@ -219,7 +219,7 @@ MathMatrix MathMatrix::operator+(const MathMatrix& matrix)
 	return Tem_mat;
 }
 //---------------------------------------------------------------------------
-//to overload the addition operator (add (1*1) matrix to a real)	
+//To overload the addition operator (add (1*1) matrix to a real)	
 double MathMatrix::operator+(const double& R)
 {
 	//The definition of a matrix: M rows and N column
@@ -236,18 +236,18 @@ double MathMatrix::operator+(const double& R)
 	return R2;
 }
 //---------------------------------------------------------------------------
-//重载减法操作符（矩阵减矩阵）
+//To overload the subtraction operator (subtract a matrix from a matrix)
 MathMatrix MathMatrix::operator-(const MathMatrix& matrix)
 {
 	if ((element.size() != matrix.element.size())||(element[0].size() != matrix.element[0].size()))
 	{
-		cout << "矩阵不能相减！列号或行号不相等！" << endl;
+		cout << "Error, it fails to implement subtraction between two matrices, the number of cloumn is not equal to the number of row!" << endl;
 		exit(0);
 	}
-	//待求矩阵：M行号与N列号
+	//The definition of a matrix: M rows and N column
 	int M = int(element.size());
 	int N = int(element[0].size());
-	//定义待求矩阵Tem_mat
+	//A temporary matrix: Tem_mat
 	MathMatrix Tem_mat(M,N);
 
 	for(int i=0; i<M; i++)
@@ -261,7 +261,7 @@ MathMatrix MathMatrix::operator-(const MathMatrix& matrix)
 	return Tem_mat;
 }
 //---------------------------------------------------------------------------
-//判定对称矩阵 输出-1：不是方阵，输出0：不对称，输出1：对称
+//to judge if a matrix is symmetric (-1: is not square matrix, 0: is a square matrix but nonsymmetric, 1: is a square matrix but symmetric
 int MathMatrix::Symmetry(void)
 {
 	int M = int(element.size());
@@ -287,15 +287,15 @@ int MathMatrix::Symmetry(void)
 	return 1;
 }
 //---------------------------------------------------------------------------
-//矩阵求逆
+//matrix inversion
 MathMatrix MathMatrix::Inverse(void)
 {
 	vector<vector<double> > vec = element;
 	//--------------------------------------------------
-	//判定对称正定矩阵
+	//to judge if this matrix is a positive definite matrix
 
 	//--------------------------------------------------
-	//求逆矩阵
+	//performs matrix inversion
 	int stRank = int(vec.size());
 	vector<double> b(stRank,0.0);
 	for(int k=0; k<stRank; k++)
@@ -333,7 +333,7 @@ MathMatrix MathMatrix::Inverse(void)
 	return matrix;
 }
 //---------------------------------------------------------------------------
-//矩阵转置
+//matrix transposition
 MathMatrix MathMatrix::Transpose(void)
 {
 	int M = int(element.size());
@@ -355,7 +355,7 @@ MathMatrix MathMatrix::Transpose(void)
 	return matrix;
 }
 //---------------------------------------------------------------------------
-//求出矩阵一列，将其转为矩阵
+//To covert a column of matrix in a new matrix
 MathMatrix MathMatrix::GetCol(int cn){
 	MathMatrix matrix(int(element.size()),1);
 	for(int i=0;i<int(element.size());i++)
@@ -363,13 +363,13 @@ MathMatrix MathMatrix::GetCol(int cn){
 	return matrix;
 }                  
 //---------------------------------------------------------------------------
-//求矩阵行数
+//To calculate the number of row in a matrix
 int MathMatrix::RowN(void)
 {
 	return int(element.size());
 }
 //---------------------------------------------------------------------------
-//求矩阵行数
+//To calculate the number of column in a matrix
 int MathMatrix::CalN(void)
 {
 	return int(element[0].size());
