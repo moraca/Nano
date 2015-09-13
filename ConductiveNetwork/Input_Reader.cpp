@@ -84,9 +84,9 @@ int Input::Data_Initialization()
 	geom_rve.wid_y = 1.0;
 	geom_rve.hei_z = 1.0;
 	geom_rve.volume = geom_rve.len_x*geom_rve.wid_y*geom_rve.hei_z;
-	geom_rve.Nx = 1;
-	geom_rve.Ny = 1;
-	geom_rve.Nz = 1;
+	geom_rve.gs_minx = 1.0;
+	geom_rve.gs_miny = 1.0;
+	geom_rve.gs_minz = 1.0;
 	geom_rve.win_max_x = 1.0;
 	geom_rve.win_max_y = 1.0;
 	geom_rve.win_max_z = 1.0;
@@ -130,8 +130,7 @@ int Input::Data_Initialization()
 	cluster_geo.bmin = 0.0;
 	cluster_geo.cmin = 0.0;
 	cluster_geo.growth_probability = 0.0;
-	cluster_geo.wt_fra_cluster = 0.0;
-	cluster_geo.cnt_real_weight = 0.0;
+	cluster_geo.volf_clust = 0.0;
 	cluster_geo.cnt_real_volume = 0.0;
 
 	//Initialize cutoff distances
@@ -220,24 +219,13 @@ int Input::Read_rve_geometry(struct Geom_RVE &geom_rve, ifstream &infile)
 	geom_rve.volume = geom_rve.len_x*geom_rve.wid_y*geom_rve.hei_z;
 
 	//-----------------------------------------------------------------------------------------------------------------------------------------
-	//Define 'Nx Ny Nz' which are the number of segments in each direction by which the RVE is going to be divided (for looking for penetrating nanotubes)
-	istringstream istr1(Get_Line(infile));
-	istr1 >> geom_rve.Nx >> geom_rve.Ny >> geom_rve.Nz;
-	if(geom_rve.Nx<0||geom_rve.Ny<0||geom_rve.Nz<0)
-	{
-		cout << "Error: the number of segments in each direction of RVE should be positive!" << endl;
-		hout << "Error: the number of segments in each direction of RVE should be positive" << endl;
-		return 0;
-	}
-
-	//-----------------------------------------------------------------------------------------------------------------------------------------
 	//Define the size range of the observation window and descrement by every step in x, y and z directions
+	istringstream istr1(Get_Line(infile));
+	istr1 >> geom_rve.win_max_x >> geom_rve.win_max_y >> geom_rve.win_max_z;
 	istringstream istr2(Get_Line(infile));
-	istr2 >> geom_rve.win_max_x >> geom_rve.win_max_y >> geom_rve.win_max_z;
+	istr2 >> geom_rve.win_delt_x >> geom_rve.win_delt_y >> geom_rve.win_delt_z;
 	istringstream istr3(Get_Line(infile));
-	istr3 >> geom_rve.win_delt_x >> geom_rve.win_delt_y >> geom_rve.win_delt_z;
-	istringstream istr4(Get_Line(infile));
-	istr4 >> geom_rve.win_min_x >> geom_rve.win_min_y >> geom_rve.win_min_z;
+	istr3 >> geom_rve.win_min_x >> geom_rve.win_min_y >> geom_rve.win_min_z;
 
 	if(geom_rve.win_max_x<0.0||geom_rve.win_max_y<0.0||geom_rve.win_max_z<0.0||
 	   geom_rve.win_max_x>geom_rve.len_x||geom_rve.win_max_y>geom_rve.wid_y||geom_rve.win_max_y>geom_rve.hei_z)
@@ -272,6 +260,25 @@ int Input::Read_rve_geometry(struct Geom_RVE &geom_rve, ifstream &infile)
 		return 0;
 	}
 	else geom_rve.cut_num = num[0];
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Define the minimum size for background grids (looking for contact points)
+	istringstream istr4(Get_Line(infile));
+	istr4 >> geom_rve.gs_minx >> geom_rve.gs_miny >> geom_rve.gs_minz;
+	if(geom_rve.gs_minx<=0||geom_rve.gs_miny<=0||geom_rve.gs_minz<=0)
+	{
+		cout << "Error: the number of segments in each direction of RVE should be positive!" << endl;
+		hout << "Error: the number of segments in each direction of RVE should be positive" << endl;
+		return 0;
+	}
+	else if((int)(geom_rve.win_max_x/geom_rve.gs_minx)>500||
+			  (int)(geom_rve.win_max_y/geom_rve.gs_miny)>500||
+			  (int)(geom_rve.win_max_z/geom_rve.gs_minz)>500)
+	{
+		cout << "Error: the number of divisions in one of boundary is too big (>500), which leads to the memory problem!" << endl;
+		hout << "Error: the number of divisions in one of boundary is too big (>500), which leads to the memory problem!" << endl;
+		return 0;	
+	}
 
 	return 1;
 }
@@ -409,8 +416,8 @@ int Input::Read_cluster_geo_parameters(struct Cluster_Geo &cluster_geo, ifstream
 		istr_clust_para >> cluster_geo.growth_probability;
 		if(cluster_geo.growth_probability<0||cluster_geo.growth_probability>1){ hout << "Error: the growth probability of nanotubes in clusters must be between 0 and 1." << endl; return 0; }
 		
-		istr_clust_para >> cluster_geo.wt_fra_cluster;
-		if(cluster_geo.wt_fra_cluster<0||cluster_geo.wt_fra_cluster>1) { hout << "Error: the weight fraction of nanotubes in clusters must be between 0 and 1." << endl; return 0; }
+		istr_clust_para >> cluster_geo.volf_clust;
+		if(cluster_geo.volf_clust<0||cluster_geo.volf_clust>1) { hout << "Error: the volume fraction of nanotubes in clusters must be between 0 and 1." << endl; return 0; }
 
 		istr_clust_para >> cluster_geo.print_key;
 		if(cluster_geo.print_key!=0&&cluster_geo.print_key!=1&&cluster_geo.print_key!=2) { hout << "Error: the print_key of cluster_geo is not 0, 1 and 2." << endl; return 0; }

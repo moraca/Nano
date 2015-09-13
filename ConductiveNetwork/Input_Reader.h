@@ -22,6 +22,8 @@ using namespace hns;
 #include "Gauss.h"
 #include "Geometry_3D.h"
 
+const double PI = 3.1415926535897932384626433832795;
+
 //---------------------------------------------------------------------------
 //Name of application case
 struct App_name{
@@ -47,7 +49,7 @@ struct Geom_RVE{
 			double ex_len, ey_wid, ez_hei;							//Define length, width and height for an extended RVE for generation with an acurrate control  
 			double volume;
 			double density;
-			int Nx, Ny, Nz;													//Define 'Nx Ny Nz' which are the number of segments in each direction by which the RVE is going to be divided (for looking for penetrating nanotubes)
+			int gs_minx, gs_miny, gs_minz;							//Define the minimum size for background grids (looking for contact points)
 			double win_max_x, win_max_y, win_max_z;		//Define the size range of the cutoff window and descrement by every step in x, y and z directions
 			double win_min_x, win_min_y, win_min_z;
 			double win_delt_x, win_delt_y, win_delt_z;
@@ -79,7 +81,7 @@ struct Cluster_Geo{
 			string keywords;
 			int print_key;								//0 denotes "no print"; 1 denotes "only print the nanotubes in the ellipsoids"; 2 denotes "print the nanotubes in the ellipsolds and the surfaces of all ellipsoids".
 			bool mark;
-			double wt_fra_cluster;				//Define the weight fraction of nanotubes in clusters
+			double volf_clust;						//Define the volume fraction of nanotubes in clusters
 			double vol_fra_criterion;			//Define the volume fraction of clusters in the RVE
 			double amin;								//Define the minimum value of long axis of a cluster ellipsoid
 			double amax;							//Define the maximum value of long axis of a cluster ellipsoid
@@ -87,7 +89,6 @@ struct Cluster_Geo{
 			double cmin;								//Define the minimum value of short axis of a cluster ellipsoid
 			double growth_probability;		//Define the growth probability of nanotubes in a cluster
 			double real_volume_fraction;		//Define the real volume fraction of nanotubes in clusters
-			double cnt_real_weight;				//Define the real weight of nanotubes in clusters
 			double cnt_real_volume;			//Define the real volume of nanotubes in clusters
 			vector<struct elliparam> ellips;  //Define the vector of ellipsoids for nanotube cluster zones
 		};

@@ -30,7 +30,8 @@ int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, str
 		cub.volume = cub.len_x*cub.wid_y*cub.hei_z;
 
 		if(Get_ellip_clusters(cub, clust_geo, seed_ellip_poi, seed_ellip_axis, seed_ellip_angle)==0) return 0;
-//		if(Get_spherical_clusters_regular_arrangement(cub, cluster_geo, seed_ellip_poi, seed_ellip_axis, seed_ellip_angle)==0) return 0;  //生成特定位置的圆球团簇
+		//Generate a number of sperical clusters in regular arrangement
+//		if(Get_spherical_clusters_regular_arrangement(cub, clust_geo, seed_ellip_poi, seed_ellip_axis, seed_ellip_angle)==0) return 0;
 	}
 
 	return 1;
@@ -60,7 +61,7 @@ int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, struct Cluster_Geo 
 		seed_poi = (2053*seed_poi + 13849)%RAND_MAX;
 		ell_temp.z=cub.poi_min.z + seed_poi*cub.hei_z/RAND_MAX;
         
-		//Generate the lengths of axes of an ellipsoid
+		//Generate the lengths of half-axes of an ellipsoid
 		seed_axis = (2053*seed_axis + 13849)%RAND_MAX;
 		ell_temp.a=clust_geo.amin + seed_axis*(clust_geo.amax - clust_geo.amin)/RAND_MAX;
 		if(!(clust_geo.bmin==0&&clust_geo.cmin==0))

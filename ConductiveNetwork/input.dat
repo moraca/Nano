@@ -89,13 +89,16 @@ vol 0.005000 0
 %Define the geometric parameters of ellipsoid cluster of CNTs
 Cluster_Geometry
 %--------------------------------To start
-%Please input the volume fraction of ellipsoid, the length of axes of ellipsoids and the growth probability of a cnt in the cluster: v amin amax bmin cmin p
+%Please input the volume fraction of ellipsoid, the length of axes of ellipsoids and the growth probability of a cnt in the cluster, and the volume fraction of cnt in the cluster and the print key: 
+% v amin amax bmin cmin p vc key, such as 0.05 0.1 0.1 0 0 1 0.4774648 2
 %where the long axis a of ellipsoid obays the uniform distribution among (amin, amax), the middle axis b obays the uniform distribution among (bmin, a),
 %and the short axis c obays the uniform distribution among (cmin, b);
 %if bmin=cmin=0, then the spheres will be produced with radii among (amin, amax)
 %the growth probability p of a cnt in a cluster: 0 <= p <= 1
-%0.00418879 0.1 0.1 0 0 1 0.4774648 1
-0
+%the volume fraction of cnt in the cluster, it usually bigger than the volume fraction in the RVE
+%the print key: 0 denotes "no print"; 1 denotes "only print the nanotubes in the ellipsoids"; 2 denotes "print the nanotubes in the ellipsolds and the surfaces of all ellipsoids"
+0.00418879 0.1 0.1 0 0 1 0.4774648 2
+%0
 %--------------------------------To end
 %
 %
