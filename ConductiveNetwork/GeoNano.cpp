@@ -78,7 +78,7 @@ int GeoNano::Geometric_modeling(ifstream &infile, const int &samples_count)
 int GeoNano::Import_geometric_data(ifstream &infile, struct RVE_Geo &cell_geo, struct Region_Geo &overlap_regions, struct Region_Geo &cnt_regions, struct CNT_Geo &cnts_geo, struct Clust_Geo &clust_geo, const int &samples_count, vector<vector<long int> > &sectioned_domain, vector<vector<int> > &sectioned_domain_cnt, double &d_vdw, double &cutoff)const
 {
 	//-----------------------------------------------------------------------------------------------------------------------------------------
-	//¶ÁÈëRVEµ¥°ûµÄ×óÏÂ½Çµã£¨¸÷¸ö·½ÏòµÄ×ø±ê×îĞ¡Öµµã£©ºÍ³¤¿í¸ßÖµ
+	//Define cell (sample) geometry
 	istringstream istr_rve(Get_Line(infile));
 	istr_rve >> cell_geo.poi_min.x >> cell_geo.poi_min.y >> cell_geo.poi_min.z;
 	istr_rve >> cell_geo.len_x >> cell_geo.wid_y >> cell_geo.hei_z;
@@ -123,6 +123,17 @@ int GeoNano::Import_geometric_data(ifstream &infile, struct RVE_Geo &cell_geo, s
     istr_cnt_len >> cnts_geo.len_min >> cnts_geo.len_max;
     if(cnts_geo.len_min<0||cnts_geo.len_max<0||cnts_geo.len_max<cnts_geo.len_min){ hout << "The length must be non-negative and min must be smaller than max" << endl; return 0; }
     //-----------------------------------------------------------------------------------------------------------------------------------------
+    /*/Adjust the cell geometry to take into account the band of size equal to the length of the CNT
+     ///First move the reference point
+     cell_geo.poi_min.x = cell_geo.poi_min.x - cnts_geo.len_max;
+     cell_geo.poi_min.y = cell_geo.poi_min.y - cnts_geo.len_max;
+     cell_geo.poi_min.z = cell_geo.poi_min.z - cnts_geo.len_max;//*/
+    //Then adjust the length, width and depth
+    cell_geo.len_x = cell_geo.len_x + 2*cnts_geo.len_max;
+    cell_geo.wid_y = cell_geo.wid_y + 2*cnts_geo.len_max;
+    cell_geo.hei_z = cell_geo.hei_z + 2*cnts_geo.len_max;//*/
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+
     //Get the distribution type for the radius of the CNT/CF and the minimum and maximum range
     istringstream istr_cnt_rad(Get_Line(infile));
     istr_cnt_rad >> cnts_geo.rad_dist_type;
@@ -194,6 +205,7 @@ int GeoNano::Import_geometric_data(ifstream &infile, struct RVE_Geo &cell_geo, s
 	}
 	//-----------------------------------------------------------------------------------------------------------------------------------------
     //------------- AMC
+        
     // Read the parameters for the number of regions in which the sample will be divided.
     // This will be used to determine penetration of CNTs.
     istringstream istr_regions(Get_Line(infile));
@@ -204,8 +216,9 @@ int GeoNano::Import_geometric_data(ifstream &infile, struct RVE_Geo &cell_geo, s
     //sectioned_domain.resize((size_t)overlap_regions.secx*overlap_regions.secy*overlap_regions.secz);
     vector<long int> empty;
     //hout << "empty" << endl;
-    sectioned_domain.assign((size_t)overlap_regions.secx*overlap_regions.secy*overlap_regions.secz, empty);
-    hout << "resize1 ";
+    //COMMENT HERE TO ALLOW OVERLAPPING. JUST USE A // AT THE BEGINNIN OF THE LINE BELOW
+    //sectioned_domain.assign((size_t)overlap_regions.secx*overlap_regions.secy*overlap_regions.secz, empty);
+    //hout << "resize1 ";
     
     //Calculate the sizes of each region and save them in the variable for the region geometry
     overlap_regions.lx = cell_geo.len_x/overlap_regions.secx;
@@ -753,8 +766,8 @@ int GeoNano::Generate_nanotube_networks(const struct RVE_Geo &cell_geo, const st
         counter = 0;
         //Increase the size of the structure vector
         structure.push_back(empty);
-        //COMMENT HERE TO ALLOW OVERLAPPING. JUST USE A * AT THE BEGINNIN OF THIS LINE
-        /*/hout << "sp ";
+        /*/COMMENT HERE TO ALLOW OVERLAPPING. JUST USE A * AT THE BEGINNIN OF THIS LINE
+        //hout << "sp ";
         while(!Check_penetration(cnt_poi, current_region, cnt_rad, new_cnt, cnts_points, cell_geo, boundary_flag)){
             if(Get_seed_point(cell_geo, seed_cnt_origin, cnt_poi)==0) return 0;
             counter ++;
@@ -830,9 +843,9 @@ int GeoNano::Generate_nanotube_networks(const struct RVE_Geo &cell_geo, const st
                     //new_cnt.push_back(ipoi_vec[0]);
                 //If it reaches the boundary and we are not considering periodicity of the boundary,
                 //then the CNT is done, so we set the counter "i" to step_num
-                i = step_num;
-                //This for-loop handles the periodical boundary. Comment it when not needed.
-				/*/for(int j=0; j<(int)ipoi_vec.size(); j++)
+                i = step_num;//*/
+                /*/This for-loop handles the periodical boundary. Comment it when not needed.
+				for(int j=0; j<(int)ipoi_vec.size(); j++)
 				{
 					Point_3D inter_point[2];
                     
@@ -849,8 +862,8 @@ int GeoNano::Generate_nanotube_networks(const struct RVE_Geo &cell_geo, const st
 					new_cnt.push_back(inter_point[1]);
 				}//*/
 			}
-            //COMMENT HERE TO ALLOW OVERLAPPING. JUST USE A * IN THE FOLLOWING LINE
-            /*/Obtain the region to which the point belongs to wihtout considering overlapping
+            /*/COMMENT HERE TO ALLOW OVERLAPPING. JUST USE A * IN THE FOLLOWING LINE
+            //Obtain the region to which the point belongs to wihtout considering overlapping
             current_region = Default_region(cnt_poi);
             //Chek if the new point is penetrating any CNT
             //hout << "pp ";
@@ -896,13 +909,15 @@ int GeoNano::Generate_nanotube_networks(const struct RVE_Geo &cell_geo, const st
             //Below is a version of the commented section above. It is made as a follow up to the changes to
             //the handling of the intersection with the sample's boundary. So because of the removal of the
             //periodicity of the boundary then only one point is added at a time.
-            double temp_length = new_cnt.back().distance_to(cnt_poi);
+            double temp_length = Effective_length(new_cnt.back(),cnt_poi);
+            //double temp_length = new_cnt.back().distance_to(cnt_poi);
             if (temp_length > 0) {
                 vol_sum += temp_length*step_vol_para;		//Ìå»ıÔö¼Ó
                 wt_sum += temp_length*step_wei_para;		//ÖØÁ¿Ôö¼Ó
+            }
                 new_cnt.push_back(cnt_poi);		//´æ´¢½Úµã
                 new_cnt_size = (int)new_cnt.size()-1;			//µ÷ÕûĞÂ²åÈëµãµÄÎ»ÖÃ
-            }
+            //}
             
 			//---------------------------------------------------------------------------
 			//ÅĞ¶Ï×ÜÌå»ı»òÕß×ÜÖØÁ¿
@@ -968,8 +983,10 @@ int GeoNano::Generate_nanotube_networks(const struct RVE_Geo &cell_geo, const st
                 //hout << "CNT#=" << cnts_points.size()-1 << " of size " << cnts_points.back().size();
                 //hout << " Struc#=" << structure.size()-1 << " of size " << structure.back().size() << endl;
                 cnts_radius.push_back(cnt_rad);			//¼ÇÂ¼ÄÉÃ×¹Ü°ë¾¶
-                if (!(cnts_points.size() % 5000))
-                    hout << "CNTs generated: " << cnts_points.size() << " points generated: " << global_point_coord.size() << endl;
+                if (!(cnts_points.size() % 500)){
+                    hout <<"CNTs generated: "<< cnts_points.size()<<". Points generated: "<<global_point_coord.size()<<". ";
+                    hout << "Volume generated=" << vol_sum*100/cnts_geo.real_volume << "%." << endl;
+                }
             }
         }
 	}
@@ -983,6 +1000,44 @@ int GeoNano::Generate_nanotube_networks(const struct RVE_Geo &cell_geo, const st
     hout << "Total number of penetrating points: " << penetrating_points << endl;
     hout << "Total number of CNTs rejected: " << rejects << endl;
 	return 1;
+}
+
+//This function decides what portion of the volume fraction is added
+double GeoNano::Effective_length(Point_3D last_point, Point_3D new_point){
+    //Create inner cell, i.e the composite domain
+    RVE_Geo composite_domain;
+    double lmax = cnts_geo.len_max;
+    composite_domain.poi_min.x = cell_geo.poi_min.x + lmax;
+    composite_domain.poi_min.y = cell_geo.poi_min.y + lmax;
+    composite_domain.poi_min.z = cell_geo.poi_min.z + lmax;
+    composite_domain.len_x = cell_geo.len_x - 2*lmax;
+    composite_domain.wid_y = cell_geo.wid_y - 2*lmax;
+    composite_domain.hei_z = cell_geo.hei_z - 2*lmax;
+
+    //Check if the last point is inside the generation region
+    int last_bool = Judge_cell_including_point(composite_domain, last_point);
+    //Check if the new point is inside the generation region
+    int new_bool = Judge_cell_including_point(composite_domain, new_point);
+    
+    //Vector to store the intersecting point
+    vector<Point_3D> ipoi_vec;
+    
+    //Decide the corresponding case and calculate volume fraction
+    if (last_bool && new_bool){
+        //Both points are inside so add all the length
+        return last_point.distance_to(new_point);
+    } else if (last_bool) {
+        if(Get_intersecting_point_RVE_surface(composite_domain, last_point, new_point, ipoi_vec)==0) return 0;
+        new_point = ipoi_vec[0];
+	    return last_point.distance_to(new_point);
+        //if new point is inside
+    } else if (new_bool){
+        if(Get_intersecting_point_RVE_surface(composite_domain, new_point, last_point, ipoi_vec)==0) return 0;
+        last_point = ipoi_vec[0];
+	    return last_point.distance_to(new_point);
+    } else {
+        return 0;
+    }
 }
 
 //This function adds a point to a region so penetration can be checked
@@ -1316,8 +1371,8 @@ void GeoNano::Add_to_regions(Point_3D point, long int point_coordinate)
     int a, b, c;
     long unsigned t;
 
-    //COMMENT HERE STARTING ON LINE BELOW TO ALLOW OVERLAPPING. JUST ADD '*'
-    /*/These variables are to store the size of the RVE and reduces operations when accessing them
+    /*/COMMENT HERE STARTING ON LINE BELOW TO ALLOW OVERLAPPING. JUST ADD '*'
+    //These variables are to store the size of the RVE and reduces operations when accessing them
     double lx = cell_geo.len_x;
     double ly = cell_geo.wid_y;
     double lz = cell_geo.hei_z;
@@ -1529,7 +1584,7 @@ int GeoNano::Get_ellip_clusters(const struct RVE_Geo &cell, struct Clust_Geo &cl
         
 		//-------------------------------------------------------------
 		//¼ì²éÍÖÇòÊÇ·ñÓëµ¥°û»òÕßÆäËûÍÖÇòÏà½»
-		double delt_h = ell_temp.c/50;						//·Ö¸îµÄ´ÎÊıÌ«¶àÓ°Ïì¼ÆËãĞ§?
+		double delt_h = ell_temp.c/50;						//·Ö¸îµÄ´ÎÊıÌ«¶àÓ°Ïì¼ÆËãĞ§Â
 		int k1 = (int)(sqrt(pow(ell_temp.a,2)+pow(ell_temp.b,2))/delt_h);
 		int K = 4*(k1+1);
 		double sita = 2*PI/K;
@@ -1872,7 +1927,7 @@ int GeoNano::Cnt_cross_cluster_surface(const double &growth_probability, const v
                 
 				if(f1>Zero)
 				{
-					seed = (2053*seed + 13849)%MAX_INT;  //¼ÆËãÍÅ´ØÄÚ²¿Éú³¤¸Å?
+					seed = (2053*seed + 13849)%MAX_INT;  //¼ÆËãÍÅ´ØÄÚ²¿Éú³¤¸ÅÂ
 					if((double)seed/MAX_INT<=growth_probability)
 					{
 						ellip_num = i;
@@ -1911,7 +1966,7 @@ int GeoNano::Cnt_cross_cluster_surface(const double &growth_probability, const v
         
 		if(f1>Zero)
 		{
-			seed = (2053*seed + 13849)%MAX_INT;  //¼ÆËãÍÅ´ØÄÚ²¿Éú³¤¸Å?
+			seed = (2053*seed + 13849)%MAX_INT;  //¼ÆËãÍÅ´ØÄÚ²¿Éú³¤¸ÅÂ
 			if((double)seed/MAX_INT<=growth_probability)	return 1;	//ÄÉÃ×¹ÜÒªÔÚÍÅ´ØÄÚÕÛ»ØÉú³¤
 			else { ellip_num = -1; return 0; } //¼ÌĞøÉú³¤
 		}
@@ -1950,7 +2005,7 @@ int GeoNano::Cnt_go_through_a_cluster(const double &growth_probability, const st
     
 	if(ef>Zero)
 	{
-		seed = (2053*seed + 13849)%MAX_INT;  //¼ÆËãÍÅ´ØÄÚ²¿Éú³¤¸Å?
+		seed = (2053*seed + 13849)%MAX_INT;  //¼ÆËãÍÅ´ØÄÚ²¿Éú³¤¸ÅÂ
 		if((double)seed/MAX_INT<=growth_probability)	return 1;	//ÄÉÃ×¹ÜÒªÔÚÍÅ´ØÄÚÕÛ»ØÉú³¤
 		else  return 0;
 	}
