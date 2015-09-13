@@ -26,8 +26,6 @@
  Output:
     vector<vector<long int> > contacts_point
         Vector of point to point contacts. This is helpful for determining the resistor network on the direct electrifying algorithm
-    vector<vector<long int> > contacts_cnt_point
-        Vector of CNTs with points that have a contact. That is contacts_cnt_point[i] refers to CNT i. If CNT i has a contact with other CNT, then contacts_cnt_point[i][j] is the point in CNT i that has a contact with the other CNT. This is helpful for determining the elements on the direct electrifying algorithm.
     vector<vector<int> > clusters_cnt
         Vector with clusters of CNT. The size of clusters_cnt is the number of clusters
     vector<vector<int> > isolated
@@ -35,10 +33,10 @@
  */
 
 //To determinate nanotube clusters using Hoshen Kopelman Algorithm
-int Hoshen_Kopelman::Determine_nanotube_clusters(vector<vector<long int> > structure, vector<vector<long int> > sectioned_domain, vector<Point_3D> points_in, vector<int> cnts_inside, vector<double> radii, double tunnel, vector<vector<long int> > &contacts_point, vector<vector<long int> > &contacts_cnt_point, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated)
+int Hoshen_Kopelman::Determine_nanotube_clusters(vector<vector<long int> > structure, vector<vector<long int> > sectioned_domain, vector<Point_3D> points_in, vector<int> cnts_inside, vector<double> radii, double tunnel, vector<vector<long int> > &contacts_point, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated)
 {
     //Label the CNTs and make the data structures for the direct electrifying algorithm
-    if (!Contacts_and_HK76(points_in, radii, tunnel, contacts_point, contacts_cnt_point, sectioned_domain)){
+    if (!Contacts_and_HK76(points_in, radii, tunnel, contacts_point, sectioned_domain)){
         hout << "Error in Determinate_nanotube_clusters." <<endl;
         return 0;
     }
@@ -52,7 +50,7 @@ int Hoshen_Kopelman::Determine_nanotube_clusters(vector<vector<long int> > struc
 	return 1;
 }
 
-int Hoshen_Kopelman::Contacts_and_HK76(vector<Point_3D> points_in, vector<double> radii, double tunnel, vector<vector<long int> > &contacts_point, vector<vector<long int> > &contacts_cnt_point, vector<vector<long int> > sectioned_domain)
+int Hoshen_Kopelman::Contacts_and_HK76(vector<Point_3D> points_in, vector<double> radii, double tunnel, vector<vector<long int> > &contacts_point, vector<vector<long int> > sectioned_domain)
 {
     //These ints are just to store the global point number and the CNTs they belong to.
     //They are just intermediate variables and I only use them to make the code more readable
@@ -63,8 +61,6 @@ int Hoshen_Kopelman::Contacts_and_HK76(vector<Point_3D> points_in, vector<double
     vector<int> empty_int;
     //the list of contacts has to be the same size as the list of points
     contacts_point.assign(points_in.size(), empty);
-    //This list has to have a size equal to the number of CNTs
-    contacts_cnt_point.assign(radii.size(), empty);
     //Varable to calculate the cutoff for tunneling
     double cutoff_t;
     //double separation;
@@ -77,7 +73,7 @@ int Hoshen_Kopelman::Contacts_and_HK76(vector<Point_3D> points_in, vector<double
     //Variable for an inner loop
     long int inner;
     
-    for (long int i = 0; i < (int)sectioned_domain.size(); i++) {
+    for (long int i = 0; i < sectioned_domain.size(); i++) {
         inner = sectioned_domain[i].size();
         for (long int j = 0; j < inner-1; j++) {
             P1 = sectioned_domain[i][j];
@@ -94,8 +90,9 @@ int Hoshen_Kopelman::Contacts_and_HK76(vector<Point_3D> points_in, vector<double
                 //First check if the CNTs are different. Only when they are the distance between points is calculated
                 //In this way calculation of all distances is avoided
                 if ((CNT1!=CNT2)&&(points_in[P1].distance_to(points_in[P2]) <= cutoff_t)) {
-                    //Fill the vectors of contacts contacts_point and contacts_cnt_point
-                    Fill_contact_vectors(P1, P2, CNT1, CNT2, contacts_point, contacts_cnt_point);
+                    //Fill the vector of contacts contacts_point 
+                    contacts_point[P2].push_back(P1);
+                    contacts_point[P1].push_back(P2);
                     //Here is where the actual HK76 algotihm takes place
                     if (!HK76(CNT1, CNT2)) {
                         hout << "Error in Contacts_and_HK76" << endl;
@@ -108,31 +105,10 @@ int Hoshen_Kopelman::Contacts_and_HK76(vector<Point_3D> points_in, vector<double
     return 1;
 }
 
-//This funtion fills the vectors contacts_point and contacts_cnt_point when a new contact is found
-void Hoshen_Kopelman::Fill_contact_vectors(long int P1, long int P2, int CNT1, int CNT2, vector<vector<long int> > &contacts_point, vector<vector<long int> > &contacts_cnt_point){
-    //Check if the contact has already been found, if not it is a new contact so fill the contacts_point vector
-    if (!Check_repeated(contacts_point[P1], P2)) {
-        //Add point contacts
-        contacts_point[P2].push_back(P1);
-        contacts_point[P1].push_back(P2);
-        
-        //Although the contact between P1 and P2 might be new, any of those points could have already a contact
-        //with another point. Hence, for each CNT I need to check if the point has already been considered in contact
-        //Add point contacts in CNT1
-        if (!Check_repeated(contacts_cnt_point[CNT1], P1)) {
-            contacts_cnt_point[CNT1].push_back(P1);
-        }
-        //Add point contacts in CNT2
-        if (!Check_repeated(contacts_cnt_point[CNT2], P2)) {
-            contacts_cnt_point[CNT2].push_back(P2);
-        }
-    }
-}
-
 //This function checks if the point Point is in the vector region
 int Hoshen_Kopelman::Check_repeated(vector<long int> region, long int Point)
 {
-    for (long int i = 0; i < (int)region.size(); i++) {
+    for (long int i = 0; i < region.size(); i++) {
         if (Point == region[i]) {
             return 1;
         }
@@ -221,6 +197,27 @@ int Hoshen_Kopelman::Merge_labels(int root1, int root2){
     return 1;
 }
 
+//In this function
+void Hoshen_Kopelman::Delete_repeated_contacts(vector<vector<long int> > &contacts_point)
+{
+    for (int i = 0; i < (int)contacts_point.size(); i++)
+        Discard_repeated(contacts_point[i]);
+}
+
+//This Functions deletes the repeated items in the vector vec
+void Hoshen_Kopelman::Discard_repeated(vector<long int> &vec)
+{
+    for (long int i = 0; i <  vec.size()-1; i++) {
+        for (long int k = i+1; k < vec.size(); k++) {
+            if (vec[i] == vec[k]){
+                vec.erase(vec.begin() + k);
+                k--;
+            }
+        }
+    }
+}
+
+//In this function the clusters are made using the labels from the HK76
 int Hoshen_Kopelman::Make_CNT_clusters(vector<vector<long int> > structure, vector<Point_3D> points_in, vector<int> cnts_inside, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated){
     //This vector has a map of labels in order to know which ones are proper labels
     label_map.assign(labels_labels.size(),-1);
