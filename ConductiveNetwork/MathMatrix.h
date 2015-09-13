@@ -1,8 +1,10 @@
-//===========================================================================
-// MathMatrix.h
-// 矩阵类头文件
-// A class of  the matrix
-//===========================================================================
+//====================================================================================
+//SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
+//CODE FILE:	MathMatrix.h
+//OBJECTIVE:	A class for mathmatical operations of matrix
+//AUTHOR:		Fei Han;
+//E-MAIL:			fei.han@kaust.edu.sa	;
+//====================================================================================
 
 #ifndef MATHMATRIX_H
 #define MATHMATRIX_H
@@ -17,45 +19,44 @@ using namespace std;
 const double Zero = 1.0E-8;
 
 //---------------------------------------------------------------------------
-//矩阵类
 class MathMatrix
 {
 public:
 	//-----------------------------------------------
-	//数据成员
+	//Data Member
 	vector<vector<double> > element;
 
 	//-----------------------------------------------
-	//成员函数
-	//构造函数
+	//Constructor
 	MathMatrix(){};
-	MathMatrix(const int&, const int&);							//构造大小为M*N，值为零的矩阵
-	MathMatrix(const vector<double>&);						//一维向量构造
-	MathMatrix(const vector<vector<double> >&);			//二维向量构造					
-	MathMatrix(const double *, const int&);					//一维数组构造
-	MathMatrix(const double *, const int&, const int&);	//二维数组构造，实参为（&vec[0][0],m,n）
+	MathMatrix(const int&, const int&);							//to construct a matrix by (M*N) with zero values
+	MathMatrix(const vector<double>&);						//to construct a vector in 1D
+	MathMatrix(const vector<vector<double> >&);			//to construct a vector in 2D
+	MathMatrix(const double *, const int&);					//to construct an array in 1D
+	MathMatrix(const double *, const int&, const int&);	//to construct an array in 2D, the arguments are (&vec[0][0], m, n)
 	//-----------------------------------------------
-	void Evalu(const double *, const int&);						//一维数组赋给矩阵 
-	void Evalu(const double *, const int& , const int&);	//二维数组赋给矩阵，实参为（&vec[0][0],m,n） 
-	void operator=(const vector<double>&);					//重载赋值操作符（一维向量赋给矩阵）
-	void operator=(const vector<vector<double> >&);	//重载赋值操作符（二维向量赋给矩阵）
-	MathMatrix operator*(const MathMatrix&);				//重载乘法操作符（矩阵乘矩阵）
-	MathMatrix operator*(const double&);						//重载乘法操作符（矩阵乘实数）
-	MathMatrix operator+(const MathMatrix&);				//重载加法操作符（矩阵加矩阵）			
-	double operator+(const double&);								//重载加法操作符（1*1矩阵加实数）			
-	MathMatrix operator-(const MathMatrix&);				//重载减法操作符（矩阵减矩阵）
-	MathMatrix Inverse(void);					//矩阵求逆
-	MathMatrix Transpose(void);			//矩阵转置
-	int RowN(void);								//求矩阵行数
-	int CalN(void);									//求矩阵列数
-	int Symmetry(void);							//判定矩阵对称
+	//Member Functions
+	void Evalu(const double *, const int&);						//a 1D array is assigned to a matrix
+	void Evalu(const double *, const int& , const int&);	//a 2D array is assigned to a matrix, the arguments are (&vec[0][0], m, n)
+	void operator=(const vector<double>&);					//to overload the assignment operator (a 1D vector is assigned to a matrix)
+	void operator=(const vector<vector<double> >&);	//to overload the assignment operator (a 2D vector is assigned to a matrix)
+	MathMatrix operator*(const MathMatrix&);				//to overload the multiplication operator (a matrix is multipled by a matrix)
+	MathMatrix operator*(const double&);						//to overload the multiplication operator (a matrix is multipled by a real)
+	MathMatrix operator+(const MathMatrix&);				//to overload the addition operator (add a matrix to a matrix)
+	double operator+(const double&);								//to overload the addition operator (add (1*1) matrix to a real)	
+	MathMatrix operator-(const MathMatrix&);				//to overload the subtraction operator (subtract a matrix from a matrix)
+	MathMatrix Inverse(void);											//matrix inversion
+	MathMatrix Transpose(void);										//matrix transposition
+	int RowN(void);														//to calculate the number of row in a matrix
+	int CalN(void);															//to calculate the number of column in a matrix
+	int Symmetry(void);													//to judge if a matrix is symmetric
 	//-----------------------------------------------------------------------------
-	MathMatrix GetCol(int cn);                  //求出矩阵一列，将其转为矩阵
+	MathMatrix GetCol(int cn);										//to covert a column of matrix in a new matrix
 
-	//重载输出流操作符
+	//overload the operator of output stream
 	friend ostream& operator<<(ostream& o, const MathMatrix& matrix);
 };
-//重载输出流操作符
+//overload the operator of output stream
 inline ostream& operator<<(ostream& o,const MathMatrix& matrix)
 {
 	for (int i=0; i<int(matrix.element.size()); i++)

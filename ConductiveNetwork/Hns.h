@@ -1,8 +1,10 @@
-//===========================================================================
-// Hns.h
-// 韩非的名空间类头文件
-// Classes of Fei Han's namespace definition
-//===========================================================================
+//====================================================================================
+//SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
+//CODE FILE:	Hns.h
+//OBJECTIVE:	Classes for Han's namespace definition
+//AUTHOR:		Fei Han;
+//E-MAIL:			fei.han@kaust.edu.sa	;
+//====================================================================================
 
 #ifndef HNS_H
 #define HNS_H
@@ -38,10 +40,10 @@ public:
 class foutstream 
 {
 public:
-	//构造函数
+	//Constructor
 	foutstream();
 
-	//操作符定义
+	//the definetions for operators
 	foutstream& operator << (short n);
 	foutstream& operator << (unsigned short n);
 	foutstream& operator << (int n);
@@ -64,8 +66,8 @@ public:
 	int setf(int n);
 	int setf(int n1,int n2); 
 
-//	void open_deffo_stream(char* file,int mod=ios::app);	//app表示续写
-	void open_deffo_stream(char* file,int mod=ios::out);	//out是表示重新写
+//	void open_deffo_stream(char* file,int mod=ios::app);		//app: continue to write
+	void open_deffo_stream(char* file,int mod=ios::out);			//out: rewrite
 	void close_deffo_stream( );
 
 	string output_file;
@@ -78,8 +80,8 @@ private:
 namespace hns
 {
 	extern foutstream hout;
-//	void open_deffo_stream(char* file,int mod=ios::app);	//app表示续写
-	void open_deffo_stream(char* file,int mod=ios::out);		//out是表示重新写
+//	void open_deffo_stream(char* file,int mod=ios::app);	//app: continue to write
+	void open_deffo_stream(char* file,int mod=ios::out);		//out: rewrite
 
 	void close_deffo_stream( );
 	foutstream& endl(foutstream& os);

@@ -1,11 +1,14 @@
-//===========================================================================
-// Hns.cpp
-// 韩非的名空间类头文件
-// Member functions in classes of Fei Han's namespace definition
-//===========================================================================
+//====================================================================================
+//SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
+//CODE FILE:	Hns.cpp
+//OBJECTIVE:	Classes for Han's namespace definition
+//AUTHOR:		Fei Han;
+//E-MAIL:			fei.han@kaust.edu.sa	;
+//====================================================================================
+
 #include "Hns.h"
 //---------------------------------------------------------------------------
-//名空间成员定义
+//member functions for the namespace definition
 foutstream hns::hout;
 SetWP hns::setwp;
 //---------------------------------------------------------------------------
@@ -25,7 +28,7 @@ foutstream& hns::endl(foutstream& os)
 }
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
-//文件输出流(foutstream)类成员定义
+//the definition of file ouput stream
 foutstream::foutstream()
 {          
 	is_open_file = false;
@@ -38,7 +41,7 @@ void foutstream::open_deffo_stream(char* file,int mod)
 	of_stream.open(file);
 	if( !of_stream )
 	{
-		cout << "无法打开文件！" << file << std::endl;
+		cout << "Failed to open a file!" << file << std::endl;
 		return ;
 	}
 	out_stream = &of_stream;

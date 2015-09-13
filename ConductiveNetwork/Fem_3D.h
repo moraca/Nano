@@ -1,10 +1,11 @@
 //====================================================================================
 //SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
 //CODE FILE:	Fem_3D.h
-//OBJECTIVE:	A class definition for finite element method (FEM)
+//OBJECTIVE:	A class for finite element method (FEM)
 //AUTHOR:		Fei Han;
 //E-MAIL:			fei.han@kaust.edu.sa	;
 //====================================================================================
+
 #ifndef FEM_3D_H
 #define FEM_3D_H
 
@@ -18,6 +19,7 @@ using namespace std;
 class Node
 {	
 	public:
+		//Data Member
 		double x, y, z;		//the coordinates of a node
 
 		int type;				//the type of node: 0 inner node; 1 a node on the surface ; 2 a node on the boundary; 3 a node at the corner
@@ -34,7 +36,8 @@ class Node
 //The definition for element
 class Element
 {
-	public:	
+	public:
+		//Data Member
 		int type;	//the shape and order of an element (using 3 numbers: ijk, i denotes dimensions; j denotes the number of nodes in one element; k denotes the order of shape function)
 						//for example, 121: one dimension two nodes (segment) linear shape function; 231: two dimension thress nodes (triangular) linear shape function; 241: two dimension four nodes (quadrilateral) linear shape function
 						//341: three dimensions four nodes (tetrahedron) linear shape function; 361: thress dimensions six nodes (prism) linear shape function; 381: thress dimensions eight nodes (hexahedron) linear shape function

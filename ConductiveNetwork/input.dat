@@ -32,9 +32,6 @@ RVE_Geometry
 %Define the domain of RVE: the lower-left corner point of RVE and the length, width and height of RVE
 0 0 0 1.000000 1.000000 1.000000
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
-%Define 'Nx Ny Nz' which are the number of segments in each direction by which the RVE is going to be divided (for looking for penetrating nanotubes)
-50 50 50
-%------------------------------------------------------------------------------------------------------------------------------------------------------------
 %Define the size range of the observation window and descrement by every step in x, y and z directions: 
 %Max_length, Max_width, Max_height (this value could be less than the size of RVE)
 %delta_length, delta_width, delta_height
@@ -43,6 +40,9 @@ RVE_Geometry
 1.000000 1.000000 1.000000
 0.250000 0.250000 0.250000
 1.000000 1.000000 1.000000
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%Define minimum size for background grids (looking for contact points)
+0.250000 0.250000 0.250000
 %--------------------------------To end
 %
 %

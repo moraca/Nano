@@ -1,13 +1,15 @@
-//===========================================================================
-// Geometry_3D.cpp
-// 三维点、线、形状等几何类成员函数
-// Member functions in classes of point, line and so on 
-//===========================================================================
+//====================================================================================
+//SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
+//CODE FILE:	Geometry_3D.cpp
+//OBJECTIVE:	A class for basic geometic elements in 3D such as point, line and plane 
+//AUTHOR:		Fei Han;
+//E-MAIL:			fei.han@kaust.edu.sa	;
+//====================================================================================
 
 #include "Geometry_3D.h"
 
 //---------------------------------------------------------------------------
-//二维点类
+//The member function for the 3D point class
 Point_3D::Point_3D( double px, double py, double pz )
 {
 	x = px;
@@ -100,10 +102,9 @@ double Point_3D::dot(Point_3D &point)
 }
 
 //===========================================================================
-
-//三维线类
+//The member function for the 3D point class
 //---------------------------------------------------------------------------
-//构造函数
+//Constructor
 Line_3D::Line_3D(Point_3D p0, Point_3D p1)
 {
 	point[0] = p0;
@@ -116,7 +117,7 @@ Line_3D::Line_3D(Point_3D p0, Point_3D p1)
 	else virtual_line = true;
 }
 //---------------------------------------------------------------------------   
-//线段的长度
+//The length of segment
 double Line_3D::length() 
 {
 	double dx = point[1].x-point[0].x;
@@ -125,44 +126,78 @@ double Line_3D::length()
 	return sqrt(dx*dx+dy*dy+dz*dz);
 }
 //---------------------------------------------------------------------------
-//点到直线的距离
+//The distance from a point to a line
 double Line_3D::distance_point_to_line(const Point_3D *point_temp)const
 {
-	if(xm==0&&yn==0&&zl==0) hout << "注意！该线段退化成一个点！" <<endl;
-	double X = yn*(point_temp->y-point[0].y)-zl*(point_temp->z-point[0].z);
-	double Y = zl*(point_temp->z-point[0].z)-xm*(point_temp->x-point[0].x);
-	double Z = xm*(point_temp->x-point[0].x)-yn*(point_temp->y-point[0].y);
-	return sqrt(X*X+Y*Y+Z*Z)/sqrt(xm*xm+yn*yn+zl*zl);
+	double dis = 0;
+	if(xm==0&&yn==0&&zl==0)
+	{
+		hout << "Attention: this segment is reduced to a point!" <<endl;
+		double X = point_temp->x-point[0].x;
+		double Y = point_temp->y-point[0].y;
+		double Z = point_temp->z-point[0].z;
+		dis = sqrt(X*X+Y*Y+Z*Z);
+	}
+	else
+	{
+		double X = yn*(point_temp->y-point[0].y)-zl*(point_temp->z-point[0].z);
+		double Y = zl*(point_temp->z-point[0].z)-xm*(point_temp->x-point[0].x);
+		double Z = xm*(point_temp->x-point[0].x)-yn*(point_temp->y-point[0].y);
+		dis = sqrt(X*X+Y*Y+Z*Z)/sqrt(xm*xm+yn*yn+zl*zl);
+	}
+	return dis;
 }
 double Line_3D::distance_point_to_line(const Point_3D &point_temp)const
 {
-	if(xm==0&&yn==0&&zl==0) hout << "注意！该线段退化成一个点！" <<endl;
-	double X = yn*(point_temp.y-point[0].y)-zl*(point_temp.z-point[0].z);
-	double Y = zl*(point_temp.z-point[0].z)-xm*(point_temp.x-point[0].x);
-	double Z = xm*(point_temp.x-point[0].x)-yn*(point_temp.y-point[0].y);
-	return sqrt(X*X+Y*Y+Z*Z)/sqrt(xm*xm+yn*yn+zl*zl);
+	double dis = 0;
+	if(xm==0&&yn==0&&zl==0)
+	{
+		hout << "Attention: this segment is reduced to a point!" <<endl;
+		double X = point_temp.x-point[0].x;
+		double Y = point_temp.y-point[0].y;
+		double Z = point_temp.z-point[0].z;
+		dis = sqrt(X*X+Y*Y+Z*Z);
+	}
+	{
+		double X = yn*(point_temp.y-point[0].y)-zl*(point_temp.z-point[0].z);
+		double Y = zl*(point_temp.z-point[0].z)-xm*(point_temp.x-point[0].x);
+		double Z = xm*(point_temp.x-point[0].x)-yn*(point_temp.y-point[0].y);
+		dis = sqrt(X*X+Y*Y+Z*Z)/sqrt(xm*xm+yn*yn+zl*zl);
+	}
+	return dis;
 }
 double Line_3D::distance_point_to_line(const double dx, const double dy, const double dz)const
 {
-	if(xm==0&&yn==0&&zl==0) hout << "注意！该线段退化成一个点！" <<endl;
-	double X = yn*(dy-point[0].y)-zl*(dz-point[0].z);
-	double Y = zl*(dz-point[0].z)-xm*(dx-point[0].x);
-	double Z = xm*(dx-point[0].x)-yn*(dy-point[0].y);
-	return sqrt(X*X+Y*Y+Z*Z)/sqrt(xm*xm+yn*yn+zl*zl);
+	double dis = 0;
+	if(xm==0&&yn==0&&zl==0)
+	{
+		hout << "Attention: this segment is reduced to a point!" <<endl;
+		double X = dx-point[0].x;
+		double Y = dy-point[0].y;
+		double Z = dz-point[0].z;
+		dis = sqrt(X*X+Y*Y+Z*Z);
+	}
+	{
+		double X = yn*(dy-point[0].y)-zl*(dz-point[0].z);
+		double Y = zl*(dz-point[0].z)-xm*(dx-point[0].x);
+		double Z = xm*(dx-point[0].x)-yn*(dy-point[0].y);
+		dis = sqrt(X*X+Y*Y+Z*Z)/sqrt(xm*xm+yn*yn+zl*zl);
+	}
+	return dis;
 }
 //---------------------------------------------------------------------------
-//判断线段包含一个点
+//To judge if a point is in a segment
 int Line_3D::contain(const Point_3D &point_temp)const
 {
-	//点到线段两个端点的距离大于两个端点之间的距离
+	//to judge if the distance from a point to two endpoints is larger than the distance between endpoints
 	if( fabs(point_temp.distance_to(point[0])+point_temp.distance_to(point[1])-point[0].distance_to(point[1]))>Zero ) return 0; 
 	return 1;
 }
 //===========================================================================
 
-//三维面类
+//The member function for the 3D plane class
 //---------------------------------------------------------------------------
-//构造函数
+//Constructor
 Plane_3D::Plane_3D(double para[])
 {
 	for(int i=0; i<4; i++)	coef[i] = para[i];
@@ -170,17 +205,17 @@ Plane_3D::Plane_3D(double para[])
 	else virtual_plane = true;
 }
 //---------------------------------------------------------------------------
-//判断空间平面包含一个点
+//To judge if a point is contained in this plane
 int Plane_3D::contain(const Point_3D &point_temp)const
 {
-	if( coef[0]*point_temp.x+coef[1]*point_temp.y+coef[2]*point_temp.z+coef[3]==0 ) return 1;	//在平面上
-	return 0;	//在平面外
+	if( coef[0]*point_temp.x+coef[1]*point_temp.y+coef[2]*point_temp.z+coef[3]==0 ) return 1;	//in the plane
+	return 0;	//out of the plane
 }
 //---------------------------------------------------------------------------
-//判断空间平面包含一个点
+//To judge if a point is contained in this plane
 int Plane_3D::contain(const double dx, const double dy, const double dz)const
 {
-	if( coef[0]*dx+coef[1]*dy+coef[2]*dz+coef[3]==0 ) return 1; //在平面上
-	return 0;  //在平面外
+	if( coef[0]*dx+coef[1]*dy+coef[2]*dz+coef[3]==0 ) return 1; //in the plane
+	return 0;  //out of the plane
 }
 //===========================================================================

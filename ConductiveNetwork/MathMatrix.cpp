@@ -1,14 +1,17 @@
-//===========================================================================
-// MathMatrix.cpp
-// 矩阵类成员函数
-// Member functions in a class of the matrix
-//===========================================================================
+//====================================================================================
+//SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
+//CODE FILE:	MathMatrix.cpp
+//OBJECTIVE:	A class for mathmatical operations of matrix
+//AUTHOR:		Fei Han;
+//E-MAIL:			fei.han@kaust.edu.sa	;
+//====================================================================================
+
 #include "MathMatrix.h"
 
 //---------------------------------------------------------------------------
-//构造函数
+//Constructor
 
-//构造函数（M*N）初始化零
+//to construct a matrix by (M*N) with zero values
 MathMatrix::MathMatrix(const int& M, const int& N)
 {
 	vector<double> temp(N,0.0);
@@ -28,12 +31,12 @@ MathMatrix::MathMatrix(const vector<vector<double> >& vec2D)
 {
 	element = vec2D;
 }
-//构造函数（数组构造1*N）
+//to construct a matrix by a (1*N) vector
 MathMatrix::MathMatrix(const double *vec, const int& N)
 {
 	if (N<=0)
 	{
-		cout << "申请矩阵有错！N<=0 " << endl;
+		cout << "Error, the dimension of a 1D vector is less than 1, i.e., N<=0." << endl;
 		exit (0);
 	}
 	vector<double> temp(N);
@@ -43,12 +46,12 @@ MathMatrix::MathMatrix(const double *vec, const int& N)
 		element[0][i] = vec[i];
 	}
 }
-//构造函数（数组构造M*N）
+//to construct a matrix by a (M*N) vector
 MathMatrix::MathMatrix(const double *vec, const int& M, const int& N)
 {
 	if (M<=0 || N<=0)
 	{
-		cout << "申请矩阵有错！M<=0或N<=0 " << endl;
+		cout << "Error, one of dimensions of a 2D vector is less than 1, i.e., M<=0 or N<=0." << endl;
 		exit (0);
 	}
 	vector<double> temp(N);
@@ -75,12 +78,12 @@ MathMatrix::MathMatrix(const double *vec, const int& M, const int& N)
 	}
 }
 //---------------------------------------------------------------------------
-//一维数组赋给矩阵 
+//A 1D array is assigned to a matrix
 void MathMatrix::Evalu(const double *vec, const int& N)
 {
 	if (N<=0)
 	{
-		cout << "申请矩阵有错！N<=0 " << endl;
+		cout << "Error, the dimension of a 1D vector is less than 1, i.e., N<=0." << endl;
 		exit (0);
 	}
 	vector<double> temp(N);
@@ -91,12 +94,12 @@ void MathMatrix::Evalu(const double *vec, const int& N)
 	}
 }
 //---------------------------------------------------------------------------
-//二维数组赋给矩阵 
+//A 2D array is assigned to a matrix
 void MathMatrix::Evalu(const double *vec, const int& M, const int& N)
 {
 	if (M<=0 || N<=0)
 	{
-		cout << "申请矩阵有错！M<=0或N<=0 " << endl;
+		cout << "Error, one of dimensions of a 2D vector is less than 1, i.e., M<=0 or N<=0." << endl;
 		exit (0);
 	}
 	vector<double> temp(N);
@@ -123,36 +126,36 @@ void MathMatrix::Evalu(const double *vec, const int& M, const int& N)
 	}
 }
 //---------------------------------------------------------------------------
-//重载赋值操作符（一维向量赋给矩阵） 
+//To overload the assignment operator (a 1D vector is assigned to a matrix)
 void MathMatrix::operator=(const vector<double>& vec)
 {
 	element.assign(1,vec);
 }
-//重载赋值操作符（二维向量赋给矩阵）
+//To overload the assignment operator (a 2D vector is assigned to a matrix)
 void MathMatrix::operator=(const vector<vector<double> >& vec)
 {
 	element = vec;
 }
 //---------------------------------------------------------------------------
-//重载乘法操作符（矩阵乘矩阵）
+//To overload the multiplication operator (a matrix is multipled by a matrix)
 MathMatrix MathMatrix::operator*(const MathMatrix& matrix)
 {
 	int L = 0;
 	if (element[0].size() != matrix.element.size())
 	{
-		cout << "矩阵不能相乘！列号不等于行号！" << endl;
+		cout << "Error, it fails to implement multiplication between two matrices, the number of cloumn is not equal to the number of row!" << endl;
 		exit(0);
 	}
 	else
 	{
 		L = int(matrix.element.size());
 	}
-	//待求矩阵：M行号与N列号
+	//The definition of a matrix: M rows and N column
 	int M = int(element.size());
 	int N = int(matrix.element[0].size());
-	//定义待求矩阵Tem_mat
+	//A temporary matrix: Tem_mat
 	MathMatrix Tem_mat(M,N);
-	//累加器
+	//An accumulator
 	double conter;
 
 	for(int i=0; i<M; i++)
@@ -171,13 +174,13 @@ MathMatrix MathMatrix::operator*(const MathMatrix& matrix)
 	return Tem_mat;
 }
 //---------------------------------------------------------------------------
-//重载乘法操作符（矩阵乘实数）
+//To overload the multiplication operator (a matrix is multipled by a real)
 MathMatrix MathMatrix::operator*(const double& R)
 {
-	//待求矩阵：M行号与N列号
+	//The definition of a matrix: M rows and N column
 	int M = int(element.size());
 	int N = int(element[0].size());
-	//定义待求矩阵Tem_mat
+	//A temporary matrix: Tem_mat
 	MathMatrix Tem_mat(M,N);
 
 	for(int i=0; i<M; i++)
@@ -191,18 +194,18 @@ MathMatrix MathMatrix::operator*(const double& R)
 	return Tem_mat;
 }
 //---------------------------------------------------------------------------
-//重载加法操作符（矩阵加矩阵）
+//To overload the addition operator (add a matrix to a matrix)
 MathMatrix MathMatrix::operator+(const MathMatrix& matrix)
 {
 	if ((element.size() != matrix.element.size())||(element[0].size() != matrix.element[0].size()))
 	{
-		cout << "矩阵不能相减！列号或行号不相等！" << endl;
+		cout << "Error, it fails to implement addition between two matrices, the number of cloumn is not equal to the number of row!" << endl;
 		exit(0);
 	}
-	//待求矩阵：M行号与N列号
+	//The definition of a matrix: M rows and N column
 	int M = int(element.size());
 	int N = int(element[0].size());
-	//定义待求矩阵Tem_mat
+	//A temporary matrix: Tem_mat
 	MathMatrix Tem_mat(M,N);
 
 	for(int i=0; i<M; i++)
@@ -216,18 +219,18 @@ MathMatrix MathMatrix::operator+(const MathMatrix& matrix)
 	return Tem_mat;
 }
 //---------------------------------------------------------------------------
-//重载加法操作符（矩阵加实数）
+//to overload the addition operator (add (1*1) matrix to a real)	
 double MathMatrix::operator+(const double& R)
 {
-	//待求矩阵：M行号与N列号
+	//The definition of a matrix: M rows and N column
 	int M = int(element.size());
 	int N = int(element[0].size());
 	if (M!=N||M==1)
 	{
-		cout << "矩阵不是1*1的，不能和一个实数相加！" << endl;
+		cout << "Error, the dimensions of this matrix is not (1*1), so it cannot be added to a real!" << endl;
 		exit(0);
 	}
-	//定义待求矩阵
+	//The definition of a materix
 	double R2 = element[0][0] + R;
 
 	return R2;
