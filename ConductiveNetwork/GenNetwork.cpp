@@ -9,7 +9,7 @@
 #include "GenNetwork.h"
 
 //Generate 3D networks with ovelapping
-int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, struct Cluster_Geo &clust_geo)const
+int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, struct Cluster_Geo &clust_geo, struct Nanotube_Geo &nanotube_geo)const
 {
 	//Generate random seed in terms of local time
     srand((unsigned int)time(NULL));
@@ -32,6 +32,41 @@ int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, str
 		if(Get_ellip_clusters(cub, clust_geo, seed_ellip_poi, seed_ellip_axis, seed_ellip_angle)==0) return 0;
 		//Generate a number of sperical clusters in regular arrangement
 //		if(Get_spherical_clusters_regular_arrangement(cub, clust_geo, seed_ellip_poi, seed_ellip_axis, seed_ellip_angle)==0) return 0;
+	}
+
+	//---------------------------------------------------------------------------
+	//To calculate the real volume of CNTs in each cluster and the residual volume of CNTs (random distribution) out of the clusters
+	//double cnts_vol_random = nanotube_geo.real_volume;
+	//vector<double> cnts_vol_cluster(clust_geo.ellips.size());
+	//for(int i=0; i<(int)cnts_vol_cluster.size(); i++)
+	//{
+	//	cnts_vol_cluster[i] = clust_geo.volf_clust*4*PI*clust_geo.ellips[i].a*clust_geo.ellips[i].b*clust_geo.ellips[i].c/3.0;
+	//	cnts_vol_random -= cnts_vol_cluster[i];
+	//}
+	//if(cnts_vol_random<=0) 
+	//{	
+	//	hout << "Error, the total volume of residual cnts in the RVE (out of the clusters) is less than 0 (cnts_vol_random<=0)!" << endl;
+	//	return 0; 
+	//}
+
+	//---------------------------------------------------------------------------
+	//Generate random seeds for cnts
+	int seed_cnt_origin = rand()%RAND_MAX;     //RAND_MAX==2^15-1 in a 16-bit computer, the range of rand() is [0, RAND_MAX]
+	int seed_cnt_length = rand()%RAND_MAX;		//RAND_MAX==2^31-1 in a 32-bit computer, the range of rand() is [0, RAND_MAX]
+	int seed_cnt_radius = rand()%RAND_MAX;
+	int seed_cnt_sita = rand()%RAND_MAX;
+	int seed_cnt_pha = rand()%RAND_MAX;
+	int seed_growth_probability = rand()%RAND_MAX;
+
+
+	double vol_sum = 0;  //the sum of volume of generated CNTs 
+	double wt_sum = 0;   //the sum of weight of generated CNTs
+	int cnt_seed_count =0; //to record the number of generated seeds of a CNT (If the growth of a CNT fails, but this seed will be used for the next growth of a CNT)
+	//---------------------------------------------------------------------------
+    while((nanotube_geo.criterion == "vol"&&vol_sum < nanotube_geo.real_volume)||
+			 (nanotube_geo.criterion == "wt"&&wt_sum < nanotube_geo.real_weight))
+	{
+
 	}
 
 	return 1;

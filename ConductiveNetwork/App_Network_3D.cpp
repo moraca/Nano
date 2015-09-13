@@ -20,7 +20,7 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
 	
 	hout << "-_- To generate networks with overlapping......"<<endl;
 	GenNetwork *Genet = new GenNetwork;
-	if(Genet->Generate_geometric_networks(Init->geom_rve, Init->cluster_geo)==0) return 0;
+	if(Genet->Generate_geometric_networks(Init->geom_rve, Init->cluster_geo, Init->nanotube_geo)==0) return 0;
 
 	ct1 = time(NULL);
 	hout << "Network generation time: "<<(int)(ct1-ct0)<<" secs."<<endl;

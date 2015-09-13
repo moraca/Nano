@@ -36,7 +36,7 @@ class GenNetwork
 		GenNetwork(){};
 
 		//Member Functions
-		int Generate_geometric_networks(const struct Geom_RVE &geom_rve, struct Cluster_Geo &clust_geo)const;
+		int Generate_geometric_networks(const struct Geom_RVE &geom_rve, struct Cluster_Geo &clust_geo, struct Nanotube_Geo &nanotube_geo)const;
 
 	private:
 		//Data Member

@@ -38,10 +38,8 @@ int Input::Read_Infile(ifstream &infile)
 			return 0; 
 		}
 
-		if(nanotube_geo.mark&&geom_rve.mark) 
-		{
-
-		}
+		//the real volume of cnts in the RVE
+		if(geom_rve.mark&&nanotube_geo.mark)		nanotube_geo.real_volume = nanotube_geo.volume_fraction * geom_rve.volume;
 	}
 
 	cout << "Reading the keywords is finished!" << endl;

@@ -49,7 +49,7 @@ struct Geom_RVE{
 			double ex_len, ey_wid, ez_hei;							//Define length, width and height for an extended RVE for generation with an acurrate control  
 			double volume;
 			double density;
-			int gs_minx, gs_miny, gs_minz;							//Define the minimum size for background grids (looking for contact points)
+			double gs_minx, gs_miny, gs_minz;							//Define the minimum size for background grids (looking for contact points)
 			double win_max_x, win_max_y, win_max_z;		//Define the size range of the cutoff window and descrement by every step in x, y and z directions
 			double win_min_x, win_min_y, win_min_z;
 			double win_delt_x, win_delt_y, win_delt_z;
