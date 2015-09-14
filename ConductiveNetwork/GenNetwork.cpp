@@ -35,21 +35,6 @@ int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, str
 	}
 
 	//---------------------------------------------------------------------------
-	//To calculate the real volume of CNTs in each cluster and the residual volume of CNTs (random distribution) out of the clusters
-	//double cnts_vol_random = nanotube_geo.real_volume;
-	//vector<double> cnts_vol_cluster(clust_geo.ellips.size());
-	//for(int i=0; i<(int)cnts_vol_cluster.size(); i++)
-	//{
-	//	cnts_vol_cluster[i] = clust_geo.volf_clust*4*PI*clust_geo.ellips[i].a*clust_geo.ellips[i].b*clust_geo.ellips[i].c/3.0;
-	//	cnts_vol_random -= cnts_vol_cluster[i];
-	//}
-	//if(cnts_vol_random<=0) 
-	//{	
-	//	hout << "Error, the total volume of residual cnts in the RVE (out of the clusters) is less than 0 (cnts_vol_random<=0)!" << endl;
-	//	return 0; 
-	//}
-
-	//---------------------------------------------------------------------------
 	//Generate random seeds for cnts
 	int seed_cnt_origin = rand()%RAND_MAX;     //RAND_MAX==2^15-1 in a 16-bit computer, the range of rand() is [0, RAND_MAX]
 	int seed_cnt_length = rand()%RAND_MAX;		//RAND_MAX==2^31-1 in a 32-bit computer, the range of rand() is [0, RAND_MAX]
@@ -58,7 +43,6 @@ int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, str
 	int seed_cnt_pha = rand()%RAND_MAX;
 	int seed_growth_probability = rand()%RAND_MAX;
 
-
 	double vol_sum = 0;  //the sum of volume of generated CNTs 
 	double wt_sum = 0;   //the sum of weight of generated CNTs
 	int cnt_seed_count =0; //to record the number of generated seeds of a CNT (If the growth of a CNT fails, but this seed will be used for the next growth of a CNT)
@@ -66,7 +50,38 @@ int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, str
     while((nanotube_geo.criterion == "vol"&&vol_sum < nanotube_geo.real_volume)||
 			 (nanotube_geo.criterion == "wt"&&wt_sum < nanotube_geo.real_weight))
 	{
+		//---------------------------------------------------------------------------
+        //Randomly generate a seed (original point) of a CNT in the extended RVE	
+		struct cuboid excub;										//generate a cuboid to represent the RVE
+		excub.poi_min = geom_rve.ex_origin;
+		excub.len_x = geom_rve.ex_len;
+		excub.wid_y = geom_rve.ey_wid;
+		excub.hei_z = geom_rve.ez_hei;
+		excub.volume = excub.len_x*excub.wid_y*excub.hei_z;
 
+		Point_3D cnt_poi;
+		if(Get_seed_point(excub, seed_cnt_origin, cnt_poi)==0) return 0;
+
+		//---------------------------------------------------------------------------
+		//Randomly generate a length of a CNT
+		double cnt_length;
+		if(Get_random_value(nanotube_geo.len_distrib_type, nanotube_geo.len_min, nanotube_geo.len_max, seed_cnt_length, cnt_length)==0) return 0;
+		//Calculate the total number of growth step for a CNT 
+		int step_num = (int)(cnt_length/nanotube_geo.step_length) + 1;
+
+		//---------------------------------------------------------------------------
+		//Randomly generate a radius of a CNT
+		double cnt_rad;
+		if(Get_random_value(nanotube_geo.rad_distrib_type, nanotube_geo.rad_min, nanotube_geo.rad_max, seed_cnt_radius, cnt_rad)==0) return 0;
+
+		//---------------------------------------------------------------------------
+		//Randomly generate a direction in the spherical coordinates as the original direction of CNT segments
+		double cnt_sita, cnt_pha;
+		if(Get_uniform_direction(nanotube_geo, seed_cnt_sita, seed_cnt_pha, cnt_sita, cnt_pha)==0) return 0;
+		MathMatrix multiplier(3,3);
+		multiplier = Get_transformation_matrix(cnt_sita, cnt_pha);
+
+return 0;
 	}
 
 	return 1;
@@ -471,5 +486,102 @@ int GenNetwork::Get_spherical_clusters_regular_arrangement(const struct cuboid &
 	hout << "    The number of clusters and the sum of their volume fraction:" << (int)ellips.size() << "  " << clust_geo.real_volume_fraction << endl;
     
 	return 1;
+}
+//---------------------------------------------------------------------------
+//Generate a random value through a probability distribution function
+int GenNetwork::Get_random_value(const string &dist_type, const double &min, const double &max, int &seed, double &value)const
+{
+	if(min>max) { hout << "Error, the minimum value is larger than the maximum value (Get_random_value)!" << endl; return 0; }
+    
+	if(dist_type=="uniform")	//uniform distribution
+	{
+		seed = (2053*seed + 13849)%RAND_MAX;
+		value = seed*(max-min)/RAND_MAX + min;
+	}
+	else if(dist_type=="normal")	//normal distribution
+	{
+		int sum=0;
+		for(int i=0; i<12; i++)
+		{
+			seed = (2053*seed + 13849)%RAND_MAX;
+			sum += seed;
+		}
+		value = ((double)sum/RAND_MAX-6.0)*(max-min)/12.0 + 0.5*(max+min);
+	}
+
+	return 1;
+}
+//---------------------------------------------------------------------------
+//Randomly generate a seed (original point) of a CNT in the RVE
+int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed, Point_3D &point)const
+{
+	seed = (2053*seed + 13849)%RAND_MAX;
+	point.x = cub.poi_min.x + seed*cub.len_x/RAND_MAX;
+    
+	seed = (2053*seed + 13849)%RAND_MAX;
+	point.y = cub.poi_min.y + seed*cub.wid_y/RAND_MAX;
+    
+	seed = (2053*seed + 13849)%RAND_MAX;
+	point.z = cub.poi_min.z + seed*cub.hei_z/RAND_MAX;
+    
+	point.flag = 0; //0 denotes this point is the original point of a CNT
+    
+	return 1;
+}
+//---------------------------------------------------------------------------
+//Randomly generate a direction in the spherical coordinates as the original direction of CNT segments
+int GenNetwork::Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, int &seed_sita, int &seed_pha, double &cnt_sita, double &cnt_pha)const
+{
+	if(nanotube_geo.dir_distrib_type=="random")
+	{
+		//sita is chosen in [0, PI] with uniform distribution
+		seed_sita = (2053*seed_sita + 13849)%RAND_MAX;
+		cnt_sita = seed_sita*PI/RAND_MAX;
+        
+		//pha is chosen in [0, 2PI] with uniform distribution
+		seed_pha = (2053*seed_pha + 13849)%RAND_MAX;
+		cnt_pha = 2.0*seed_pha*PI/RAND_MAX;
+	}
+	else if(nanotube_geo.dir_distrib_type=="specific")
+	{
+		//A specific original-direction
+		seed_sita = (2053*seed_sita + 13849)%RAND_MAX;
+		seed_pha = (2053*seed_pha + 13849)%RAND_MAX;
+        
+		if((seed_sita+seed_pha)%2==0)
+		{
+			cnt_sita = nanotube_geo.ini_sita;		//"positive" direction
+			cnt_pha = nanotube_geo.ini_pha;		//"positive" direction
+		}
+		else
+		{
+			cnt_sita = PI - nanotube_geo.ini_sita;		//"negative" (opposite) direction 
+			cnt_pha = PI + nanotube_geo.ini_pha;	//"negative" (opposite) direction
+		}
+	}
+	
+	return 1;
+}
+//---------------------------------------------------------------------------
+//Transform angles into matrix
+MathMatrix GenNetwork::Get_transformation_matrix(const double &sita, const double &pha)const
+{
+	//cnt_sita½Ç±ä»»¾ØÕó
+	MathMatrix Msita(3,3);
+	Msita.element[0][0] = cos(sita);
+	Msita.element[0][2] = sin(sita);
+	Msita.element[1][1] = 1;
+	Msita.element[2][0] = -sin(sita);
+	Msita.element[2][2] = cos(sita);
+    
+	//cnt_pha½Ç±ä»»¾ØÕó
+	MathMatrix Mpha(3,3);
+	Mpha.element[0][0] = cos(pha);
+	Mpha.element[0][1] = -sin(pha);
+	Mpha.element[1][0] = sin(pha);
+	Mpha.element[1][1] = cos(pha);
+	Mpha.element[2][2] = 1;
+    
+	return Mpha*Msita;
 }
 //===========================================================================

@@ -49,6 +49,14 @@ class GenNetwork
 		void Export_cluster_ellipsoids_mesh(const struct cuboid &cub, const vector<struct elliparam> &ellips)const;
 		//Export the data of ellipsoid surfaces
 		void Export_cluster_ellipsoids_data(const vector<struct elliparam> &ellips, const double &ellip_ratio)const;
+		//Randomly generate a seed (original point) of a CNT in the RVE
+		int Get_seed_point(const struct cuboid &cub, int &seed, Point_3D &point)const;
+		//Generate a random value through a probability distribution function
+		int Get_random_value(const string &dist_type, const double &min, const double &max, int &seed, double &value)const;
+		//Randomly generate a direction in the spherical coordinates as the original direction of CNT segments
+		int Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, int &seed_sita, int &seed_pha, double &cnt_sita, double &cnt_pha)const;
+		//Transform angles into matrix
+		MathMatrix Get_transformation_matrix(const double &sita, const double &pha)const;
 };
 //-------------------------------------------------------
 #endif
