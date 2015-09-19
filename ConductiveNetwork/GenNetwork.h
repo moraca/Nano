@@ -57,6 +57,13 @@ class GenNetwork
 		int Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, int &seed_sita, int &seed_pha, double &cnt_sita, double &cnt_pha)const;
 		//Transform angles into matrix
 		MathMatrix Get_transformation_matrix(const double &sita, const double &pha)const;
+		//Randomly generate a direction in the spherical coordinates, to have the positive Z-axis to be a central axis
+		//Then, the radial angle, sita, obeys a normal distribution (sita \in fabs[(-omega,+omega)]) and the zonal angle, pha, obeys a uniform distribution (pha \in (0,2PI))
+		int Get_normal_direction(const double &omega, int &seed_sita, int &seed_pha, double &cnt_sita, double &cnt_pha)const;
+		//To calculate the coordinates of the new CNT point (transformation of coordinates)
+		Point_3D Get_new_point(MathMatrix &Matrix, const double &Rad)const;
+		//To judge if a point is included in a RVE
+		int Judge_RVE_including_point(const struct cuboid &cub, const Point_3D &point)const;
 };
 //-------------------------------------------------------
 #endif

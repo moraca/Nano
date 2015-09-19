@@ -51,17 +51,10 @@ int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, str
 			 (nanotube_geo.criterion == "wt"&&wt_sum < nanotube_geo.real_weight))
 	{
 		//---------------------------------------------------------------------------
-        //Randomly generate a seed (original point) of a CNT in the extended RVE	
-		struct cuboid excub;										//generate a cuboid to represent the RVE
-		excub.poi_min = geom_rve.ex_origin;
-		excub.len_x = geom_rve.ex_len;
-		excub.wid_y = geom_rve.ey_wid;
-		excub.hei_z = geom_rve.ez_hei;
-		excub.volume = excub.len_x*excub.wid_y*excub.hei_z;
-
-		Point_3D cnt_poi;
-		if(Get_seed_point(excub, seed_cnt_origin, cnt_poi)==0) return 0;
-
+		//Define a vector for a new nanotube
+		vector<Point_3D> new_cnt;
+		int new_cnt_size = (int)new_cnt.size();
+		
 		//---------------------------------------------------------------------------
 		//Randomly generate a length of a CNT
 		double cnt_length;
@@ -80,6 +73,68 @@ int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, str
 		if(Get_uniform_direction(nanotube_geo, seed_cnt_sita, seed_cnt_pha, cnt_sita, cnt_pha)==0) return 0;
 		MathMatrix multiplier(3,3);
 		multiplier = Get_transformation_matrix(cnt_sita, cnt_pha);
+
+		//---------------------------------------------------------------------------
+		//The increased volume of each segement (growth step) of nanotube (Here the overlapping volume is ignored)
+		const double step_vol_para = PI*cnt_rad*cnt_rad;
+		//---------------------------------------------------------------------------
+		//The increased weight of each segement (growth step) of nanotube (If the different radii of nanotube are considered, the linear_density may be different in every nanotube)
+		const double step_wei_para = nanotube_geo.linear_density;
+
+		//---------------------------------------------------------------------------
+        //Randomly generate a seed (original point) of a CNT in the extended RVE	(Comments: the seed generation is after the radius generation for the non-overlapping nanotubes generation)
+		struct cuboid excub;										//generate a cuboid to represent the RVE
+		excub.poi_min = geom_rve.ex_origin;
+		excub.len_x = geom_rve.ex_len;
+		excub.wid_y = geom_rve.ey_wid;
+		excub.hei_z = geom_rve.ez_hei;
+		excub.volume = excub.len_x*excub.wid_y*excub.hei_z;
+
+		Point_3D cnt_poi;
+		if(Get_seed_point(excub, seed_cnt_origin, cnt_poi)==0) return 0;
+
+		new_cnt.push_back(cnt_poi);	//store this seed point in the vector for a new nanotube
+		cnt_seed_count++;					//record the number of seed generations
+		if(cnt_seed_count>1E6) 
+		{ 
+			hout << "The number of seed genrations is lager than 1E6, but the nanotube generation still fails to acheive the demanded volume fraction." << endl; 
+			return 0; 
+		}
+
+		//---------------------------------------------------------------------------
+		//The growth process of nanotube
+		int ellip_num = -1; //For recording the serial number of ellipsoid cluster which a nanotube penetrates out. It is no use if the cluster generation is not considered.
+		for(int i=0; i<step_num; i++)
+		{
+			//Randomly generate a direction in the spherical coordinates
+			//To have the positive Z-axis to be a central axis
+			//Then, the radial angle, sita, obeys a normal distribution (sita \in fabs[(-omega,+omega)]) and the zonal angle, pha, obeys a uniform distribution (pha \in (0,2PI))
+			if(Get_normal_direction(nanotube_geo.angle_max, seed_cnt_sita, seed_cnt_pha, cnt_sita, cnt_pha)==0) return 0;
+
+			//To calculate the new multiplier for transformation of coordinates
+			multiplier = multiplier*Get_transformation_matrix(cnt_sita, cnt_pha);
+			
+			//To calculate the coordinates of the new CNT point (transformation of coordinates)
+			cnt_poi = cnt_poi + Get_new_point(multiplier, nanotube_geo.step_length);
+			cnt_poi.flag = 1;							//1 means that point is not the original point
+
+			//---------------------------------------------------------------------------
+			//If a CNT penetrates the ellipsoidal surface of a cluster from inside, the growth of this CNT will be headed back in the cluster in a probability p, (0<=p<=1).
+			if(clust_geo.ellips.size()>0)
+			{
+				return 0;
+			}
+
+			//---------------------------------------------------------------------------
+			//If the new CNT point grows out of the RVE, the intersecting point at the surfaces of RVE will be calculated.
+			//The new segment will be cut and (the outside part will be translated into the RVE for the periodical boundary condition)
+			bool touch_end = false;
+			if(Judge_RVE_including_point(excub, cnt_poi)==0) 
+			{
+				;
+			}
+            
+		}
 
 return 0;
 	}
@@ -583,5 +638,54 @@ MathMatrix GenNetwork::Get_transformation_matrix(const double &sita, const doubl
 	Mpha.element[2][2] = 1;
     
 	return Mpha*Msita;
+}
+//---------------------------------------------------------------------------
+//Randomly generate a direction in the spherical coordinates
+//To have the positive Z-axis to be a central axis
+//Then, the radial angle, sita, obeys a normal distribution (sita \in fabs[(-omega,+omega)]) and the zonal angle, pha, obeys a uniform distribution (pha \in (0,2PI))
+int GenNetwork::Get_normal_direction(const double &omega, int &seed_sita, int &seed_pha, double &cnt_sita, double &cnt_pha)const
+{
+	//sita centres 0 and obeys a normal distribution in (-omega, +omega)
+	int sum=0;
+	for(int i=0; i<12; i++)
+	{
+		seed_sita = (2053*seed_sita + 13849)%RAND_MAX;
+		sum += seed_sita;
+	}
+	cnt_sita = fabs((sum*omega)/(6.0*RAND_MAX)-omega);
+    
+	//pha satisfies a uniform distribution in (0, 2PI)
+	seed_pha = (2053*seed_pha + 13849)%RAND_MAX;
+	cnt_pha = 2.0*seed_pha*PI/RAND_MAX;
+
+	return 1;
+}
+//---------------------------------------------------------------------------
+//To calculate the coordinates of the new CNT point (transformation of coordinates)
+Point_3D GenNetwork::Get_new_point(MathMatrix &Matrix, const double &Rad)const
+{
+	//1D vector
+	MathMatrix Rvec(3,1);
+	Rvec.element[0][0] = 0;
+	Rvec.element[1][0] = 0;
+	Rvec.element[2][0] = Rad;
+    
+	//1D vector
+	MathMatrix Res(3,1);
+	Res = Matrix*Rvec;
+    
+	Point_3D Point(Res.element[0][0], Res.element[1][0], Res.element[2][0]);
+    
+	return Point;
+}
+//---------------------------------------------------------------------------
+//To judge if a point is included in a RVE
+int GenNetwork::Judge_RVE_including_point(const struct cuboid &cub, const Point_3D &point)const
+{
+	if(point.x<cub.poi_min.x||point.x>cub.poi_min.x+cub.len_x||
+		point.y<cub.poi_min.y||point.y>cub.poi_min.y+cub.wid_y||
+		point.z<cub.poi_min.z||point.z>cub.poi_min.z+cub.hei_z) return 0;
+
+	return 1;
 }
 //===========================================================================
