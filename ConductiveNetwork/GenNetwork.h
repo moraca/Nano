@@ -36,13 +36,14 @@ class GenNetwork
 		GenNetwork(){};
 
 		//Member Functions
-		int Generate_geometric_networks(const struct Geom_RVE &geom_rve, struct Cluster_Geo &clust_geo, struct Nanotube_Geo &nanotube_geo)const;
+		int Generate_geometric_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, 
+															vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const;
 
 	private:
 		//Data Member
 
 		//Generate a number of ellipsoids
-		int Get_ellip_clusters(const struct cuboid &cub, struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const;
+		int Get_ellip_clusters(const struct cuboid &cub, const struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const;
 		//Generate a number of sperical clusters in regular arrangement
 		int Get_spherical_clusters_regular_arrangement(const struct cuboid &cub, struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const;
 		//Print the ellipsoid surfaces by grids
@@ -64,6 +65,11 @@ class GenNetwork
 		Point_3D Get_new_point(MathMatrix &Matrix, const double &Rad)const;
 		//To judge if a point is included in a RVE
 		int Judge_RVE_including_point(const struct cuboid &cub, const Point_3D &point)const;
+		//Calculate all intersection points between the new segment and surfaces of RVE
+		//(using a parametric equatio:  the parameter 0<t<1, and sort all intersection points from the smaller t to the greater t)  
+		int Get_intersecting_point_RVE_surface(const struct cuboid &cub, const Point_3D &point0, const Point_3D &point1, vector<Point_3D> &ipoi_vec)const;
+		//To calculate the effective portion (length) which falls into the given region (RVE)
+		double Effective_length_given_region(const struct cuboid &cub, const Point_3D last_point, const Point_3D new_point)const;
 };
 //-------------------------------------------------------
 #endif

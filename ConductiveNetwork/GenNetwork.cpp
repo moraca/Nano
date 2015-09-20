@@ -9,7 +9,8 @@
 #include "GenNetwork.h"
 
 //Generate 3D networks with ovelapping
-int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, struct Cluster_Geo &clust_geo, struct Nanotube_Geo &nanotube_geo)const
+int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, 
+																		vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const
 {
 	//Generate random seed in terms of local time
     srand((unsigned int)time(NULL));
@@ -131,23 +132,78 @@ int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, str
 			bool touch_end = false;
 			if(Judge_RVE_including_point(excub, cnt_poi)==0) 
 			{
-				;
+				//Calculate all intersection points between the new segment and surfaces of RVE
+				//(using a parametric equatio:  the parameter 0<t<1, and sort all intersection points from the smaller t to the greater t)  
+				vector<Point_3D> ipoi_vec;  //a vector for intersection points
+				if(Get_intersecting_point_RVE_surface(excub, new_cnt.back(), cnt_poi, ipoi_vec)==0) return 0;
+				cnt_poi = ipoi_vec[0];
+				touch_end = true;
 			}
-            
+
+			//---------------------------------------------------------------------------
+			//To calculate the effective portion (length) which falls into the given region (RVE)
+			struct cuboid gvcub;										//generate a cuboid to represent the give RVE
+			gvcub.poi_min = geom_rve.origin;
+			gvcub.len_x = geom_rve.len_x;
+			gvcub.wid_y = geom_rve.wid_y;
+			gvcub.hei_z = geom_rve.hei_z;
+			gvcub.volume = geom_rve.volume;
+
+            double temp_length = Effective_length_given_region(gvcub, new_cnt.back(),cnt_poi);
+            //double temp_length = new_cnt.back().distance_to(cnt_poi);
+            if (temp_length > 0.0) 
+			{
+                vol_sum += temp_length*step_vol_para;		//a accumulation on the volume
+                wt_sum += temp_length*step_wei_para;		//a accumulation on the weight
+            }
+
+			new_cnt.push_back(cnt_poi);							//store a new point
+            new_cnt_size = (int)new_cnt.size()-1;				//calculate the size of new point
+
+			//---------------------------------------------------------------------------
+			//Judge the new volume or weight 
+			if(nanotube_geo.criterion == "vol"&&vol_sum >= nanotube_geo.real_volume) break;		//Break out when the volume reaches the critical value
+			else if(nanotube_geo.criterion == "wt"&&wt_sum >= nanotube_geo.real_weight) break;		//Break out when the weight reaches the critical value
+			else if (touch_end) break; //Enforce break
 		}
 
-return 0;
+		//---------------------------------------------------------------------------
+		//To store the CNT points
+		if((int)new_cnt.size()<2) 
+		{
+			hout << "Error, very few CNT points are generated (n<2)." << endl; 
+			return 0;
+		}
+
+		vector<Point_3D> cnt_temp;
+		for(int i=0; i<(int)new_cnt.size(); i++)
+		{
+			cnt_temp.push_back(new_cnt[i]); //insert the first CNT point
+			//Judge if to the end of a CNT
+			if(i==(int)new_cnt.size()-1||new_cnt[i+1].flag==0)	//two case: to the end of all CNTs or to the end of a CNT
+			{
+				if((int)cnt_temp.size()>1)									//if the size is equal to 1, that means the whole CNT only include one point, it doesn't creat a CNT segment
+				{
+					cnts_points.push_back(cnt_temp);				//to store the points of a CNT
+					cnts_radius.push_back(cnt_rad);					//to store the radius of a CNT
+				}
+				cnt_temp.clear();												//to clean the temporary cnt vector
+			}
+		}
 	}
+
+	if(nanotube_geo.criterion == "wt") hout << "    The volume fraction of generated CNTs is about : " << vol_sum/geom_rve.volume << endl;
 
 	return 1;
 }
 //---------------------------------------------------------------------------
 //Generate a number of ellipsoids
-int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const
+int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, const struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const
 {
 	double epsilon = 0.01;						//A ratio for extending ellipsoids
 	double ellip_volume = 0.0;
 	vector<struct elliparam> ellips;			//Define the temporary vector of ellipsoids for nanotube cluster zones
+	double real_volume_fraction;				//Define the real volume fraction of ellips in the RVE
 
 	const int N_times=1000;					//A maximum number for generation
 	int times = 0;										//Count the number of generation
@@ -328,10 +384,10 @@ int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, struct Cluster_Geo 
 		ellips.push_back(ell_temp);
 		//---------------------------------------------------------------------
 		//Calculate the sum of ellipsoid volume
-		ellip_volume = ellip_volume + 4*PI*ell_temp.a*ell_temp.b*ell_temp.c/(3*pow(1+epsilon, 3.0));
-		clust_geo.real_volume_fraction = ellip_volume/cub.volume;
+		ellip_volume += 4*PI*ell_temp.a*ell_temp.b*ell_temp.c/(3*pow(1+epsilon, 3.0));
+		real_volume_fraction = ellip_volume/cub.volume;
     gen_again:	;
-	}while(times<=N_times&&clust_geo.real_volume_fraction<clust_geo.vol_fra_criterion);
+	}while(times<=N_times&&real_volume_fraction<clust_geo.vol_fra_criterion);
 	
 	//---------------------------------------------------------------------
 	//Shrink back to original ellipsoids
@@ -347,10 +403,10 @@ int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, struct Cluster_Geo 
 
 	//---------------------------------------------------------------------
 	//Export the data of ellipsoid surfaces
-	if(clust_geo.print_key==1||clust_geo.print_key==2)	Export_cluster_ellipsoids_data(ellips, clust_geo.real_volume_fraction);
+	if(clust_geo.print_key==1||clust_geo.print_key==2)	Export_cluster_ellipsoids_data(ellips, real_volume_fraction);
 
 	//To print the number of ellipsoids and volume fraction
-	hout << "    The number of clusters and the sum of their volume fraction:" << (int)ellips.size() << "  " << clust_geo.real_volume_fraction << endl;
+	hout << "    The number of clusters and the sum of their volume fraction:" << (int)ellips.size() << "  " << real_volume_fraction << endl;
 
 	return 1;
 }
@@ -446,6 +502,7 @@ int GenNetwork::Get_spherical_clusters_regular_arrangement(const struct cuboid &
 	double sd_z = 0.5*cub.hei_z/snum;
 	if(sd_x<=clust_geo.amin||sd_y<=clust_geo.amin||sd_z<=clust_geo.amin) { hout << "Error: the number of spheres on each side of RVE is too many, please check again." << endl; return 0; }
     
+	double real_volume_fraction;				//Define the real volume fraction of ellips in the RVE
 	double ellip_volume = 0.0;
 	vector<struct elliparam> ellips;			//Define the temporary vector of ellipsoids for nanotube cluster zones
 	for(int i=0; i<snum; i++)
@@ -517,14 +574,14 @@ int GenNetwork::Get_spherical_clusters_regular_arrangement(const struct cuboid &
 
 				//---------------------------------------------------------------------
 				//Calculate the sum of ellipsoid volume
-				ellip_volume = ellip_volume + 4*PI*ell_temp.a*ell_temp.b*ell_temp.c/3;
-				clust_geo.real_volume_fraction = ellip_volume/cub.volume;
+				ellip_volume += 4*PI*ell_temp.a*ell_temp.b*ell_temp.c/3;
+				real_volume_fraction = ellip_volume/cub.volume;
 			}
     
 	//To check if the volume fraction is less than the criterion value
-	if(clust_geo.real_volume_fraction<clust_geo.vol_fra_criterion)
+	if(real_volume_fraction<clust_geo.vol_fra_criterion)
 	{
-		hout << "The sum of volume fraction of spheres: " << clust_geo.real_volume_fraction;
+		hout << "The sum of volume fraction of spheres: " << real_volume_fraction;
 		hout << " which is less than the criterion value: " << clust_geo.vol_fra_criterion << " , please check it again!" << endl;
 		return 0;
 	}
@@ -535,10 +592,10 @@ int GenNetwork::Get_spherical_clusters_regular_arrangement(const struct cuboid &
     
 	//---------------------------------------------------------------------
 	//Export the data of ellipsoid surfaces
-	if(clust_geo.print_key==1||clust_geo.print_key==2)	Export_cluster_ellipsoids_data(ellips, clust_geo.real_volume_fraction);
+	if(clust_geo.print_key==1||clust_geo.print_key==2)	Export_cluster_ellipsoids_data(ellips, real_volume_fraction);
     
 	//To print the number of ellipsoids and volume fraction
-	hout << "    The number of clusters and the sum of their volume fraction:" << (int)ellips.size() << "  " << clust_geo.real_volume_fraction << endl;
+	hout << "    The number of clusters and the sum of their volume fraction:" << (int)ellips.size() << "  " << real_volume_fraction << endl;
     
 	return 1;
 }
@@ -687,5 +744,99 @@ int GenNetwork::Judge_RVE_including_point(const struct cuboid &cub, const Point_
 		point.z<cub.poi_min.z||point.z>cub.poi_min.z+cub.hei_z) return 0;
 
 	return 1;
+}
+//---------------------------------------------------------------------------
+//Calculate all intersection points between the new segment and surfaces of RVE
+//(using a parametric equatio:  the parameter 0<t<1, and sort all intersection points from the smaller t to the greater t)  
+int GenNetwork::Get_intersecting_point_RVE_surface(const struct cuboid &cub, const Point_3D &point0, const Point_3D &point1, vector<Point_3D> &ipoi_vec)const
+{
+	double t_temp[6];
+	//The planes (surfaces of RVE) perpendicular to X axis
+	t_temp[0] = (cub.poi_min.x - point0.x)/(point1.x - point0.x);
+	t_temp[1] = (cub.poi_min.x + cub.len_x - point0.x)/(point1.x - point0.x);
+	//The planes (surfaces of RVE) perpendicular to Y axis
+	t_temp[2] = (cub.poi_min.y - point0.y)/(point1.y - point0.y);
+	t_temp[3] = (cub.poi_min.y + cub.wid_y - point0.y)/(point1.y - point0.y);
+	//The planes (surfaces of RVE) perpendicular to Z axis
+	t_temp[4] = (cub.poi_min.z - point0.z)/(point1.z - point0.z);
+	t_temp[5] = (cub.poi_min.z + cub.hei_z - point0.z)/(point1.z - point0.z);
+    
+	vector<double> t_ratio;
+	for(int i=0; i<6; i++)
+	{
+		if(t_temp[i]>=0&&t_temp[i]<1)
+		{
+			//Binary insertion sort
+			int left = 0;
+			int right = (int)t_ratio.size()-1;
+			while(right>=left)
+			{
+				int middle = (left + right)/2;
+				if(fabs(t_ratio[middle] - t_temp[i])<Zero) goto T_Value_Same; //the case with same values
+				else if(t_ratio[middle] > t_temp[i]) right = middle - 1;
+				else left = middle + 1;
+			}
+			t_ratio.insert(t_ratio.begin()+left, t_temp[i]);	//insertion
+        T_Value_Same: ;
+		}
+	}
+    
+	if((int)t_ratio.size()<1||(int)t_ratio.size()>3)
+	{
+		hout << "Error, the number of intersection points between the segement and the surfaces of RVE is" << (int)t_ratio.size() << ", less than one or more than three!" << endl;
+		return 0;
+	}
+    
+	Point_3D point_temp;
+	for(int i=0; i<(int)t_ratio.size(); i++)
+	{
+		point_temp.x = point0.x+(point1.x-point0.x)*t_ratio[i];
+		point_temp.y = point0.y+(point1.y-point0.y)*t_ratio[i];
+		point_temp.z = point0.z+(point1.z-point0.z)*t_ratio[i];
+		point_temp.flag = 1;		//a temporary point
+		
+		//---------------------------------------------------------------------------
+		//Error correction
+		if(fabs(point_temp.x-cub.poi_min.x)<Zero) point_temp.x = cub.poi_min.x;
+		else if(fabs(point_temp.x-cub.poi_min.x-cub.len_x)<Zero) point_temp.x = cub.poi_min.x + cub.len_x;
+        
+		if(fabs(point_temp.y-cub.poi_min.y)<Zero) point_temp.y = cub.poi_min.y;
+		else if(fabs(point_temp.y-cub.poi_min.y-cub.wid_y)<Zero) point_temp.y = cub.poi_min.y + cub.wid_y;
+        
+		if(fabs(point_temp.z-cub.poi_min.z)<Zero) point_temp.z = cub.poi_min.z;
+		else if(fabs(point_temp.z-cub.poi_min.z-cub.hei_z)<Zero) point_temp.z = cub.poi_min.z + cub.hei_z;
+        
+		//---------------------------------------------------------------------------
+		//Insert a new point
+		ipoi_vec.push_back(point_temp);
+	}
+    
+	return 1;
+}
+//---------------------------------------------------------------------------
+//To calculate the effective portion (length) which falls into the given region (RVE)
+double GenNetwork::Effective_length_given_region(const struct cuboid &cub, const Point_3D last_point, const Point_3D new_point)const
+{
+    //Check if the last point is inside the given region
+    int last_bool = Judge_RVE_including_point(cub, last_point);
+    //Check if the new point is inside the given region
+    int new_bool = Judge_RVE_including_point(cub, new_point);
+    
+    //Vector to store the intersecting point
+    vector<Point_3D> ipoi_vec;
+    
+    //Decide the corresponding case and calculate volume fraction
+    if (last_bool&&new_bool) return last_point.distance_to(new_point); //both points are inside so add the total length
+    else if (last_bool&&(!new_bool))  //if the new point is outside
+	{
+        if(Get_intersecting_point_RVE_surface(cub, last_point, new_point, ipoi_vec)==0) return 0;
+	    return last_point.distance_to(ipoi_vec[0]);
+    } 
+	else if (new_bool)  //if the new point is inside
+	{
+        if(Get_intersecting_point_RVE_surface(cub, new_point, last_point, ipoi_vec)==0) return 0;
+	    return last_point.distance_to(ipoi_vec[0]);
+    }
+	else return 0.0;
 }
 //===========================================================================
