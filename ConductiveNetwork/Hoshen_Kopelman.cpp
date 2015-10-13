@@ -20,10 +20,10 @@
         List of CNTs that are inside the observation window
     vector<double> radii
         List of radii. Using this vector allows for the code to be able to work with CNTs of different radii
-    double tunnel
-        Cutoff for tunneling
+    struct Cutoff_dist cutoffs
+        Structure that contains the cutoff for tunneling
  
- Output:
+ Output (These three are class variables):
     vector<vector<long int> > contacts_point
         Vector of point to point contacts. This is helpful for determining the resistor network on the direct electrifying algorithm
     vector<vector<int> > clusters_cnt
@@ -33,16 +33,16 @@
  */
 
 //To determinate nanotube clusters using Hoshen Kopelman Algorithm
-int Hoshen_Kopelman::Determine_nanotube_clusters(vector<vector<long int> > structure, vector<vector<long int> > sectioned_domain, vector<Point_3D> points_in, vector<int> cnts_inside, vector<double> radii, double tunnel, vector<vector<long int> > &contacts_point, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated)
+int Hoshen_Kopelman::Determine_nanotube_clusters(vector<vector<long int> > structure, vector<vector<long int> > sectioned_domain, vector<Point_3D> points_in, vector<int> cnts_inside, vector<double> radii, struct Cutoff_dist cutoffs)
 {
     //Label the CNTs and make the data structures for the direct electrifying algorithm
-    if (!Contacts_and_HK76(points_in, radii, tunnel, contacts_point, sectioned_domain)){
+    if (!Scan_sub_regions(points_in, radii, cutoffs.tunneling_dist, sectioned_domain)){
         hout << "Error in Determinate_nanotube_clusters." <<endl;
         return 0;
     }
     
     //Make the clusters
-    if (!Make_CNT_clusters(structure, points_in, cnts_inside, clusters_cnt, isolated)){
+    if (!Make_CNT_clusters(structure, points_in, cnts_inside)){
         hout << "Error in Determinate_nanotube_clusters." <<endl;
         return 0;
     }
@@ -50,7 +50,10 @@ int Hoshen_Kopelman::Determine_nanotube_clusters(vector<vector<long int> > struc
 	return 1;
 }
 
-int Hoshen_Kopelman::Contacts_and_HK76(vector<Point_3D> points_in, vector<double> radii, double tunnel, vector<vector<long int> > &contacts_point, vector<vector<long int> > sectioned_domain)
+
+//This function scans all the subregions to look for points close enough for tunneling to happen, i.e. points that are in contact.
+//When points are in contact use the Hoshen-Kopelman algorithm
+int Hoshen_Kopelman::Scan_sub_regions(vector<Point_3D> points_in, vector<double> radii, double tunnel, vector<vector<long int> > sectioned_domain)
 {
     //These ints are just to store the global point number and the CNTs they belong to.
     //They are just intermediate variables and I only use them to make the code more readable
@@ -86,8 +89,8 @@ int Hoshen_Kopelman::Contacts_and_HK76(vector<Point_3D> points_in, vector<double
                 //hout <<"P1="<<P1<<" CNT1="<<CNT1<<" P2="<<P2<<" CNT2="<<CNT2;
                 //hout <<" cutoff_t="<<cutoff_t;
                 //hout <<" CNT1="<<CNT1<<" CNT2="<<CNT2;
-                //hout<<" r1="<<radii[CNT1]<<" r2="<<radii[CNT2]<<endl;//
-                //First check if the CNTs are different. Only when they are the distance between points is calculated
+                //hout<<" r1="<<radii[CNT1]<<" r2="<<radii[CNT2]<<endl;
+                //First check if the CNTs are different. Only when the CNTs are different the distance between points is calculated
                 //In this way calculation of all distances is avoided
                 if ((CNT1!=CNT2)&&(points_in[P1].distance_to(points_in[P2]) <= cutoff_t)) {
                     //Fill the vector of contacts contacts_point 
@@ -102,18 +105,11 @@ int Hoshen_Kopelman::Contacts_and_HK76(vector<Point_3D> points_in, vector<double
             }
         }
     }
-    return 1;
-}
+    
+    //Delete repeated contacts
+    Delete_repeated_contacts();
 
-//This function checks if the point Point is in the vector region
-int Hoshen_Kopelman::Check_repeated(vector<long int> region, long int Point)
-{
-    for (long int i = 0; i < region.size(); i++) {
-        if (Point == region[i]) {
-            return 1;
-        }
-    }
-    return 0;
+    return 1;
 }
 
 //Function for the Hoshen-Kopelman (HK76) algorithm only
@@ -197,8 +193,8 @@ int Hoshen_Kopelman::Merge_labels(int root1, int root2){
     return 1;
 }
 
-//In this function
-void Hoshen_Kopelman::Delete_repeated_contacts(vector<vector<long int> > &contacts_point)
+//In this function all the contacts that are repeated due to the overlapping of subregions are discarded
+void Hoshen_Kopelman::Delete_repeated_contacts()
 {
     for (int i = 0; i < (int)contacts_point.size(); i++)
         Discard_repeated(contacts_point[i]);
@@ -218,7 +214,7 @@ void Hoshen_Kopelman::Discard_repeated(vector<long int> &vec)
 }
 
 //In this function the clusters are made using the labels from the HK76
-int Hoshen_Kopelman::Make_CNT_clusters(vector<vector<long int> > structure, vector<Point_3D> points_in, vector<int> cnts_inside, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated){
+int Hoshen_Kopelman::Make_CNT_clusters(vector<vector<long int> > structure, vector<Point_3D> points_in, vector<int> cnts_inside){
     //This vector has a map of labels in order to know which ones are proper labels
     label_map.assign(labels_labels.size(),-1);
     //This variable will be used to count the number of cluster
@@ -245,7 +241,8 @@ int Hoshen_Kopelman::Make_CNT_clusters(vector<vector<long int> > structure, vect
         CNT = cnts_inside[i];
         //Store the label in the variable
         L = labels[CNT];
-        //If a label[i] is -1, it means CNT_i is an isolated CNT
+        //If a label[i] is -1, it means CNT_i is an isolated CNT. At this point "isolated" means that the CNT is not forming a cluster
+        //although it might percolate but only when it's length is greater or equal than that of the observation window
         //Only when label[i] is diffenrent form -1, CNT_i belongs to a cluster
         if (L != -1){
             //Check if the label corresponds to a proper cluster. Otherwise find the root (i.e. proper cluster number)

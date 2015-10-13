@@ -22,20 +22,20 @@
         List of radii. Using this vector allows for the code to be able to work with CNTs of different radii
     int family
         Percoalted family to which the cluster belongs to. This will help to set up the boundary conditions
-    double resistivity
-        CNT resistivity
-    double voltage
-        Voltage applied to the sample
-    
- Output:
-    vector<int> voltages
+    struct Electric_para electric_param
+        structure that contains resistivity of CNTs and voltage applied to the sample
+ 
+ Output (These two are class variables):
+    vector<double> voltages
         Vector with the value of the voltages at every node (contact point)
     double resistances
         Electrical resistance of the network 
+    vector<vector<long int> > elements;
+        Vector with the elements for the DEA. This vector has the same size as structure. Each element is one segment of a CNT that is a resistor. Each elements[i] is a CNT and each elements[i][j] is a point. Every elements[i][0] is the first point of a CNT and every elements[i].back is the last point of that CNT. 
  */
 
 //Calculate the voltage values at contact points and endpoints
-int Direct_Electrifying::Calculate_voltage_field(vector<vector<long int> > structure, vector<vector<long int> > contacts_point, vector<vector<short int> > boundary_flags, vector<int> cluster, vector<double> radii, int family, double resistivity, double voltage, vector<int> voltages, double resistances)
+int Direct_Electrifying::Calculate_voltage_field(const vector<vector<long int> > &structure, vector<vector<long int> > &contacts_point, const vector<vector<short int> > &boundary_flags, const vector<int> &cluster, const vector<double> &radii, int family, const struct Electric_para &electric_param)
 {
     //First we need to prepare the matrices that the direct electrifying needs
     //The first matrix will be the local mapping (LM) matrix. This matrix maps from point number in the structure
@@ -44,7 +44,7 @@ int Direct_Electrifying::Calculate_voltage_field(vector<vector<long int> > struc
     vector<int> LM_matrix;
     //Initialize the size of the LM matrix to be equal to the number of points
     LM_matrix.assign(contacts_point.size(), -1);
-    vector<vector<long int> > elements;
+    
     //Initialize the size of the elements matrix to be equal to the number of CNTs
     vector<long int> empty;
     elements.assign(structure.size(), empty);
@@ -59,13 +59,16 @@ int Direct_Electrifying::Calculate_voltage_field(vector<vector<long int> > struc
     //With the LM matrix, now fill the sparse stiffness matrix
     Fill_sparse_stiffness_matrix(structure, contacts_point, cluster, global_nodes, LM_matrix, elements, col_ind, row_ptr, values, diagonal, R);
     
+    //This is where the actual direct electrifying algorithm (DEA) takes place
+    Solve_DEA_equations_CG_SSS(global_nodes, col_ind, row_ptr, values, diagonal, electric_param, R);
+    
 	return 1;
 }
 
 //Build the LM matrix and the elements matrix
 //By building the elements matrix in this step, I avoid to use the contacts_cnt_point vector that I used in previous versions
 //Also, by building it at this stage I have the nodes in order
-int Direct_Electrifying::Get_LM_matrix(vector<vector<long int> > structure, vector<vector<long int> > contacts_point, vector<vector<short int> > boundary_flags, vector<int> cluster, int family, int &global_nodes, vector<int> &LM_matrix, vector<vector<long int> > &elements)
+int Direct_Electrifying::Get_LM_matrix(const vector<vector<long int> > &structure, const vector<vector<long int> > &contacts_point, const vector<vector<short int> > &boundary_flags, const vector<int> &cluster, int family, int &global_nodes, vector<int> &LM_matrix, vector<vector<long int> > &elements)
 {
     //Variables
     int CNT;
@@ -120,7 +123,7 @@ int Direct_Electrifying::Is_in_relevant_boundary(int family, short int boundary_
 
 //This function creates the sparse stifness matrix that will be used to solve the sytem of equations
 //The sparse version is more efficient computationally speaking
-void Direct_Electrifying::Fill_sparse_stiffness_matrix(vector<vector<long int> > structure, vector<vector<long int> > contacts_point, vector<int> cluster, int nodes, vector<int> LM_matrix, vector<vector<long int> > elements, vector<long int> &col_ind, vector<long int> &row_ptr, vector<double> &values, vector<double> &diagonal, vector<double> &R)
+void Direct_Electrifying::Fill_sparse_stiffness_matrix(const vector<vector<long int> > &structure, vector<vector<long int> > &contacts_point, const vector<int> &cluster, int nodes, const vector<int> &LM_matrix, const vector<vector<long int> > &elements, vector<long int> &col_ind, vector<long int> &row_ptr, vector<double> &values, vector<double> &diagonal, vector<double> &R)
 {
     //------------------------------------------------------------------------
     //Start with the 2D vectors
@@ -138,7 +141,7 @@ void Direct_Electrifying::Fill_sparse_stiffness_matrix(vector<vector<long int> >
     
     
     //Fill the 2D matrices
-    Fill_2d_matrices(contacts_point, elements, cluster, LM_matrix, col_ind_2d, values_2d, diagonal);
+    Fill_2d_matrices(elements, cluster, LM_matrix, col_ind_2d, values_2d, diagonal, contacts_point);
 
     
     //------------------------------------------------------------------------
@@ -160,7 +163,7 @@ void Direct_Electrifying::Fill_sparse_stiffness_matrix(vector<vector<long int> >
     //Print2DVec(col_ind_2d, "col_ind_2d.txt");
 }
 
-void Direct_Electrifying::Fill_2d_matrices(vector<vector<long int> > contacts_point, vector<vector<long int> > contacts_cnt_point, vector<int> cluster, vector<int> LM_matrix, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal)
+void Direct_Electrifying::Fill_2d_matrices(const vector<vector<long int> > &elements, const vector<int> &cluster, const vector<int> &LM_matrix, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal, vector<vector<long int> > &contacts_point)
 {
     //Variables
     int CNT;
@@ -169,9 +172,9 @@ void Direct_Electrifying::Fill_2d_matrices(vector<vector<long int> > contacts_po
     //Scan every CNT in the cluster
     for (long int i = 0; i < cluster.size(); i++) {
         CNT = cluster[i];
-        for (long int j = 0; j < contacts_cnt_point[CNT].size()-1; j++) {
+        for (long int j = 0; j < elements[CNT].size()-1; j++) {
             //Find node numbers of the first two elements
-            P1 = contacts_cnt_point[CNT][j];
+            P1 = elements[CNT][j];
             node1 = LM_matrix[P1];
             //Add the elements to the sparse vectors
             Add_elements_to_sparse_stiffness(contacts_point, LM_matrix, P1, node1, j+1, col_ind_2d, values_2d, diagonal);
@@ -182,7 +185,7 @@ void Direct_Electrifying::Fill_2d_matrices(vector<vector<long int> > contacts_po
         }
         //Check if the last node has any contacts and add the corresponding contributions to the
         //stiffness matrix
-        P1 = contacts_cnt_point[CNT].back();
+        P1 = elements[CNT].back();
         node1 = LM_matrix[P1];
         Check_for_other_elements(LM_matrix, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
     }
@@ -190,7 +193,7 @@ void Direct_Electrifying::Fill_2d_matrices(vector<vector<long int> > contacts_po
 
 //Check if the current node1 has any contacts and add the corresponding contributions to the
 //stiffness matrix
-void Direct_Electrifying::Check_for_other_elements(vector<int> LM_matrix, long int P1, long int node1, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal, vector<vector<long int> > &contacts_point)
+void Direct_Electrifying::Check_for_other_elements(const vector<int> &LM_matrix, long int P1, long int node1, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal, vector<vector<long int> > &contacts_point)
 {
     if (contacts_point[P1].size()) {
         for (long int k = 0; k < contacts_point[P1].size(); k++) {
@@ -207,7 +210,7 @@ void Direct_Electrifying::Check_for_other_elements(vector<int> LM_matrix, long i
     
 }
 
-void Direct_Electrifying::Add_elements_to_sparse_stiffness(vector<vector<long int> > contacts_point, vector<int> LM_matrix, long int P1, long int node1, long int k, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal)
+void Direct_Electrifying::Add_elements_to_sparse_stiffness(const vector<vector<long int> > &contacts_point, const vector<int> &LM_matrix, long int P1, long int node1, long int k, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal)
 {
     long int P2 = contacts_point[P1][k];
     long int node2 = LM_matrix[P2];
@@ -241,7 +244,10 @@ void Direct_Electrifying::Remove_from_vector(long int num, vector<long int> &vec
         }
 }
 
-void Direct_Electrifying::From_2d_to_1d_vectors(vector<vector<long int> > col_ind_2d, vector<vector<double> > values_2d, vector<long int> &col_ind, vector<long int> &row_ptr, vector<double> &values, vector<double> &diagonal, vector<double> &R)
+
+//This function transforms the 2D vectors that contain the stiffness matrix into 1D vectors so they can be in the SSS format and
+//make the matrix-vector multiplications faster
+void Direct_Electrifying::From_2d_to_1d_vectors(const vector<vector<long int> > &col_ind_2d, const vector<vector<double> > &values_2d, vector<long int> &col_ind, vector<long int> &row_ptr, vector<double> &values, vector<double> &diagonal, vector<double> &R)
 {
     //Fill the rest of the elements
     //Nodes 0 and 1 are to be ignored
@@ -266,7 +272,7 @@ void Direct_Electrifying::From_2d_to_1d_vectors(vector<vector<long int> > col_in
 }
 
 //This function solves the equation of the electric circuit as done in the Direct Electrifing Algorithm (DEA)
-void Direct_Electrifying::Solve_DEA_equations_CG_SSS(long int nodes, vector<long int> col_ind, vector<long int> row_ptr, vector<double> values, vector<double> diagonal, vector<double> R, vector<double> &X)
+void Direct_Electrifying::Solve_DEA_equations_CG_SSS(long int nodes, const vector<long int> &col_ind, const vector<long int> &row_ptr, const vector<double> &values, const vector<double> &diagonal, const struct Electric_para &electric_param, vector<double> &R)
 {
     
     //=========================================
@@ -274,6 +280,7 @@ void Direct_Electrifying::Solve_DEA_equations_CG_SSS(long int nodes, vector<long
     
     //Voltage applied to the sample
     double voltage = (double)(nodes);
+    //double voltage = electric_param.applied_voltage;
     //double voltage = 1;
     hout << "voltage = " << voltage << endl;
     
@@ -292,11 +299,11 @@ void Direct_Electrifying::Solve_DEA_equations_CG_SSS(long int nodes, vector<long
     
     //=========================================
     // Conjugate Gradient Algorithm
-    Conjugate_gradient(nodes, col_ind, row_ptr, values, diagonal, R, P, X);
+    Conjugate_gradient(nodes, col_ind, row_ptr, values, diagonal, R, P);
     
     //The known boundary conditions are added at the beginning of solution X
-    X.insert(X.begin(), 0); //At this point, the first element is 0
-    X.insert(X.begin(), voltage); //At this point, the first element is voltage
+    voltages.insert(voltages.begin(), 0); //At this point, the first element is 0
+    voltages.insert(voltages.begin(), voltage); //At this point, the first element is voltage, and the second is 0
     /*Print2DVec(X, "voltages.txt");
     Print1DVec(col_ind, "col_ind.txt");
      Print1DVec(row_ptr, "row_ptr.txt");
@@ -306,13 +313,14 @@ void Direct_Electrifying::Solve_DEA_equations_CG_SSS(long int nodes, vector<long
 }
 
 //This function solves the system of equations using the CG gradient
-void Direct_Electrifying::Conjugate_gradient(long int nodes, vector<long int> col_ind, vector<long int> row_ptr, vector<double> values, vector<double> diagonal, vector<double> R, vector<double> P, vector<double> &X)
+void Direct_Electrifying::Conjugate_gradient(long int nodes, const vector<long int> &col_ind, const vector<long int> &row_ptr, const vector<double> &values, const vector<double> &diagonal, vector<double> &R, vector<double> &P)
 {
     //Variables of the algorithm
     vector<double> AP;
     AP.assign(nodes-2,1);
     double alpha, beta, rr0, rr;
-    X.assign(nodes-2, 1);
+    voltages.clear();
+    voltages.assign(nodes-2, 1);
     
     //Maximum number of iterations for the CG
     long int max_iter = 10*nodes;
@@ -334,7 +342,7 @@ void Direct_Electrifying::Conjugate_gradient(long int nodes, vector<long int> co
         alpha = rr0/(V_dot_v(P, AP));
         //Approximate solution
         //X = X + P*alpha;
-        V_plus_aW(P, alpha, X);
+        V_plus_aW(P, alpha, voltages);
         //Residual
         //R = R - AP*alpha;
         V_plus_aW(AP, -alpha, R);
