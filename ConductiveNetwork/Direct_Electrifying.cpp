@@ -41,7 +41,6 @@ int Direct_Electrifying::Calculate_voltage_field(const vector<vector<long int> >
     //The first matrix will be the local mapping (LM) matrix. This matrix maps from point number in the structure
     //to node number for the solver
     int global_nodes;
-    vector<int> LM_matrix;
     //Initialize the size of the LM matrix to be equal to the number of points
     LM_matrix.assign(contacts_point.size(), -1);
     

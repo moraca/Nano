@@ -19,6 +19,8 @@ public:
     vector<double> voltages;
     double resistance;
     vector<vector<long int> > elements; //This vector will store the elements. So it is needed to trim the CNTs
+    vector<int> LM_matrix;//Local mapping matrix. It maps from point number to node number. It is also used to calculate the currents
+    
     //Constructor
     Direct_Electrifying(){};
     

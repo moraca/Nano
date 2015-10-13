@@ -19,21 +19,25 @@ using namespace hns;
 #include "Hoshen_Kopelman.h"
 #include "Direct_Electrifying.h"
 #include "Backbone_Network.h"
+#include "Background_grid.h"
+#include "Contact_grid.h"
+#include "Percolation.h"
+#include "Clusters_fractions.h"
 #include "Tecplot_Export.h"
 
 //---------------------------------------------------------------------------
 class App_Network_3D
 {
-	public:
-		//Data Member
-		vector<Point_3D> cnps;			//Define 3D point verctor of nanotuber points
-		vector<double> cnts_radius;		//Define the radius of every nanotube in the network
-
-		//Constructor
-		App_Network_3D(){};
-
-		//Member Functions
-		int Create_conductive_network_3D(Input *Init)const;
+public:
+    //Data Member
+    //vector<Point_3D> cnps;			//Define 3D point verctor of nanotuber points
+    //vector<double> cnts_radius;		//Define the radius of every nanotube in the network
+    
+    //Constructor
+    App_Network_3D(){};
+    
+    //Member Functions
+    int Create_conductive_network_3D(Input *Init)const;
 };
 //---------------------------------------------------------------------------
 #endif
