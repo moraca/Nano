@@ -19,9 +19,9 @@ int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, con
 	//Generate the data for nanotube clusters limited in ellipsoid surfaces (each ellipsoid is within the RVE and is separated with each other)
 	if(clust_geo.vol_fra_criterion>0.0)
 	{
-		int seed_ellip_poi = rand()%RAND_MAX;
-		int seed_ellip_axis = rand()%RAND_MAX;
-		int seed_ellip_angle = rand()%RAND_MAX;
+		int seed_ellip_poi = rand()%MAX_INT;
+		int seed_ellip_axis = rand()%MAX_INT;
+		int seed_ellip_angle = rand()%MAX_INT;
 
 		struct cuboid cub;										//Generate a cuboid for RVE
 		cub.poi_min = geom_rve.origin;
@@ -37,12 +37,12 @@ int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, con
 
 	//---------------------------------------------------------------------------
 	//Generate random seeds for cnts
-	int seed_cnt_origin = rand()%RAND_MAX;     //RAND_MAX==2^15-1 in a 16-bit computer, the range of rand() is [0, RAND_MAX]
-	int seed_cnt_length = rand()%RAND_MAX;		//RAND_MAX==2^31-1 in a 32-bit computer, the range of rand() is [0, RAND_MAX]
-	int seed_cnt_radius = rand()%RAND_MAX;
-	int seed_cnt_sita = rand()%RAND_MAX;
-	int seed_cnt_pha = rand()%RAND_MAX;
-	int seed_growth_probability = rand()%RAND_MAX;
+	int seed_cnt_origin = rand()%MAX_INT;     //MAX_INT==2^15-1 in a 16-bit computer, the range of rand() is [0, MAX_INT]
+	int seed_cnt_length = rand()%MAX_INT;		//MAX_INT==2^31-1 in a 32-bit computer, the range of rand() is [0, MAX_INT]
+	int seed_cnt_radius = rand()%MAX_INT;
+	int seed_cnt_sita = rand()%MAX_INT;
+	int seed_cnt_pha = rand()%MAX_INT;
+	int seed_growth_probability = rand()%MAX_INT;
 
 	double vol_sum = 0;  //the sum of volume of generated CNTs 
 	double wt_sum = 0;   //the sum of weight of generated CNTs
@@ -213,25 +213,25 @@ int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, const struct Cluste
 		//Ready to generate an ellipsoid
 		struct elliparam ell_temp;
 		//Generate the center point of an ellipsoid
-		seed_poi = (2053*seed_poi + 13849)%RAND_MAX;
-		ell_temp.x=cub.poi_min.x + seed_poi*cub.len_x/RAND_MAX;
+		seed_poi = (2053*seed_poi + 13849)%MAX_INT;
+		ell_temp.x=cub.poi_min.x + seed_poi*cub.len_x/MAX_INT;
         
-		seed_poi = (2053*seed_poi + 13849)%RAND_MAX;
-		ell_temp.y=cub.poi_min.y + seed_poi*cub.wid_y/RAND_MAX;
+		seed_poi = (2053*seed_poi + 13849)%MAX_INT;
+		ell_temp.y=cub.poi_min.y + seed_poi*cub.wid_y/MAX_INT;
         
-		seed_poi = (2053*seed_poi + 13849)%RAND_MAX;
-		ell_temp.z=cub.poi_min.z + seed_poi*cub.hei_z/RAND_MAX;
+		seed_poi = (2053*seed_poi + 13849)%MAX_INT;
+		ell_temp.z=cub.poi_min.z + seed_poi*cub.hei_z/MAX_INT;
         
 		//Generate the lengths of half-axes of an ellipsoid
-		seed_axis = (2053*seed_axis + 13849)%RAND_MAX;
-		ell_temp.a=clust_geo.amin + seed_axis*(clust_geo.amax - clust_geo.amin)/RAND_MAX;
+		seed_axis = (2053*seed_axis + 13849)%MAX_INT;
+		ell_temp.a=clust_geo.amin + seed_axis*(clust_geo.amax - clust_geo.amin)/MAX_INT;
 		if(!(clust_geo.bmin==0&&clust_geo.cmin==0))
 		{
-			seed_axis = (2053*seed_axis + 13849)%RAND_MAX;
-			ell_temp.b = clust_geo.bmin + seed_axis*(ell_temp.a - clust_geo.bmin)/RAND_MAX;
+			seed_axis = (2053*seed_axis + 13849)%MAX_INT;
+			ell_temp.b = clust_geo.bmin + seed_axis*(ell_temp.a - clust_geo.bmin)/MAX_INT;
             
-			seed_axis = (2053*seed_axis + 13849)%RAND_MAX;
-			ell_temp.c = clust_geo.cmin + seed_axis*(ell_temp.b - clust_geo.cmin)/RAND_MAX;
+			seed_axis = (2053*seed_axis + 13849)%MAX_INT;
+			ell_temp.c = clust_geo.cmin + seed_axis*(ell_temp.b - clust_geo.cmin)/MAX_INT;
 		}
 		else
 		{
@@ -241,34 +241,34 @@ int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, const struct Cluste
         
 		//Generate 9 angles: [(alpha1,beta1,gamma1),(alpha2,beta2,gamma2),(alpha3,beta3,gamma3)]  
 		//between three axes of ellipsoid (a,b,c) with three coordinate axes (ox,oy,oz)
-		seed_angle = (2053*seed_angle + 13849)%RAND_MAX;
-		double alpha1 = seed_angle*PI/RAND_MAX;
+		seed_angle = (2053*seed_angle + 13849)%MAX_INT;
+		double alpha1 = seed_angle*PI/MAX_INT;
 		double beta1 = 0;
 		if(alpha1>PI/2.0)
 		{
-			seed_angle = (2053*seed_angle + 13849)%RAND_MAX;
-			beta1 = (alpha1-PI/2.0) + seed_angle*2*(PI-alpha1)/RAND_MAX;
+			seed_angle = (2053*seed_angle + 13849)%MAX_INT;
+			beta1 = (alpha1-PI/2.0) + seed_angle*2*(PI-alpha1)/MAX_INT;
 		}
 		else
 		{
-			seed_angle	= (2053*seed_angle + 13849)%RAND_MAX;
-			beta1 = (PI/2.0-alpha1) + seed_angle*2*alpha1/RAND_MAX;
+			seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
+			beta1 = (PI/2.0-alpha1) + seed_angle*2*alpha1/MAX_INT;
 		}
         
 		ell_temp.alpha1	=	cos(alpha1);																//alpha1 is chosen from (0, PI)
 		ell_temp.beta1	=	cos(beta1);																//beta1 is chosen from (pi/2-r1) to (pi/2+r1)
-		seed_angle	= (2053*seed_angle + 13849)%RAND_MAX;
+		seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
 		ell_temp.gamma1 = pow(-1.0, fmod(seed_angle, 2.0)+1.0)*sqrt(1.0-pow(ell_temp.alpha1,2)-pow(ell_temp.beta1,2));	 //Calculate the value of gamma but randomly choose "positive" or "negative"
 		double alpha2 = 0;																					//alpha2 is chosen from (pi/2-r1) to (pi/2+r1)
 		if(alpha1>PI/2.0)
 		{
-			seed_angle	= (2053*seed_angle + 13849)%RAND_MAX;
-			alpha2  = (alpha1-PI/2.0) + seed_angle*2*(PI-alpha1)/RAND_MAX;
+			seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
+			alpha2  = (alpha1-PI/2.0) + seed_angle*2*(PI-alpha1)/MAX_INT;
 		}
 		else
 		{
-			seed_angle	= (2053*seed_angle + 13849)%RAND_MAX;
-			alpha2  = (PI/2.0-alpha1) + seed_angle*2*alpha1/RAND_MAX;
+			seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
+			alpha2  = (PI/2.0-alpha1) + seed_angle*2*alpha1/MAX_INT;
 		}
 		ell_temp.alpha2 = cos(alpha2);
         
@@ -277,7 +277,7 @@ int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, const struct Cluste
 		B = 2*(ell_temp.alpha1*ell_temp.alpha2*ell_temp.beta1)/pow(ell_temp.gamma1,2);
 		C = pow(ell_temp.alpha1*ell_temp.alpha2/ell_temp.gamma1,2)+pow(ell_temp.alpha2,2)-1.0;
         
-		seed_angle	= (2053*seed_angle + 13849)%RAND_MAX;
+		seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
 		ell_temp.beta2 = (-B+pow(-1.0, fmod(seed_angle,2.0)+1)*sqrt(pow(B,2)-4*A*C))/(2*A);
 		ell_temp.gamma2 = -(ell_temp.beta1/ell_temp.gamma1)*ell_temp.beta2-(ell_temp.alpha1*ell_temp.alpha2/ell_temp.gamma1);
 		
@@ -522,34 +522,34 @@ int GenNetwork::Get_spherical_clusters_regular_arrangement(const struct cuboid &
                 
 				//Generate 9 angles: [(alpha1,beta1,gamma1),(alpha2,beta2,gamma2),(alpha3,beta3,gamma3)]  
 				//between three axes of ellipsoid (a,b,c) with three coordinate axes (ox,oy,oz)
-				seed_angle = (2053*seed_angle + 13849)%RAND_MAX;
-				double alpha1 = seed_angle*PI/RAND_MAX;
+				seed_angle = (2053*seed_angle + 13849)%MAX_INT;
+				double alpha1 = seed_angle*PI/MAX_INT;
 				double beta1 = 0;
 				if(alpha1>PI/2.0)
 				{
-					seed_angle = (2053*seed_angle + 13849)%RAND_MAX;
-					beta1 = (alpha1-PI/2.0) + seed_angle*2*(PI-alpha1)/RAND_MAX;
+					seed_angle = (2053*seed_angle + 13849)%MAX_INT;
+					beta1 = (alpha1-PI/2.0) + seed_angle*2*(PI-alpha1)/MAX_INT;
 				}
 				else
 				{
-					seed_angle	= (2053*seed_angle + 13849)%RAND_MAX;
-					beta1 = (PI/2.0-alpha1) + seed_angle*2*alpha1/RAND_MAX;
+					seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
+					beta1 = (PI/2.0-alpha1) + seed_angle*2*alpha1/MAX_INT;
 				}
                 
 				ell_temp.alpha1	=	cos(alpha1);																//alpha1 is chosen from (0, PI)
 				ell_temp.beta1	=	cos(beta1);																//beta1 is chosen from (pi/2-r1) to (pi/2+r1)
-				seed_angle	= (2053*seed_angle + 13849)%RAND_MAX;
+				seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
 				ell_temp.gamma1 = pow(-1.0, fmod(seed_angle, 2.0)+1.0)*sqrt(1.0-pow(ell_temp.alpha1,2)-pow(ell_temp.beta1,2));	  //Calculate the value of gamma but randomly choose "positive" or "negative"
 				double alpha2 = 0;																					//alpha2 is chosen from (pi/2-r1) to (pi/2+r1)
 				if(alpha1>PI/2.0)
 				{
-					seed_angle	= (2053*seed_angle + 13849)%RAND_MAX;
-					alpha2  = (alpha1-PI/2.0) + seed_angle*2*(PI-alpha1)/RAND_MAX;
+					seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
+					alpha2  = (alpha1-PI/2.0) + seed_angle*2*(PI-alpha1)/MAX_INT;
 				}
 				else
 				{
-					seed_angle	= (2053*seed_angle + 13849)%RAND_MAX;
-					alpha2  = (PI/2.0-alpha1) + seed_angle*2*alpha1/RAND_MAX;
+					seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
+					alpha2  = (PI/2.0-alpha1) + seed_angle*2*alpha1/MAX_INT;
 				}
 				ell_temp.alpha2 = cos(alpha2);
                 
@@ -558,7 +558,7 @@ int GenNetwork::Get_spherical_clusters_regular_arrangement(const struct cuboid &
 				B = 2*(ell_temp.alpha1*ell_temp.alpha2*ell_temp.beta1)/pow(ell_temp.gamma1,2);
 				C = pow(ell_temp.alpha1*ell_temp.alpha2/ell_temp.gamma1,2)+pow(ell_temp.alpha2,2)-1.0;
                 
-				seed_angle	= (2053*seed_angle + 13849)%RAND_MAX;
+				seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
 				ell_temp.beta2 = (-B+pow(-1.0, fmod(seed_angle,2.0)+1)*sqrt(pow(B,2)-4*A*C))/(2*A);
 				ell_temp.gamma2 = -(ell_temp.beta1/ell_temp.gamma1)*ell_temp.beta2-(ell_temp.alpha1*ell_temp.alpha2/ell_temp.gamma1);
                 
@@ -607,18 +607,18 @@ int GenNetwork::Get_random_value(const string &dist_type, const double &min, con
     
 	if(dist_type=="uniform")	//uniform distribution
 	{
-		seed = (2053*seed + 13849)%RAND_MAX;
-		value = seed*(max-min)/RAND_MAX + min;
+		seed = (2053*seed + 13849)%MAX_INT;
+		value = seed*(max-min)/MAX_INT + min;
 	}
 	else if(dist_type=="normal")	//normal distribution
 	{
 		int sum=0;
 		for(int i=0; i<12; i++)
 		{
-			seed = (2053*seed + 13849)%RAND_MAX;
+			seed = (2053*seed + 13849)%MAX_INT;
 			sum += seed;
 		}
-		value = ((double)sum/RAND_MAX-6.0)*(max-min)/12.0 + 0.5*(max+min);
+		value = ((double)sum/MAX_INT-6.0)*(max-min)/12.0 + 0.5*(max+min);
 	}
 
 	return 1;
@@ -627,14 +627,14 @@ int GenNetwork::Get_random_value(const string &dist_type, const double &min, con
 //Randomly generate a seed (original point) of a CNT in the RVE
 int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed, Point_3D &point)const
 {
-	seed = (2053*seed + 13849)%RAND_MAX;
-	point.x = cub.poi_min.x + seed*cub.len_x/RAND_MAX;
+	seed = (2053*seed + 13849)%MAX_INT;
+	point.x = cub.poi_min.x + seed*cub.len_x/MAX_INT;
     
-	seed = (2053*seed + 13849)%RAND_MAX;
-	point.y = cub.poi_min.y + seed*cub.wid_y/RAND_MAX;
+	seed = (2053*seed + 13849)%MAX_INT;
+	point.y = cub.poi_min.y + seed*cub.wid_y/MAX_INT;
     
-	seed = (2053*seed + 13849)%RAND_MAX;
-	point.z = cub.poi_min.z + seed*cub.hei_z/RAND_MAX;
+	seed = (2053*seed + 13849)%MAX_INT;
+	point.z = cub.poi_min.z + seed*cub.hei_z/MAX_INT;
     
 	point.flag = 0; //0 denotes this point is the original point of a CNT
     
@@ -647,18 +647,18 @@ int GenNetwork::Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, i
 	if(nanotube_geo.dir_distrib_type=="random")
 	{
 		//sita is chosen in [0, PI] with uniform distribution
-		seed_sita = (2053*seed_sita + 13849)%RAND_MAX;
-		cnt_sita = seed_sita*PI/RAND_MAX;
+		seed_sita = (2053*seed_sita + 13849)%MAX_INT;
+		cnt_sita = seed_sita*PI/MAX_INT;
         
 		//pha is chosen in [0, 2PI] with uniform distribution
-		seed_pha = (2053*seed_pha + 13849)%RAND_MAX;
-		cnt_pha = 2.0*seed_pha*PI/RAND_MAX;
+		seed_pha = (2053*seed_pha + 13849)%MAX_INT;
+		cnt_pha = 2.0*seed_pha*PI/MAX_INT;
 	}
 	else if(nanotube_geo.dir_distrib_type=="specific")
 	{
 		//A specific original-direction
-		seed_sita = (2053*seed_sita + 13849)%RAND_MAX;
-		seed_pha = (2053*seed_pha + 13849)%RAND_MAX;
+		seed_sita = (2053*seed_sita + 13849)%MAX_INT;
+		seed_pha = (2053*seed_pha + 13849)%MAX_INT;
         
 		if((seed_sita+seed_pha)%2==0)
 		{
@@ -706,14 +706,14 @@ int GenNetwork::Get_normal_direction(const double &omega, int &seed_sita, int &s
 	int sum=0;
 	for(int i=0; i<12; i++)
 	{
-		seed_sita = (2053*seed_sita + 13849)%RAND_MAX;
+		seed_sita = (2053*seed_sita + 13849)%MAX_INT;
 		sum += seed_sita;
 	}
-	cnt_sita = fabs((sum*omega)/(6.0*RAND_MAX)-omega);
+	cnt_sita = fabs((sum*omega)/(6.0*MAX_INT)-omega);
     
 	//pha satisfies a uniform distribution in (0, 2PI)
-	seed_pha = (2053*seed_pha + 13849)%RAND_MAX;
-	cnt_pha = 2.0*seed_pha*PI/RAND_MAX;
+	seed_pha = (2053*seed_pha + 13849)%MAX_INT;
+	cnt_pha = 2.0*seed_pha*PI/MAX_INT;
 
 	return 1;
 }

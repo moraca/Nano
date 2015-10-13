@@ -81,7 +81,15 @@ int Input::Data_Initialization()
 	geom_rve.len_x = 1.0;
 	geom_rve.wid_y = 1.0;
 	geom_rve.hei_z = 1.0;
+	geom_rve.ex_origin.x = 0.0;
+	geom_rve.ex_origin.y = 0.0;
+	geom_rve.ex_origin.z = 0.0;
+	geom_rve.ex_origin.flag = 0;
+	geom_rve.ex_len = 1.0;
+	geom_rve.ey_wid = 1.0;
+	geom_rve.ez_hei = 1.0;
 	geom_rve.volume = geom_rve.len_x*geom_rve.wid_y*geom_rve.hei_z;
+	geom_rve.density = 1.0;
 	geom_rve.gs_minx = 1.0;
 	geom_rve.gs_miny = 1.0;
 	geom_rve.gs_minz = 1.0;
@@ -208,7 +216,7 @@ int Input::Read_rve_geometry(struct Geom_RVE &geom_rve, ifstream &infile)
 	istringstream istr0(Get_Line(infile));
 	istr0 >> geom_rve.origin.x >> geom_rve.origin.y >> geom_rve.origin.z;
 	istr0 >> geom_rve.len_x >> geom_rve.wid_y >> geom_rve.hei_z;
-	if(geom_rve.len_x<0||geom_rve.wid_y<0||geom_rve.hei_z<0)
+	if(geom_rve.len_x<=0||geom_rve.wid_y<=0||geom_rve.hei_z<=0)
 	{
 		cout << "Error: the sizes of RVE should be positive!" << endl;
 		hout << "Error: the sizes of RVE should be positive!" << endl;
@@ -225,21 +233,21 @@ int Input::Read_rve_geometry(struct Geom_RVE &geom_rve, ifstream &infile)
 	istringstream istr3(Get_Line(infile));
 	istr3 >> geom_rve.win_min_x >> geom_rve.win_min_y >> geom_rve.win_min_z;
 
-	if(geom_rve.win_max_x<0.0||geom_rve.win_max_y<0.0||geom_rve.win_max_z<0.0||
+	if(geom_rve.win_max_x<=0.0||geom_rve.win_max_y<=0.0||geom_rve.win_max_z<=0.0||
 	   geom_rve.win_max_x>geom_rve.len_x||geom_rve.win_max_y>geom_rve.wid_y||geom_rve.win_max_y>geom_rve.hei_z)
 	{
 		cout << "Error: the win_max in each direction of RVE should be positive and must be smaller than the size of RVE." << endl;
 		hout << "Error: the win_max in each direction of RVE should be positive and must be smaller than the size of RVE." << endl;
 		return 0;
 	}
-	if(geom_rve.win_min_x<0.0||geom_rve.win_min_y<0.0||geom_rve.win_min_z<0.0||
+	if(geom_rve.win_min_x<=0.0||geom_rve.win_min_y<=0.0||geom_rve.win_min_z<=0.0||
 	   geom_rve.win_min_x>geom_rve.win_max_x||geom_rve.win_min_y>geom_rve.win_max_y||geom_rve.win_min_z>geom_rve.win_max_z)
 	{
 		cout << "Error: the win_min in each direction of RVE should be positive and must be smaller than max." << endl;
 		hout << "Error: the win_min in each direction of RVE should be positive and must be smaller than max." << endl;
 		return 0;
 	}
-	if(geom_rve.win_delt_x<0.0||geom_rve.win_delt_y<0.0||geom_rve.win_delt_z<0.0)
+	if(geom_rve.win_delt_x<=0.0||geom_rve.win_delt_y<=0.0||geom_rve.win_delt_z<=0.0)
 	{
 		cout << "Error: the win_delt in each direction of RVE should be positive." << endl;
 		hout << "Error: the win_delt in each direction of RVE should be positive." << endl;

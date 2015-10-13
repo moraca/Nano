@@ -16,6 +16,8 @@
 #include "MathMatrix.h"
 using namespace hns;
 
+const int MAX_INT = 65536; //2^16 for calculating a random number
+
 //---------------------------------------------------------------------------
 //The definition for points in 3D
 class Point_3D
