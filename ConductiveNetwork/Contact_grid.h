@@ -6,8 +6,8 @@
 //E-MAIL:			fei.han@kaust.edu.sa	;	angel.mora@kaust.edu.sa
 //====================================================================================
 
-#ifndef __Nanocode_clean__Contact_grid__
-#define __Nanocode_clean__Contact_grid__
+#ifndef CONTACT_GRID_H
+#define CONTACT_GRID_H
 
 #include <iostream>
 

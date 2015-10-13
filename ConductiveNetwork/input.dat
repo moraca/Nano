@@ -80,7 +80,7 @@ uniform 0.005000 0.005000
 %or if you input "wt", the weight fraction is the criterion and the mode of accumulation and the linear density (1E-12g/'nu'm) of CNT and the density (1E-12g/'nu'm^3)of polymer are needed.
 %the mode of accumulation: 0 means every sample uses the same fraction; 1 or 2 mean every sample uses the accumulated fraction by different ways
 %wt 0.005 0 5.8E-5 1.06
-vol 0.005000 0
+vol 0.0005000 0
 %--------------------------------To end
 %
 %

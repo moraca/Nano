@@ -6,8 +6,8 @@
 //E-MAIL:			fei.han@kaust.edu.sa	;	angel.mora@kaust.edu.sa
 //====================================================================================
 
-#ifndef __Nanocode_clean__Background_grid__
-#define __Nanocode_clean__Background_grid__
+#ifndef BACKGROUND_GRID_H
+#define BACKGROUND_GRID_H
 
 #include <iostream>
 

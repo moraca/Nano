@@ -839,4 +839,235 @@ double GenNetwork::Effective_length_given_region(const struct cuboid &cub, const
     }
 	else return 0.0;
 }
+//---------------------------------------------------------------------------
+//Checking the angle between two segments in one nanotube (if less than PI/2, provide an alarm)
+int GenNetwork::CNTs_quality_testing(const vector<vector<Point_3D> > &cnts_points)const
+{
+	//---------------------------------------------------------------------------
+	//Checking the angle between two segments
+	for(int i=0; i<(int)cnts_points.size(); i++)
+	{
+		for (int j=1; j<(int)cnts_points[i].size()-1; j++)
+		{
+			double x01 = cnts_points[i][j-1].x - cnts_points[i][j].x;
+			double y01 = cnts_points[i][j-1].y - cnts_points[i][j].y;
+			double z01 = cnts_points[i][j-1].z - cnts_points[i][j].z;
+			
+			double x21 = cnts_points[i][j+1].x - cnts_points[i][j].x;
+			double y21 = cnts_points[i][j+1].y - cnts_points[i][j].y;
+			double z21 = cnts_points[i][j+1].z - cnts_points[i][j].z;
+
+			//Checking the angle between two segments (nod21ºÍnod01)
+			double cos_ang210 = (x21*x01+y21*y01+z21*z01)/(sqrt(x21*x21+y21*y21+z21*z21)*sqrt(x01*x01+y01*y01+z01*z01));
+
+			//Judge the cos value(<= 90degree and >=0degree£¬cos value<=1.0 and >=0.0)
+			if(cos_ang210<=1.0&&cos_ang210>=0.0)
+			{
+				hout << "Error: there exists at least one angle which is larger than PI/2!" << endl;
+				return 0;
+			}
+		}
+	}
+
+	return 1;
+}
+//---------------------------------------------------------------------------
+//Generate the nodes and tetrahedron elements of nanotubes (No const following this function because a sum operation on two Point_3D points inside)
+int GenNetwork::Generate_cnts_nodes_elements(vector<vector<Node> > &nodes, vector<vector<Element> > &eles, const vector<vector<Point_3D> > &cnts_points, const vector<double> &cnts_radius)
+{
+	//Looping the generated nanotubes
+	for(int i=0; i<(int)cnts_points.size(); i++)
+	{
+		vector<Node> nod_temp;
+		vector<Element> ele_temp;
+
+		const int cps = (int)cnts_points[i].size();
+		for(int j=0; j<cps; j++)
+		{
+			//Calculate the normal vector of the plane
+			Point_3D plane_normal;
+			if(j==0)
+			{
+				plane_normal.x = cnts_points[i][j].x - cnts_points[i][j+1].x;
+				plane_normal.y = cnts_points[i][j].y - cnts_points[i][j+1].y;
+				plane_normal.z = cnts_points[i][j].z - cnts_points[i][j+1].z;
+			}
+			else if(j==cps-1)
+			{
+				plane_normal.x = cnts_points[i][j-1].x - cnts_points[i][j].x;
+				plane_normal.y = cnts_points[i][j-1].y - cnts_points[i][j].y;
+				plane_normal.z = cnts_points[i][j-1].z - cnts_points[i][j].z;
+			}
+			else
+			{
+				const Point_3D vect[3] = { cnts_points[i][j-1], cnts_points[i][j], cnts_points[i][j+1] };
+				const double A = pow(vect[0].x-vect[1].x,2)+pow(vect[0].y-vect[1].y,2)+pow(vect[0].z-vect[1].z,2);
+				const double B = pow(vect[2].x-vect[1].x,2)+pow(vect[2].y-vect[1].y,2)+pow(vect[2].z-vect[1].z,2);
+				const double tt = sqrt(A/B);
+
+				//Coordinate transformation to find the intersection points
+				double x, y, z;
+				x=vect[1].x+tt*(vect[2].x-vect[1].x);
+				y=vect[1].y+tt*(vect[2].y-vect[1].y);
+				z=vect[1].z+tt*(vect[2].z-vect[1].z);
+
+				plane_normal.x = vect[0].x - x;
+				plane_normal.y = vect[0].y - y;
+				plane_normal.z = vect[0].z - z;
+			}
+			//The center point of the circle on the plane
+			Point_3D plane_center = cnts_points[i][j];
+
+			//Define the number of sections along the circumference
+			const int num_sec = 36;
+			if(j==0)
+			{
+				double normal_sita, normal_pha;  //Direction angles
+				//Calculate the angles of the normal verctor of the plane in the spherical coordinate
+				if(Get_angles_vector_in_spherial_coordinates(plane_normal, normal_sita, normal_pha)==0) return 0;
+
+				//Calculate a group of equidistant points along the circumference which is on the plane defined by the center point of the circle and the normal vector
+				if(Get_points_circle_in_plane(plane_center, normal_sita, normal_pha, cnts_radius[i], num_sec, nod_temp)==0) return 0;
+			}
+			else
+			{
+				//Calculate a group of projected points (which are on the plane with the center point of the circle and the normal vector) 
+				//which are projected from a group of points on the previous circumference and projected along the direction of line_vec
+				Point_3D line_vec;
+				line_vec.x = cnts_points[i][j-1].x - cnts_points[i][j].x;
+				line_vec.y = cnts_points[i][j-1].y - cnts_points[i][j].y;
+				line_vec.z = cnts_points[i][j-1].z - cnts_points[i][j].z;
+				if(Get_projected_points_in_plane(plane_center, plane_normal, line_vec, num_sec, nod_temp)==0) return 0;
+			}
+
+			//Generate a vector of elements
+			if(j!=0)
+			{
+				int nodes_num[6];
+				nodes_num[0] = (j-1)*(num_sec+1);   //The number of the center
+				nodes_num[3] = j*(num_sec+1);
+				for(int k=1; k<=num_sec; k++)
+				{
+					nodes_num[1] = (j-1)*(num_sec+1) + k;
+					nodes_num[2] = (j-1)*(num_sec+1) + 1 + k%num_sec;
+					nodes_num[4] = j*(num_sec+1) + k;
+					nodes_num[5] = j*(num_sec+1) + 1 + k%num_sec;
+
+					Element eles_num[3];
+					//----------------------------------------------------------------
+					//Insert the numbers of nodes to the elements
+					eles_num[0].nodes_id.push_back(nodes_num[0]);
+					eles_num[0].nodes_id.push_back(nodes_num[1]);
+					eles_num[0].nodes_id.push_back(nodes_num[2]);
+					eles_num[0].nodes_id.push_back(nodes_num[3]);
+
+					eles_num[1].nodes_id.push_back(nodes_num[1]);
+					eles_num[1].nodes_id.push_back(nodes_num[2]);
+					eles_num[1].nodes_id.push_back(nodes_num[3]);
+					eles_num[1].nodes_id.push_back(nodes_num[5]);
+
+					eles_num[2].nodes_id.push_back(nodes_num[1]);
+					eles_num[2].nodes_id.push_back(nodes_num[3]);
+					eles_num[2].nodes_id.push_back(nodes_num[4]);
+					eles_num[2].nodes_id.push_back(nodes_num[5]);
+					//----------------------------------------------------------------
+					//Insert the number of elements to element vector
+					ele_temp.push_back(eles_num[0]);
+					ele_temp.push_back(eles_num[1]);
+					ele_temp.push_back(eles_num[2]);
+				}
+			}
+		}
+
+		nodes.push_back(nod_temp);
+		eles.push_back(ele_temp);
+	}
+
+	return 1;
+}
+//---------------------------------------------------------------------------
+//Calculate the angles of a verctor in the spherical coordinate
+int GenNetwork::Get_angles_vector_in_spherial_coordinates(const Point_3D &normal, double &sita, double &pha)const
+{
+	if(normal.x==0&&normal.y==0&&normal.z==0) { hout << "Error, three elements of the vector are all zero!" << endl; return 0; }
+	sita =  acos(normal.z/sqrt(normal.x*normal.x+normal.y*normal.y+normal.z*normal.z));
+	if(normal.x==0&&normal.y==0) pha = 0;
+	else if(normal.y>=0) pha = acos(normal.x/sqrt(normal.x*normal.x+normal.y*normal.y));
+	else if(normal.y<0) pha = 2*PI - acos(normal.x/sqrt(normal.x*normal.x+normal.y*normal.y));
+
+	return 1;
+}
+//---------------------------------------------------------------------------
+//Calculate a group of equidistant points along the circumference which is on the plane defined by the center point of the circle and the normal vector
+int GenNetwork::Get_points_circle_in_plane(const Point_3D &center, const double &trans_sita, const double &trans_pha, const double &radius, const int &num_sec, vector<Node> &nod_temp)const
+{
+	//Insert the center point firstly
+	Node new_node(center.x, center.y, center.z);
+	nod_temp.push_back(new_node);
+
+	//Define the transformation matrix
+	MathMatrix trans_mat(3,3);
+	trans_mat = Get_transformation_matrix(trans_sita, trans_pha);
+
+	//1D vector defined by a matrix
+	MathMatrix Rvec(3,1);
+	Rvec.element[0][0] = 0;
+	Rvec.element[1][0] = 0;
+	Rvec.element[2][0] = radius;
+
+	//1D vector defined by a matrix
+	MathMatrix Res(3,1);
+
+	double sita, pha;
+	sita = 0.5*PI;	//Defined on the XOY plane
+	for(int i=0; i<num_sec; i++)
+	{
+		pha = i*2*PI/num_sec;
+		MathMatrix matrix_temp = trans_mat*Get_transformation_matrix(sita, pha);
+		Res = matrix_temp*Rvec;
+
+		new_node.x = center.x + Res.element[0][0];
+		new_node.y = center.y + Res.element[1][0];
+		new_node.z = center.z + Res.element[2][0]; 
+
+		//Insert the points on the circumference
+		nod_temp.push_back(new_node);
+	}
+	
+	return 1;
+}
+//---------------------------------------------------------------------------
+//Calculate a group of projected points (which are on the plane with the center point of the circle and the normal vector) 
+//which are projected from a group of points on the previous circumference and projected along the direction of line_vec
+int GenNetwork::Get_projected_points_in_plane(const Point_3D &center, const Point_3D &normal, const Point_3D &line, const int &num_sec, vector<Node> &nod_temp)const
+{
+	//Record the total number of nodes after the previous generation
+	const int nod_size = (int)nod_temp.size();  
+
+	//Insert the center point
+	Node new_node(center.x, center.y, center.z);
+	nod_temp.push_back(new_node);
+
+	const double vectors_dot_product = normal.x*line.x+normal.y*line.y+normal.z*line.z;
+
+	if(vectors_dot_product==0.0) 
+	{
+		//Corresponding to three points: number 0, 1 and 2, the peak of this angle is at the point number 1. 
+		hout << "Error: these two normal vectors are perpendicular to each other!" << endl;
+		return 0; 
+	}
+
+	for(int i=num_sec; i>0; i--)
+	{
+		Point_3D point(center.x-nod_temp[nod_size-i].x, center.y-nod_temp[nod_size-i].y, center.z-nod_temp[nod_size-i].z);
+		new_node.x = nod_temp[nod_size-i].x + (normal.x*point.x+normal.y*point.y+normal.z*point.z)*line.x/ vectors_dot_product;
+		new_node.y = nod_temp[nod_size-i].y + (normal.x*point.x+normal.y*point.y+normal.z*point.z)*line.y/ vectors_dot_product;
+		new_node.z = nod_temp[nod_size-i].z + (normal.x*point.x+normal.y*point.y+normal.z*point.z)*line.z/ vectors_dot_product;
+
+		//Insert the points on the circumference
+		nod_temp.push_back(new_node);
+	}
+
+	return 1;
+}
 //===========================================================================

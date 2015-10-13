@@ -38,6 +38,10 @@ class GenNetwork
 		//Member Functions
 		int Generate_geometric_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, 
 															vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const;
+		//Checking the angle between two segments in one nanotube (if less than PI/2, provide an alarm)
+		int CNTs_quality_testing(const vector<vector<Point_3D> > &cnts_points)const;
+		//Generate the nodes and tetrahedron elements of nanotubes (No const following this function because a sum operation on two Point_3D points inside)
+		int Generate_cnts_nodes_elements(vector<vector<Node> > &nodes, vector<vector<Element> > &eles, const vector<vector<Point_3D> > &cnts_points, const vector<double> &cnts_radius);
 
 	private:
 		//Data Member
@@ -70,6 +74,14 @@ class GenNetwork
 		int Get_intersecting_point_RVE_surface(const struct cuboid &cub, const Point_3D &point0, const Point_3D &point1, vector<Point_3D> &ipoi_vec)const;
 		//To calculate the effective portion (length) which falls into the given region (RVE)
 		double Effective_length_given_region(const struct cuboid &cub, const Point_3D last_point, const Point_3D new_point)const;
+		//Calculate the angles of a verctor in the spherical coordinate
+		int Get_angles_vector_in_spherial_coordinates(const Point_3D &normal, double &sita, double &pha)const;
+		//Calculate a group of equidistant points along the circumference which is on the plane defined by the center point of the circle and the normal vector
+		int Get_points_circle_in_plane(const Point_3D &center, const double &sita, const double &pha, const double &radius, const int &num_sec, vector<Node> &nod_temp)const;
+		//Calculate a group of projected points (which are on the plane with the center point of the circle and the normal vector) 
+		//which are projected from a group of points on the previous circumference and projected along the direction of line_vec
+		int Get_projected_points_in_plane(const Point_3D &center, const Point_3D &normal, const Point_3D &line, const int &num_sec, vector<Node> &nod_temp)const;
+
 };
 //-------------------------------------------------------
 #endif

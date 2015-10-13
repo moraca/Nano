@@ -25,6 +25,24 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
 	GenNetwork *Genet = new GenNetwork;
 	if(Genet->Generate_geometric_networks(Init->geom_rve, Init->cluster_geo, Init->nanotube_geo, cnts_points, cnts_radius)==0) return 0;
 
+	//Checking the angle between two segments in one nanotube (if less than PI/2, provide an alarm)
+	if(Genet->CNTs_quality_testing(cnts_points)==0) return 0;
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//A new class of Tecplot_Export
+	Tecplot_Export *Tecexpt = new Tecplot_Export;
+
+	struct cuboid cub;														//Generate a cuboid for RVE
+	cub.poi_min = Init->geom_rve.ex_origin;
+	cub.len_x = Init->geom_rve.ex_len;
+	cub.wid_y = Init->geom_rve.ey_wid;
+	cub.hei_z = Init->geom_rve.ez_hei;
+
+	//The geometric structure of CNT network (by threads in Tecplot)
+	if(Tecexpt->Export_network_threads(cub, cnts_points)==0) return 0;
+	//The geometric structure of CNT network (by tetrahedron meshes in Tecplot) //Attention: little parts of nanotube volumes out of the cuboid
+	if(Tecexpt->Export_cnt_network_meshes(cub, cnts_points, cnts_radius)==0) return 0;
+
 	ct1 = time(NULL);
 	hout << "Network generation time: "<<(int)(ct1-ct0)<<" secs."<<endl;
 	hout << "^_^ End of network generation with overlapping."<<endl<<endl;
@@ -32,7 +50,7 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
 	//-----------------------------------------------------------------------------------------------------------------------------------------
 	//Determine the local networks in cutoff windons
 	Cutoff_Wins *Cutwins = new Cutoff_Wins;
-	if(Cutwins->Generate_background_grids(Init)==0) return 0;
+//	if(Cutwins->Generate_background_grids(Init)==0) return 0;
 
 	for(int i=0; i<=Init->geom_rve.cut_num; i++)
 	{

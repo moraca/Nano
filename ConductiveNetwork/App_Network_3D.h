@@ -19,6 +19,7 @@ using namespace hns;
 #include "Hoshen_Kopelman.h"
 #include "Direct_Electrifying.h"
 #include "Backbone_Network.h"
+#include "Tecplot_Export.h"
 
 //---------------------------------------------------------------------------
 class App_Network_3D
