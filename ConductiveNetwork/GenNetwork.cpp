@@ -8,8 +8,44 @@
 
 #include "GenNetwork.h"
 
-//Generate 3D networks with ovelapping
-int GenNetwork::Generate_geometric_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, 
+//Generate 3D nantube networks with ovelapping
+int GenNetwork::Generate_nanotube_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, 
+																		vector<Point_3D> &cpoints, vector<double> &cnts_radius, vector<vector<long int> > &cstructures)const
+{
+	//Define a two-dimensional vector of three-dimensional points for storing the CNT threads
+	vector<vector<Point_3D> > cnts_points;
+
+	//Generate a network defined by points and connections 
+	if(Generate_network_threads(geom_rve, clust_geo, nanotube_geo, cnts_points, cnts_radius)==0) return 0;
+    
+    //Checking the angle between two segments in one nanotube (if less than PI/2, provide an alarm)
+    if(CNTs_quality_testing(cnts_points)==0) return 0;
+    
+	//-----------------------------------------------------------------------------------------------------------------------------------------
+	//Transform the 2D cnts_points into 1D cpoints and 2D cstructuers
+	if(Transform_cnts_points(cnts_points, cpoints, cstructures)==0) return 0;
+
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+    //A new class of Tecplot_Export
+    Tecplot_Export *Tecexpt = new Tecplot_Export;
+    
+    struct cuboid cub;														//Generate a cuboid for RVE
+    cub.poi_min = geom_rve.ex_origin;
+    cub.len_x = geom_rve.ex_len;
+    cub.wid_y = geom_rve.ey_wid;
+    cub.hei_z = geom_rve.ez_hei;
+    
+    //The geometric structure of CNT network (by threads in Tecplot)
+    if(Tecexpt->Export_network_threads(cub, cnts_points)==0) return 0;
+
+    //The geometric structure of CNT network (by tetrahedron meshes in Tecplot) //Attention: little parts of nanotube volumes out of the cuboid
+    if(Tecexpt->Export_cnt_network_meshes(cub, cnts_points, cnts_radius)==0) return 0;
+
+	return 1;
+}
+
+//Generate a network defined by points and connections 
+int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, 
 																		vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const
 {
 	//Generate random seed in terms of local time
@@ -1066,6 +1102,26 @@ int GenNetwork::Get_projected_points_in_plane(const Point_3D &center, const Poin
 
 		//Insert the points on the circumference
 		nod_temp.push_back(new_node);
+	}
+
+	return 1;
+}
+//---------------------------------------------------------------------------
+//Transform the 2D cnts_points into 1D cpoints and 2D cstructuers
+int GenNetwork::Transform_cnts_points(const vector<vector<Point_3D> > &cnts_points, vector<Point_3D> &cpoints, vector<vector<long int> > &cstructures)const
+{
+	long int count = 0;
+	for(int i=0; i<(int)cnts_points.size(); i++)
+	{
+		vector<long int> struct_temp;
+		for(int j=0; j<(int)cnts_points[i].size(); j++)
+		{
+			cpoints.push_back(cnts_points[i][j]);
+			cpoints.back().flag = i;
+			struct_temp.push_back(count);
+			count++;
+		}
+		cstructures.push_back(struct_temp);
 	}
 
 	return 1;

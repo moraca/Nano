@@ -1,7 +1,7 @@
 //====================================================================================
 //SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
 //CODE FILE:	Background_grid.cpp
-//OBJECTIVE:	Create a background grid to make the CNT trimming faster
+//OBJECTIVE:	Using nested grids on the background to mark the CNTs for trimming faster in each observation window
 //AUTHOR:		Fei Han; Angel Mora
 //E-MAIL:			fei.han@kaust.edu.sa	;	angel.mora@kaust.edu.sa
 //====================================================================================

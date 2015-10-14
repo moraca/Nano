@@ -24,6 +24,7 @@
 #include "Fem_3D.h"
 #include "Gauss.h"
 #include "Hns.h"
+#include "Tecplot_Export.h"
 using namespace hns;
 
 //-------------------------------------------------------
@@ -36,16 +37,20 @@ class GenNetwork
 		GenNetwork(){};
 
 		//Member Functions
-		int Generate_geometric_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, 
-															vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const;
-		//Checking the angle between two segments in one nanotube (if less than PI/2, provide an alarm)
-		int CNTs_quality_testing(const vector<vector<Point_3D> > &cnts_points)const;
+		int Generate_nanotube_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, 
+															vector<Point_3D> &cpoints, vector<double> &cnts_radius, vector<vector<long int> > &cstructures)const;
 		//Generate the nodes and tetrahedron elements of nanotubes (No const following this function because a sum operation on two Point_3D points inside)
 		int Generate_cnts_nodes_elements(vector<vector<Node> > &nodes, vector<vector<Element> > &eles, const vector<vector<Point_3D> > &cnts_points, const vector<double> &cnts_radius);
 
 	private:
 		//Data Member
 
+		//Member Functions
+
+		//Generate a network defined by points and connections 
+		int Generate_network_threads(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const;
+		//Checking the angle between two segments in one nanotube (if less than PI/2, provide an alarm)
+		int CNTs_quality_testing(const vector<vector<Point_3D> > &cnts_points)const;
 		//Generate a number of ellipsoids
 		int Get_ellip_clusters(const struct cuboid &cub, const struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const;
 		//Generate a number of sperical clusters in regular arrangement
@@ -81,7 +86,8 @@ class GenNetwork
 		//Calculate a group of projected points (which are on the plane with the center point of the circle and the normal vector) 
 		//which are projected from a group of points on the previous circumference and projected along the direction of line_vec
 		int Get_projected_points_in_plane(const Point_3D &center, const Point_3D &normal, const Point_3D &line, const int &num_sec, vector<Node> &nod_temp)const;
-
+		//Transform the 2D cnts_points into 1D cpoints and 2D cstructuers
+		int Transform_cnts_points(const vector<vector<Point_3D> > &cnts_points, vector<Point_3D> &cpoints, vector<vector<long int> > &cstructures)const;
 };
 //-------------------------------------------------------
 #endif

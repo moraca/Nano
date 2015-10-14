@@ -39,7 +39,18 @@ int Input::Read_Infile(ifstream &infile)
 		}
 
 		//the real volume of cnts in the RVE
-		if(geom_rve.mark&&nanotube_geo.mark)		nanotube_geo.real_volume = nanotube_geo.volume_fraction * geom_rve.volume;
+		if(geom_rve.mark&&nanotube_geo.mark)
+		{
+			//Calculate the real volume of nanotubes
+			nanotube_geo.real_volume = nanotube_geo.volume_fraction * geom_rve.volume;
+			//Define the extented RVE with one length of nanotube
+			geom_rve.ex_origin.x = geom_rve.origin.x - nanotube_geo.len_max;
+			geom_rve.ex_origin.y = geom_rve.origin.y - nanotube_geo.len_max;
+			geom_rve.ex_origin.z = geom_rve.origin.z - nanotube_geo.len_max;
+			geom_rve.ex_len = geom_rve.len_x + 2*nanotube_geo.len_max;
+			geom_rve.ey_wid = geom_rve.wid_y+ 2*nanotube_geo.len_max;
+			geom_rve.ez_hei = geom_rve.hei_z + 2*nanotube_geo.len_max;
+		}
 	}
 
 	cout << "Reading the keywords is finished!" << endl;
