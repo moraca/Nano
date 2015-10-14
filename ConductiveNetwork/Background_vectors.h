@@ -1,6 +1,6 @@
 //====================================================================================
 //SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
-//CODE FILE:	Background_grid.h
+//CODE FILE:	Background_vectors.h
 //OBJECTIVE:	Using nested shells on the background to mark the CNTs for trimming faster in each observation window
 //AUTHOR:		Fei Han; Angel Mora
 //E-MAIL:			fei.han@kaust.edu.sa	;	angel.mora@kaust.edu.sa
@@ -19,20 +19,12 @@
 #include<time.h>
 #include<math.h>
 #include "Input_Reader.h"
-#include "Geometry_3D.h"
-#include "MathMatrix.h"
-#include "Fem_3D.h"
-#include "Gauss.h"
-#include "Hns.h"
-using namespace hns;
 
 //-------------------------------------------------------
 class Background_vectors
 {
 public:
     //Data Member
-    //vector<vector<int> > 	shells_cnt; //Shell sub-regions to identify CNTs that need to be trimmed
-    //vector<vector<long int> > structure; //Vector with global number of points in the same form as the points_in vector
     
     //Constructor
     Background_vectors(){};

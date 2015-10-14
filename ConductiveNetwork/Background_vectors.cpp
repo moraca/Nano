@@ -1,12 +1,12 @@
 //====================================================================================
 //SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
-//CODE FILE:	Background_grid.cpp
+//CODE FILE:	Background_vectors.cpp
 //OBJECTIVE:	Using nested shells on the background to mark the CNTs for trimming faster in each observation window
 //AUTHOR:		Fei Han; Angel Mora
 //E-MAIL:			fei.han@kaust.edu.sa	;	angel.mora@kaust.edu.sa
 //====================================================================================
 
-#include "Background_grid.h"
+#include "Background_vectors.h"
 
 /*
  
