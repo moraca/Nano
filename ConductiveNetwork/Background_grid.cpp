@@ -1,7 +1,7 @@
 //====================================================================================
 //SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
 //CODE FILE:	Background_grid.cpp
-//OBJECTIVE:	Using nested grids on the background to mark the CNTs for trimming faster in each observation window
+//OBJECTIVE:	Using nested shells on the background to mark the CNTs for trimming faster in each observation window
 //AUTHOR:		Fei Han; Angel Mora
 //E-MAIL:			fei.han@kaust.edu.sa	;	angel.mora@kaust.edu.sa
 //====================================================================================
@@ -10,11 +10,10 @@
 
 /*
  
- This classs creates a background grid that is used to determine which CNTs will be trimmed for each observation window. This is done
- in the class defined in Cutoff_Wins.cpp
- The grid will be created as follows: The smallest observation will be one sub-region. The rest of the subregions will have the size of the step size on each direction. So if the step size for increasing the observation window are Dx, Dy and Dz, then each subregion will be a paralelepiped with dimensions Dx, Dy and Dz.
- Then, for every point the code will work as follows:
- First check if the point is inside the central sub-region, i.e. the smallest observation window. If not then check if it belongs to another sub-region in the grid.
+ This class generates the vector:
+ shells_cnt: is used to trim the CNTs. THe CNTs are grouped according to the sub-regions than need to be trimmed
+ structure: is used to reference the points in a 1D vector to the structure they have as a 2D vector. The points in 1D vector together with the structure vector are simpler to use in the rest of the functions
+ The shells will be created as follows: The smallest observation will be one shell sub-region and will be the last element in the vector. Then, the next shell-subregion will be the volume of the next observation window minus the volume of the first. The following shells will have the same form: the volume of the bservation window minus the volume of the previous one. The last shell region will be the boundary layer. This will be the first element of the vector
  
  Input:
     struct Geom_RVE sample
@@ -24,105 +23,93 @@
     vector<Point_3D> points_in
         List of points
  
- Output (These three are class variables):
-    vector<vector<int> > sectioned_domain_cnt
-    vector<vector<long int> > structure
+ Output:
+    vector<vector<int> > shells_cnt
  
  Modified inputs:
  
  */
 
-int Background_grid::Generate_background_grids(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, vector<Point_3D> &points_in)
+int Background_vectors::Generate_shells_and_structure(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const vector<Point_3D> &points_in, vector<vector<int> > &shells_cnt)
 {
-    //Initialize the sectioned_domain_cnt vector
-    //Empty vector to initialize the sectioned_domain_cnt vector
+    //Initialize the shells_cnt vector
+    //Empty vector to initialize the shells_cnt vector
     vector<int> empty;
     //sample.cut_num is the number of increments from the smallest to the largest observation widows
     //Then, there are sample.cut_num+1 observation windows
-    //Then, there are sample.cut_num+2 shells or sub-regions if we include the boundary layer.
-    //Hence the sectioned_domain_cnt vector will have sample.cut_num+2 elements
-    sectioned_domain_cnt.assign(sample.cut_num+2, empty);
+    //Then, there are sample.cut_num+2 shell sub-regions if we include the boundary layer.
+    //Hence the shells_cnt vector will have sample.cut_num+2 elements
+    shells_cnt.assign(sample.cut_num+2, empty);
     
-    if (!Fill_structure_and_shell(sample, points_in)) {
-        hout << "Error in Generate_background_grids." << endl;
+    if (!Fill_structure_and_shell(sample, points_in, shells_cnt)) {
+        hout << "Error in Generate_Background_vectorss." << endl;
         return 0;
     }
+    hout <<"shells_cnt[0].size()="<<shells_cnt[0].size()<<" shells_cnt[1].size()="<<shells_cnt[2].size()<<endl;
     
     return 1;
 }
 
-int Background_grid::Fill_structure_and_shell(const struct Geom_RVE &sample, vector<Point_3D> &points_in)
+//This function generates the vectors shells_cnt and structure
+int Background_vectors::Fill_structure_and_shell(const struct Geom_RVE &sample, const vector<Point_3D> &points_in, vector<vector<int> > &shells_cnt)
 {
     //Vector to increase the size of structure
     vector<long int> empty;
-    //Variable to count the number of CNTs
-    int CNT = -1;
     //Scan all points to determine in which sub-regions the CNTs are located and construct the structure vector
-    for (long int i = 0; i < points_in.size(); i++) {
-        if (!points_in[i].flag) {
-            //Increase the size of the structure
-            structure.push_back(empty);
-            CNT++;
-        }
-        //Add current point number
-        structure.back().push_back(i);
-        
-        //Update CNT number
-        points_in[i].flag = CNT;
-        
+    for (long int i = 0; i < (long int)points_in.size(); i++) {
         //Add to the corresponding shell
-        if (!Add_to_shell(sample, points_in[i], sectioned_domain_cnt)) {
+        if (!Add_to_shell(sample, points_in[i], shells_cnt)) {
             hout << "Error in Fill_structure_and_shell"<< endl;
             return 0;
         }
-        
-        //Next point number
-        CNT++;
     }
     
     return 1;
 }
 
-//This function finds the corresponding sub-region or shell where the point is located. Then it adds the CNT number to the
-//corresponding vector in the 2D vector sectioned_domain_cnt
-int Background_grid::Add_to_shell(struct Geom_RVE sample, Point_3D point, vector<vector<int> > &sectioned_domain_cnt)
+//This function finds the corresponding shell sub-region where the point is located. Then it adds the CNT number to the
+//corresponding vector in the 2D vector shells_cnt
+int Background_vectors::Add_to_shell(const struct Geom_RVE &sample, const Point_3D &point, vector<vector<int> > &shells_cnt)
 {
     //Find the shell based on the x coordinate
-    int shell_x = Find_shell(point.x, sample.origin.x, sample.len_x, sample.win_delt_x);
+    int shell_x = Find_shell(point.x, sample.origin.x, sample.len_x, sample.win_delt_x, sample.win_min_x, sample.win_max_x, shells_cnt);
     //Find the shell based on the y coordinate
-    int shell_y = Find_shell(point.y, sample.origin.y, sample.wid_y, sample.win_delt_y);
+    int shell_y = Find_shell(point.y, sample.origin.y, sample.wid_y, sample.win_delt_y, sample.win_min_y, sample.win_max_y, shells_cnt);
     //Find the shell based on the z coordinate
-    int shell_z = Find_shell(point.z, sample.origin.z, sample.hei_z, sample.win_delt_z);
+    int shell_z = Find_shell(point.z, sample.origin.z, sample.hei_z, sample.win_delt_z, sample.win_min_z, sample.win_max_z, shells_cnt);
     
-    //The shell to which the CNT of point is the largest shell from the three coordinates
-    int shell;
-    //With this if-statement I have shell = max(shell_x, shell_y)
-    if (shell_x > shell_y)
-        shell = shell_x;
-    else
+    //The shell to which the CNT of point is the outer-most shell from the three coordinates, that is, the minimum shell number overall
+    int shell = shell_x;
+    //With this if-statement I have shell = min(shell_x, shell_y)
+    if (shell_y < shell)
         shell = shell_y;
-    //With this if-statement I have shell = max( shell_z, max(shell_x, shell_y))
-    //And this is the largest shell value
-    if (shell_z > shell)
+    //With this if-statement I have shell = min( shell_z, min(shell_x, shell_y))
+    //And this is the smallest shell value
+    if (shell_z < shell)
         shell = shell_z;
             
     //Finally add the CNT on the corresponding sectioned domain
-    //Add the CNT number to the sub-region, only if it is empty or if the last CNT is not the current CNT
-    if ( (!sectioned_domain_cnt[shell].size()) || (sectioned_domain_cnt[shell].back() != point.flag) ){
-        sectioned_domain_cnt[shell].push_back(point.flag);
+    //hout << "shell="<<shell<<endl;
+    //Add the CNT number to the shell sub-region, only if it is empty or if the last CNT is not the current CNT
+    if ( (!shells_cnt[shell].size()) || (shells_cnt[shell].back() != point.flag) ){
+        	shells_cnt[shell].push_back(point.flag);
     }
     
     return 1;
 }
 
 //This function finds the shell to which one coordinate belongs to
-int Background_grid::Find_shell(double x_in, double x_min, double len_x, double dx)
+int Background_vectors::Find_shell(double x_in, double x_min, double len_x, double dx, double win_min_x, double win_max_x, vector<vector<int> > &shells_cnt)
 {
     //Calculate the middle point of the observation window
-    double x;
     double x_m = x_min + len_x/2;
+    //The maximum coordinate
     double x_max = x_min + len_x;
+    //An observation window grows a total of dx. However, as it is centered, it gros dx/2 on each direction
+    dx = dx/2;
     
+    //Effective coordinate
+    double x;
     //If the point is greater than the middle point, map it to the mirrored range
     if (x_in > x_m) {
         double m = (x_m - x_min)/(x_m - x_max);
@@ -130,16 +117,19 @@ int Background_grid::Find_shell(double x_in, double x_min, double len_x, double 
     } else {
         x = x_in;
     }
-    
-    //Check if x is the outer shell
-    if (x < x_min) {
+    //Check if x is in the outer shell (it is in the outer shell when the point is below the x)
+    //hout << "x_in="<<x_in<<" x="<<x<<" shell=";
+    if (x < x_m - win_max_x/2) {
+        //hout<<'0'<<endl;
         return 0;
-    } else if(x > (x_max - dx)/2) {
+    } else if( x > x_m - (win_min_x/2) ) {
         //Check if x is in the inner shell
-        return (int)sectioned_domain_cnt.size()-1;
+        //hout<<	shells_cnt.size()-1<<endl;
+        return (int)	shells_cnt.size()-1;
     } else {
         //Shell 0 is the boundary layer, so I need to increase in 1 the shell number
-        int shell = (int) ((x + Zero)/dx);
+        int shell = (int) ((x - x_min + Zero)/dx);
+        //hout<<shell+1<<endl;
         return shell+1;
     }
     

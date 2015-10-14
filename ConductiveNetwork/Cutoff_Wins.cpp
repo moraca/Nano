@@ -290,7 +290,7 @@ int Cutoff_Wins::Get_intersecting_point_RVE_surface(struct Geom_RVE &sample, Poi
 void Cutoff_Wins::Trim_CNT(vector<vector<int> > &sectioned_domain_cnt, struct Geom_RVE sample, vector<Point_3D> &points_in, vector<vector<long int> > &structure, vector<double> &radii, long int boundary, int CNT)
 {
     //This bg variable is used to add the new CNT into the corresponding shell-sub-region
-    Background_grid *bg = new Background_grid;
+    Background_vectors *bg = new Background_vectors;
     
     //Here check which point is the current point
     vector<long int> empty;
