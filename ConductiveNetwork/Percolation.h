@@ -25,7 +25,7 @@ public:
     Percolation(){};
     
     //Member Functions
-    int Determine_percolating_clusters(const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated, const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts);
+    int Determine_percolating_clusters(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated);
     int Cluster_CNT_percolation(const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated);
     void Fill_percolation_flags_all_directions(vector<vector<int> > boundary_cnt, vector<vector<short int> > &perc_flag, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, int px, int py, int pz);
     void Fill_percolation_flags_single_direction(vector<int> boundary_vector, int boundary_number, vector<vector<short int> > &perc_flag, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map);

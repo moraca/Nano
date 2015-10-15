@@ -8,12 +8,43 @@
 
 #include "Contact_grid.h"
 
-int Contact_grid::Generate_contact_grid(const vector<vector<long int> > &structure, const vector<int> &cnts_inside, vector<Point_3D> &points_in, const struct Geom_RVE &sample, struct Cutoff_dist &cutoffs, const struct Nanotube_Geo &cnts, double lx, double ly, double lz)
+/*
+ 
+ This function groups the points inside the observation window into sub-regions.
+ 
+ The task of finding overlapping points can be computationally expensive. To reduce computational cost, the sample was divided into smaller cubic sub-regions. The cubic sample of size $[a \times a \times a ]$ was divided into $m$ segments in each direction resulting in $m^3$ cubic sub-regions. Then, overlapping points are searched for only on each smaller sub-region rather than in the whole sample. It may happen that two overlapping points belong to different sub-regions. In order to take into account these overlapping points, each sub-region is ``extended". If a point lies exactly at a boundary, then an overlapping point can be at a maximum distance equal to $r_{max}+r_{max}+d_W = 2r_{max}+d_W$ from the boundary. Here, $r_{max}$ is the maximum radii of the CNTs. Then, each boundary plane of each cubic sub-region is translated externally to a parallel plane at a distance $2r_{max}+d_W$.
+ 
+ Input:
+    struct Geom_RVE sample
+        Goemetry of the simulated sample
+    struct Cutoff_dist cutoffs
+        Structure that contains the cutoff for tunneling and overlapping
+    struct Nanotube_Geo cnts
+        Structure that contains the geometry of the CNTs
+    vector<int> cnts_inside
+        List of CNTs that are inside the observation window
+    vector<vector<long int> > structure
+        Vector with the structure
+    vector<Point_3D> points_in
+        List of points
+    int window
+        Current observation window. window=0 means the largest observation window
+ 
+ Output (These three are class variables):
+ 
+ */
+
+int Contact_grid::Generate_contact_grid(const struct Geom_RVE &sample, struct Cutoff_dist &cutoffs, const struct Nanotube_Geo &cnts, const vector<int> &cnts_inside, const vector<vector<long int> > &structure, vector<Point_3D> &points_in, int window)
 {
-    //These variables are the coordinates of the lower corner of the RVE that defines its geometry
-    double xmin = sample.origin.x;
-    double ymin = sample.origin.y;
-    double zmin = sample.origin.z;
+    //Dimensions of the current observation window
+    double w_x = sample.win_max_x - window*sample.win_delt_x;
+    double w_y = sample.win_max_y - window*sample.win_delt_y;
+    double w_z = sample.win_max_z - window*sample.win_delt_z;
+
+    //These variables are the coordinates of the lower corner of the observation window
+    double xmin = sample.origin.x + (sample.len_x - w_x)/2;
+    double ymin = sample.origin.y + (sample.wid_y - w_y)/2;
+    double zmin = sample.origin.z + (sample.hei_z - w_z)/2;
     
     //Sizes of each region
     double dx = sample.gs_minx;
@@ -21,14 +52,14 @@ int Contact_grid::Generate_contact_grid(const vector<vector<long int> > &structu
     double dz = sample.gs_minz;
     
     //Number of regions on each direction
-    int sx = (int)lx/dx;
-    int sy = (int)ly/dy;
-    int sz = (int)lz/dz;
+    int sx = (int)(w_x/dx);
+    int sy = (int)(w_y/dy);
+    int sz = (int)(w_z/dz);
     
     
-    hout << "sx = " << sx << '\t' << "dx = " << dx << "\n";
-    hout << "sy = " << sy << '\t' << "dy = " << dy << "\n";
-    hout << "sz = " << sz << '\t' << "dz = " << dz  << "\n";
+    //hout << "sx = " << sx << '\t' << "dx = " << dx << "\n";
+    //hout << "sy = " << sy << '\t' << "dy = " << dy << "\n";
+    //hout << "sz = " << sz << '\t' << "dz = " << dz  << "\n";
     
     //Maximum distance between two points in contact inside the sample
     double cutoff = cutoffs.tunneling_dist + 2*cnts.rad_max;
@@ -36,18 +67,18 @@ int Contact_grid::Generate_contact_grid(const vector<vector<long int> > &structu
     //Check that the regions are not too small for the maximum cutoff distance 2r_max+tunnel
     //If they are, then change the number of sections to the maximum possible
     if (dx < 2*cutoff) {
-        sx = (int)(lx/(2*(cutoff+Zero)));
-        dx = lx/(double)sx;
+        sx = (int)(w_x/(2*(cutoff+Zero)));
+        dx = w_x/(double)sx;
         hout << "Modified the number of sections along x. " << "sx = " << sx << '\t' << "dx = " << dx << endl;
     }
     if (dy < 2*cutoff) {
-        sy = (int)(ly/(2*(cutoff+Zero)));
-        dy = ly/(double)sy;
+        sy = (int)(w_y/(2*(cutoff+Zero)));
+        dy = w_y/(double)sy;
         hout << "Modified the number of sections along y. " << "sy = " << sy << '\t' << "dy = " << dy << endl;
     }
     if (dz < 2*cutoff) {
-        sz = (int)(lz/(2*(cutoff+Zero)));
-        dz = lz/(double)sz;
+        sz = (int)(w_z/(2*(cutoff+Zero)));
+        dz = w_z/(double)sz;
         hout << "Modified the number of sections along z. " << "sz = " << sz << '\t' << "dz = " << dz  << endl;
     }
     
@@ -75,6 +106,7 @@ int Contact_grid::Generate_contact_grid(const vector<vector<long int> > &structu
             x = points_in[P].x;
             y = points_in[P].y;
             z = points_in[P].z;
+            //hout<<"x="<<x<<" y="<<y<<" z="<<z<<endl;
             
             //Calculate the region-coordinates
             a = (int)((x-xmin)/dx);
@@ -113,15 +145,15 @@ int Contact_grid::Generate_contact_grid(const vector<vector<long int> > &structu
             //The first operand eliminates the periodicity on the boundary
             if ((x > cutoff + xmin) && (x >= x1) && (x <= x1+cutoff))
                 fx = -1;
-            else if ((x < lx+xmin-cutoff) && (x >= x2-cutoff) && (x <= x2 ))
+            else if ((x < w_x+xmin-cutoff) && (x >= x2-cutoff) && (x <= x2 ))
                 fx = 1;
             if ((y > cutoff + ymin) && (y >= y1) && (y <= y1+cutoff))
                 fy = -1;
-            else if ((y < ly+ymin-cutoff) && (y >= y2-cutoff) && (y <= y2 ))
+            else if ((y < w_y+ymin-cutoff) && (y >= y2-cutoff) && (y <= y2 ))
                 fy = 1;
             if ((z > cutoff + zmin) && (z >= z1) && (z <= z1+cutoff))
                 fz = -1;
-            else if ((z < lz+zmin-cutoff) && (z >= z2-cutoff) && (z <= z2 ))
+            else if ((z < w_z+zmin-cutoff) && (z >= z2-cutoff) && (z <= z2 ))
                 fz = 1;
             
             //Create array for loop over overlaping regions
@@ -135,6 +167,7 @@ int Contact_grid::Generate_contact_grid(const vector<vector<long int> > &structu
                     for (int kk = 0; kk < 2; kk++) {
                         if (!fz) kk++; //if flag is zero, do this loop only once
                         t = calculate_t(temp[ii][0],temp[jj][1],temp[kk][2],sx,sy);
+                        //hout <<"a="<<a<<" b="<<b<<" c="<<c<<" t="<<t<<endl;
                         sectioned_domain[t].push_back(P);
                     }
                 }

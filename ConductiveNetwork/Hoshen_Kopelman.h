@@ -28,14 +28,17 @@ public:
     Hoshen_Kopelman(){};
     
     //Member Functions
-    int Determine_nanotube_clusters(vector<vector<long int> > structure, vector<vector<long int> > sectioned_domain, vector<Point_3D> points_in, vector<int> cnts_inside, vector<double> radii, struct Cutoff_dist cutoffs);
-    int Scan_sub_regions(vector<Point_3D> points_in, vector<double> radii, double tunnel, vector<vector<long int> > sectioned_domain);
+    int Determine_nanotube_clusters(const struct Cutoff_dist &cutoffs, const vector<int> &cnts_inside, const vector<vector<long int> > &sectioned_domain, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<double> &radii);
+    int Scan_sub_regions(const vector<Point_3D> &points_in, const vector<double> &radii, const double &tunnel, const vector<vector<long int> > &sectioned_domain);
+    int Check_repeated(const vector<long int> &region, long int Point);
+    int Scan_sub_regions_then_delete(const vector<Point_3D> &points_in, const vector<double> &radii, const double &tunnel, const vector<vector<long int> > &sectioned_domain);
     int HK76(int CNT1, int CNT2);
     int Find_root(int L);
     int Merge_labels(int root1, int root2);
     void Delete_repeated_contacts();
     void Discard_repeated(vector<long int> &vec);
-    int Make_CNT_clusters(vector<vector<long int> > structure, vector<Point_3D> points_in, vector<int> cnts_inside);
+    int Make_CNT_clusters(const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<int> &cnts_inside);
+    
     
 private:
     

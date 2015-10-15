@@ -12,9 +12,9 @@
  
  This class generates the vector:
  shells_cnt: is used to trim the CNTs. The CNTs are grouped according to the sub-regions, then need to be trimmed
- The shells will be created as follows: The smallest observation window (cuboid) will be one shell sub-region and will be used for the last element in the vector. 
- Then, the next shell-subregion will be the volume of the next observation window minus the volume of the first one (the smallest observation window). 
- The following shells will have the same form: the volume of the bservation window minus the volume of the previous one. 
+ The shells will be created as follows: The smallest observation window (cuboid) will be one shell sub-region and will be used for the last element in the vector.
+ Then, the next shell-subregion will be the volume of the next observation window minus the volume of the first one (the smallest observation window).
+ The following shells will have the same form: the volume of the observation window minus the volume of the previous one.
  The last shell region will be the boundary layer. This will be used for the first element of the vector
  
  Input:
@@ -42,12 +42,13 @@ int Background_vectors::Generate_shells_and_structure(const struct Geom_RVE &sam
     //Then, there are sample.cut_num+2 shell sub-regions if we include the boundary layer.
     //Hence the shells_cnt vector will have sample.cut_num+2 elements
     shells_cnt.assign(sample.cut_num+2, empty);
+    //hout << "sample.cut_num+2="<<sample.cut_num+2<<endl;
     
     if (!Fill_structure_and_shell(sample, points_in, shells_cnt)) {
         hout << "Error in Generate_Background_vectorss." << endl;
         return 0;
     }
-    hout <<"shells_cnt[0].size()="<<shells_cnt[0].size()<<" shells_cnt[1].size()="<<shells_cnt[2].size()<<endl;
+    //hout <<"shells_cnt[0].size()="<<shells_cnt[0].size()<<" shells_cnt[1].size()="<<shells_cnt[2].size()<<endl;
     
     return 1;
 }
@@ -138,4 +139,3 @@ int Background_vectors::Find_shell(double x_in, double x_min, double len_x, doub
     hout << "Should not reach this part" << endl;
     return 0;
 }
-//===========================================================================

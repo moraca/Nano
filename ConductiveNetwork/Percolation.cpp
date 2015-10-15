@@ -9,10 +9,11 @@
 #include "Percolation.h"
 
 
-int Percolation::Determine_percolating_clusters(const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated, const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts)
+int Percolation::Determine_percolating_clusters(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated)
 {
     //---------------------------------------------------------------------------------------------------------------------------
     //Check if the clusters of CNTs percolate
+    hout << "Cluster percolation"<<endl;
     if (!Cluster_CNT_percolation(boundary_cnt, labels, labels_labels, label_map, clusters_cnt, isolated)) {
         hout << "Error in Determine_percolating_clusters" << endl;
         return 0;
@@ -20,14 +21,16 @@ int Percolation::Determine_percolating_clusters(const vector<vector<int> > &boun
     
     //---------------------------------------------------------------------------------------------------------------------------
     //Check if the (single) CNTs that do not form clusters might percolate
+    hout << "CNT percolation"<<endl;
     if (!Single_CNT_percolation(boundary_cnt, labels, labels_labels, clusters_cnt, isolated, sample, cnts)) {
-        hout << "Error in Determine_percolating_clusters" << endl;
+        hout << "Error in Single_CNT_percolation" << endl;
         return 0;
     }
     
     //---------------------------------------------------------------------------------------------------------------------------
     //hout << "fam size = " << family.size()<< "\t cluster size = "<<  clusters_cnt.size() << endl;
     //Just a check. family and clusters_cnt MUST have the same size
+    hout << "Check"<<endl;
     if (family.size() != clusters_cnt.size()) {
         hout <<  "ERROR the vector of family number and clusters_cnt do not have the same size" << endl;
         hout << "fam size = " << family.size()<< "\t cluster size = "<<  clusters_cnt.size() << endl;

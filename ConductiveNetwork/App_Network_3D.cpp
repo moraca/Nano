@@ -31,7 +31,6 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
     
     //-----------------------------------------------------------------------------------------------------------------------------------------
 	ct0 = time(NULL);
-    //
     Background_vectors *Bckg = new Background_vectors;
     Geom_RVE geo = Init->geom_rve;
     Nanotube_Geo nano = Init->nanotube_geo;
@@ -41,32 +40,40 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
     
 	for(int i=0; i<=Init->geom_rve.cut_num; i++)
 	{
+        hout << "======================================================"<<endl;
+        hout << "Iteration " << i << endl;
         //-----------------------------------------------------------------------------------------------------------------------------------------
         //Determine the local networks in cutoff windons
         Cutoff_Wins *Cutwins = new Cutoff_Wins;
         //From this function I get the internal variables cnts_inside and boundary_cnt
-        if(Cutwins->Extract_observation_window(shells_cnt, i, Init->geom_rve, Init->nanotube_geo, cnts_structure, cnts_radius, cnts_point)==0) return 0;
-        
-        //Calculate the dimensions of the cunrrent observation window
-        //In this way the observation window goes from a large to a small one
-        double lx = Init->geom_rve.len_x - i*Init->geom_rve.win_delt_x;
-        double ly = Init->geom_rve.wid_y - i*Init->geom_rve.win_delt_y;
-        double lz = Init->geom_rve.hei_z - i*Init->geom_rve.win_delt_z;
+        ct0 = time(NULL);
+        if(Cutwins->Extract_observation_window(Init->geom_rve, Init->nanotube_geo, cnts_structure, cnts_radius, cnts_point, shells_cnt, i)==0) return 0;
+        ct1 = time(NULL);
+        hout << "Extract observation window time: "<<(int)(ct1-ct0)<<" secs."<<endl;
         
         //-----------------------------------------------------------------------------------------------------------------------------------------
-        //Determine the local networks in cutoff windons
+        //Determine the local networks inside the cutoff windows
         Contact_grid *Contacts = new Contact_grid;
-        if (Contacts->Generate_contact_grid(cnts_structure, Cutwins->cnts_inside, cnts_point, Init->geom_rve, Init->cutoff_dist, Init->nanotube_geo, lx, ly, lz)==0) return 0;
+        ct0 = time(NULL);
+        if (Contacts->Generate_contact_grid(Init->geom_rve, Init->cutoff_dist, Init->nanotube_geo, Cutwins->cnts_inside, cnts_structure, cnts_point, i)==0) return 0;
+        ct1 = time(NULL);
+        hout << "Generate contact grid time: "<<(int)(ct1-ct0)<<" secs."<<endl;
         
         //-----------------------------------------------------------------------------------------------------------------------------------------
 		//Hoshen-Kopelman algorithm
 		Hoshen_Kopelman *HoKo = new Hoshen_Kopelman;
-		if(HoKo->Determine_nanotube_clusters(cnts_structure, Contacts->sectioned_domain, cnts_point, Cutwins->cnts_inside, cnts_radius, Init->cutoff_dist)==0) return 0;
+        ct0 = time(NULL);
+		if(HoKo->Determine_nanotube_clusters(Init->cutoff_dist, Cutwins->cnts_inside, Contacts->sectioned_domain, cnts_structure, cnts_point, cnts_radius)==0) return 0;
+        ct1 = time(NULL);
+        hout << "Determine nanotube clusters time: "<<(int)(ct1-ct0)<<" secs."<<endl;
         
         //-----------------------------------------------------------------------------------------------------------------------------------------
         //Determine percolation
         Percolation *Perc = new Percolation;
-        if (Perc->Determine_percolating_clusters(Cutwins->boundary_cnt, HoKo->labels, HoKo->labels_labels, HoKo->label_map, HoKo->clusters_cnt, HoKo->isolated, Init->geom_rve, Init->nanotube_geo)==0) return 0;
+        ct0 = time(NULL);
+        if (Perc->Determine_percolating_clusters(Init->geom_rve, Init->nanotube_geo, Cutwins->boundary_cnt, HoKo->labels, HoKo->labels_labels, HoKo->label_map, HoKo->clusters_cnt, HoKo->isolated)==0) return 0;
+        ct1 = time(NULL);
+        hout << "Determine percolating clusters time: "<<(int)(ct1-ct0)<<" secs."<<endl;
         
         //These vectors are used to store the fractions of the different families in the current observation window
         //families_lengths has 7 elements because of the 6 percolated families and the non-percoalted CNTs, the same is true for fractions
@@ -94,8 +101,8 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
         
         //Calculate the fractions of CNTs that belong to each family and save them to a file
         Clusters_fractions *Fracs = new Clusters_fractions;
-        if (Fracs->Calculate_fractions(cnts_structure, Cutwins->cnts_inside, HoKo->isolated, cnts_point, families_lengths, branches_lengths, fractions)==0) return 0;
-	}//*/
+        if (Fracs->Calculate_fractions(cnts_structure, Cutwins->cnts_inside, HoKo->isolated, cnts_point, families_lengths, branches_lengths, fractions)==0) return 0;//*/
+	}
 
 	return 1;
 }

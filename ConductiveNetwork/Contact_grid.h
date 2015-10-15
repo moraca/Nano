@@ -24,7 +24,7 @@ public:
     Contact_grid(){};
     
     //Member Functions
-    int Generate_contact_grid(const vector<vector<long int> > &structure, const vector<int> &cnts_inside, vector<Point_3D> &points_in, const struct Geom_RVE &sample, struct Cutoff_dist &cutoffs, const struct Nanotube_Geo &cnts, double lx, double ly, double lz);
+    int Generate_contact_grid(const struct Geom_RVE &sample, struct Cutoff_dist &cutoffs, const struct Nanotube_Geo &cnts, const vector<int> &cnts_inside, const vector<vector<long int> > &structure, vector<Point_3D> &points_in, int window);
     int calculate_t(int a, int b, int c, int sx, int sy);
     
     
