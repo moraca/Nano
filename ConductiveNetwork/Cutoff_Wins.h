@@ -10,7 +10,7 @@
 #define CUTOFFWINS_H
 
 #include "Input_Reader.h"
-#include "Background_grid.h"
+#include "Background_vectors.h"
 
 //-------------------------------------------------------
 class Cutoff_Wins

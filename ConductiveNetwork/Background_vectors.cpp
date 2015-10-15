@@ -11,9 +11,11 @@
 /*
  
  This class generates the vector:
- shells_cnt: is used to trim the CNTs. THe CNTs are grouped according to the sub-regions than need to be trimmed
- structure: is used to reference the points in a 1D vector to the structure they have as a 2D vector. The points in 1D vector together with the structure vector are simpler to use in the rest of the functions
- The shells will be created as follows: The smallest observation will be one shell sub-region and will be the last element in the vector. Then, the next shell-subregion will be the volume of the next observation window minus the volume of the first. The following shells will have the same form: the volume of the bservation window minus the volume of the previous one. The last shell region will be the boundary layer. This will be the first element of the vector
+ shells_cnt: is used to trim the CNTs. The CNTs are grouped according to the sub-regions, then need to be trimmed
+ The shells will be created as follows: The smallest observation window (cuboid) will be one shell sub-region and will be used for the last element in the vector. 
+ Then, the next shell-subregion will be the volume of the next observation window minus the volume of the first one (the smallest observation window). 
+ The following shells will have the same form: the volume of the bservation window minus the volume of the previous one. 
+ The last shell region will be the boundary layer. This will be used for the first element of the vector
  
  Input:
     struct Geom_RVE sample
@@ -136,3 +138,4 @@ int Background_vectors::Find_shell(double x_in, double x_min, double len_x, doub
     hout << "Should not reach this part" << endl;
     return 0;
 }
+//===========================================================================
