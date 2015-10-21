@@ -57,6 +57,7 @@ int Cutoff_Wins::Extract_observation_window(struct Geom_RVE sample, struct Nanot
     xmin = sample.origin.x + (sample.len_x - w_x)/2;
     ymin = sample.origin.y + (sample.wid_y - w_y)/2;
     zmin = sample.origin.z + (sample.hei_z - w_z)/2;
+    hout<<"Observation window geometry:"<<endl;
     hout<<"xmin="<<xmin<<" ymin="<<ymin<<" zmin="<<zmin<<endl;
     hout<<"w_x="<<w_x<<" w_y="<<w_y<<" w_z="<<w_z<<endl;
 

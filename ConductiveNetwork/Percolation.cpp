@@ -11,26 +11,33 @@
 
 int Percolation::Determine_percolating_clusters(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated)
 {
+    time_t ct0, ct1;
     //---------------------------------------------------------------------------------------------------------------------------
     //Check if the clusters of CNTs percolate
-    hout << "Cluster percolation"<<endl;
+    hout << "Cluster percolation ";
+    ct0 = time(NULL);
     if (!Cluster_CNT_percolation(boundary_cnt, labels, labels_labels, label_map, clusters_cnt, isolated)) {
         hout << "Error in Determine_percolating_clusters" << endl;
         return 0;
     }
-    
+    ct1 = time(NULL);
+    hout << "time: " << (int)(ct1-ct0) <<" secs." << endl;
+  
     //---------------------------------------------------------------------------------------------------------------------------
     //Check if the (single) CNTs that do not form clusters might percolate
-    hout << "CNT percolation"<<endl;
+    hout << "CNT percolation ";
+    ct0 = time(NULL);
     if (!Single_CNT_percolation(boundary_cnt, labels, labels_labels, clusters_cnt, isolated, sample, cnts)) {
         hout << "Error in Single_CNT_percolation" << endl;
         return 0;
     }
+    ct1 = time(NULL);
+    hout << "time: " << (int)(ct1-ct0) <<" secs." << endl;
     
     //---------------------------------------------------------------------------------------------------------------------------
-    //hout << "fam size = " << family.size()<< "\t cluster size = "<<  clusters_cnt.size() << endl;
+    hout << "percolated clusters = "<<  clusters_cnt.size() << endl;
     //Just a check. family and clusters_cnt MUST have the same size
-    hout << "Check"<<endl;
+    //hout << "Check"<<endl;
     if (family.size() != clusters_cnt.size()) {
         hout <<  "ERROR the vector of family number and clusters_cnt do not have the same size" << endl;
         hout << "fam size = " << family.size()<< "\t cluster size = "<<  clusters_cnt.size() << endl;
@@ -50,7 +57,7 @@ int Percolation::Cluster_CNT_percolation(const vector<vector<int> > &boundary_cn
         vector<vector<short int> > perc_flag(clusters_cnt.size(), zeros);
         //hout << "0 ";
         //Scan all the boundary vectors and fill the flag vectors
-        Fill_percolation_flags_all_directions(boundary_cnt, perc_flag, labels, labels_labels, label_map, 1, 1, 1);
+        Fill_percolation_flags_all_directions(boundary_cnt, perc_flag, labels, labels_labels, label_map);
         //hout << "1 ";
         
         //Move all non-percolating clusters to the corresponding vector<vector>
@@ -64,28 +71,22 @@ int Percolation::Cluster_CNT_percolation(const vector<vector<int> > &boundary_cn
 
 //This function calls the Fill_percolation_flags_single_direction and usese three flags: px, py and pz.
 //The flags are used in case one direction is not necessary to check for percolation. This is specially useful for single CNT percolation
-void Percolation::Fill_percolation_flags_all_directions(vector<vector<int> > boundary_cnt, vector<vector<short int> > &perc_flag, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, int px, int py, int pz)
+void Percolation::Fill_percolation_flags_all_directions(const vector<vector<int> > &boundary_cnt, vector<vector<short int> > &perc_flag, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map)
 {
     //Scan all the boundary vectors and fill the flag vectors
     //X-direction
-    if (px == 1) {
-        Fill_percolation_flags_single_direction(boundary_cnt[0], 0, perc_flag, labels, labels_labels, label_map);
-        Fill_percolation_flags_single_direction(boundary_cnt[1], 1, perc_flag, labels, labels_labels, label_map);
-    }
+    Fill_percolation_flags_single_direction(boundary_cnt[0], 0, perc_flag, labels, labels_labels, label_map);
+    Fill_percolation_flags_single_direction(boundary_cnt[1], 1, perc_flag, labels, labels_labels, label_map);
     //Y-direction
-    if (py == 1) {
-        Fill_percolation_flags_single_direction(boundary_cnt[2], 2, perc_flag, labels, labels_labels, label_map);
-        Fill_percolation_flags_single_direction(boundary_cnt[3], 3, perc_flag, labels, labels_labels, label_map);
-    }
+    Fill_percolation_flags_single_direction(boundary_cnt[2], 2, perc_flag, labels, labels_labels, label_map);
+    Fill_percolation_flags_single_direction(boundary_cnt[3], 3, perc_flag, labels, labels_labels, label_map);
     //Z-direction
-    if (pz == 1) {
-        Fill_percolation_flags_single_direction(boundary_cnt[4], 4, perc_flag, labels, labels_labels, label_map);
-        Fill_percolation_flags_single_direction(boundary_cnt[5], 5, perc_flag, labels, labels_labels, label_map);
-    }
+    Fill_percolation_flags_single_direction(boundary_cnt[4], 4, perc_flag, labels, labels_labels, label_map);
+    Fill_percolation_flags_single_direction(boundary_cnt[5], 5, perc_flag, labels, labels_labels, label_map);
 }
 
 //This function fills the percolation_flags vector, which is usde to determine percolation
-void Percolation::Fill_percolation_flags_single_direction(vector<int> boundary_vector, int boundary_number, vector<vector<short int> > &perc_flag, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map)
+void Percolation::Fill_percolation_flags_single_direction(const vector<int> &boundary_vector, int boundary_number, vector<vector<short int> > &perc_flag, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map)
 {
     //Variables
     int L, root, CNT, cluster;
@@ -135,22 +136,22 @@ int Percolation::Check_percolation_all_clusters(const vector<vector<int> > &boun
     for (int i = (int)clusters_cnt.size() - 1; i >= 0 ; i--) {
         //hout <<"Check_clusters_percolation " << i << " size " << clusters_cnt.size() << endl;
         //hout << "percolation_flags.size()=" << percolation_flags.size() << endl;
-        if (!Check_percolation_single_cluster(perc_flag[i], fam)){
+        if (Check_percolation_single_cluster(perc_flag[i], fam)){
+            //Add the family number to the vector of families
+            family.insert(family.begin(), fam);
+        } else {
             //percolation_flags and clusters_cnt have the same size
             //hout << "NO\n";
             isolated.push_back(clusters_cnt[i]);
             //remove the non-percolating cluster
             clusters_cnt.erase(clusters_cnt.begin()+i);
-        } else {
-            //Add the family number to the vector of families
-            family.insert(family.begin(), fam);
         }
     }
     return 1;
 }
 
 //This function will check if there is percolation for a single cluster in x, y and/or z directions
-int Percolation::Check_percolation_single_cluster(vector<short int> cluster_flag, int &family)
+int Percolation::Check_percolation_single_cluster(const vector<short int> &cluster_flag, int &family)
 {
     //Falgs that will tell me the family the cluster belogns to
     int percolating[] = {0, 0, 0, 0, 0, 0, 0};
@@ -190,6 +191,7 @@ int Percolation::Single_CNT_percolation(const vector<vector<int> > &boundary_cnt
     if (cnts.len_max >= sample.hei_z)
         pz = 1;
     
+    //hout << "0 ";
     if (px+py+pz == 0) {
         //If in all three directions the CNTs are larger than the dimensions of the observation window, then there is nothing more
         //to do in this function. This happens when px, px and py are zero, so the only way the sum is zero is when all three are zero.
@@ -197,34 +199,41 @@ int Percolation::Single_CNT_percolation(const vector<vector<int> > &boundary_cnt
         return 1;
     }
     
-    //This is similar to the label_map generated by HK76. Since it is only needed when the CNTs are smaller than a dimension of
+    //This is similar to the labels generated by HK76. Since it is only needed when the CNTs are smaller than a dimension of
     //the observation window, it is created here and not during the HK76
-    vector<int>  label_map_iso;
-    //The labels vector has the same size as the number of CNTs, so I use it to initialize label_map_iso
-    label_map_iso.assign(labels.size(), -1);
+    vector<int>  labels_iso;
+    //The labels vector has the same size as the number of CNTs, so I use it to initialize labels_iso
+    labels_iso.assign(labels.size(), -1);
     
+    /*/hout << "1 ";
+    hout << "isolated.size()="<<isolated.size()<<endl;
+    for (int i = 0; i < (int)isolated.size(); i++) {
+        hout << "isolated["<<i<<"].size()="<<isolated[i].size()<<endl;
+    }//*/
     //Number of single CNTs
-    int single_CNTs;
+    int single_CNTs = 0;
     //Fill label_map_iso
     for (int i = 0; i < (int)isolated.size(); i++) {
         //This function is called after the clusters are checked for percolation, so in the isolated vector there are single CNTs and clusters
         //As I am intereste in single CNTs (isolated[i].size() == 1), when I find clusters (isolated[i].size() > 1) I break the loop
         if (isolated[i].size() > 1)
             break;
+        //hout << "isolated["<<i<<"].size()="<<isolated[i].size()<<endl;
         int CNT = isolated[i].front();
-        label_map_iso[CNT] = i;
+        labels_iso[CNT] = i;
         single_CNTs = i+1;
     }
+    //hout << "2 ";
     
-    //Check if there is any cluster at all. If the size of clusters_cnt is non-zero, then there are clusters
+    //Check if there is any cluster at all. If single_CNTs is non-zero, then there are clusters
     if (single_CNTs) {
         //Initialize the flag vectors
         vector<short int> zeros(6,0);
         vector<vector<short int> > perc_flag(single_CNTs, zeros);
-        //hout << "0 ";
+        //hout << "10 ";
         //Scan all the boundary vectors and fill the flag vectors
-        Fill_percolation_flags_all_directions(boundary_cnt, perc_flag, labels, labels_labels, label_map_iso, px, py, pz);
-        //hout << "1 ";
+        Fill_percolation_flags_all_directions_CNT_percoaltion(boundary_cnt, perc_flag, labels_iso, px, py, pz);
+        //hout << "11 ";
         
         //The percolated CNTs will be stored in the clusters_tmp vector
         vector<vector<int> > clusters_tmp;
@@ -232,17 +241,60 @@ int Percolation::Single_CNT_percolation(const vector<vector<int> > &boundary_cnt
             hout << "Error in Single_CNT_percolation" << endl;
             return 0;
         }
+        hout << "Single CNT clusters="<<clusters_tmp.size()<<endl;
         
         //Add the percolated CNTs to clusters_cnt vector
         for (int i = 0; i < (int)clusters_tmp.size(); i++) {
             clusters_cnt.push_back(clusters_tmp[i]);
         }
+        //hout << "13 ";
         
     }
     
     return 1;
 }
+//This function calls the Fill_percolation_flags_single_direction and usese three flags: px, py and pz.
+//The flags are used in case one direction is not necessary to check for percolation. This is specially useful for single CNT percolation
+void Percolation::Fill_percolation_flags_all_directions_CNT_percoaltion(const vector<vector<int> > &boundary_cnt, vector<vector<short int> > &perc_flag, const vector<int> &labels_iso, int px, int py, int pz)
+{
+    //Scan all the boundary vectors and fill the flag vectors
+    //X-direction
+    if (px) {
+        Fill_percolation_flags_single_direction_CNT_percoaltion(boundary_cnt[0], 0, perc_flag, labels_iso);
+        Fill_percolation_flags_single_direction_CNT_percoaltion(boundary_cnt[1], 1, perc_flag, labels_iso);
 
+    }
+    //Y-direction
+    if (py) {
+        Fill_percolation_flags_single_direction_CNT_percoaltion(boundary_cnt[2], 2, perc_flag, labels_iso);
+        Fill_percolation_flags_single_direction_CNT_percoaltion(boundary_cnt[3], 3, perc_flag, labels_iso);
+    }
+    //Z-direction
+    if (pz) {
+        Fill_percolation_flags_single_direction_CNT_percoaltion(boundary_cnt[4], 4, perc_flag, labels_iso);
+        Fill_percolation_flags_single_direction_CNT_percoaltion(boundary_cnt[5], 5, perc_flag, labels_iso);
+    }
+}
+
+//This function fills the percolation_flags vector, which is usde to determine percolation
+void Percolation::Fill_percolation_flags_single_direction_CNT_percoaltion(const vector<int> &boundary_vector, int boundary_number, vector<vector<short int> > &perc_flag, const vector<int> &labels_iso)
+{
+    //Variables
+    int L, CNT;
+    
+    for (int i = 0; i < (int)boundary_vector.size(); i++) {
+        //Current CNT
+        CNT = boundary_vector[i];
+        //hout << "CNT=" << CNT << ' ';
+        //Label of the CNT, which also corresponds to its perc_flag number
+        L = labels_iso[CNT];
+        //If the label is -1, then the CNT is an isolated cluster and need to check if the percolation flags need to be activated
+        if (L != -1) {
+            //Activate the flag corresponding to the boundary
+            perc_flag[L][boundary_number] = 1;
+        }
+    }
+}
 
 int Percolation::Check_percolation_CNTs(const vector<vector<int> > &boundary_cnt, vector<vector<short int> > &perc_flag, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated)
 {
@@ -251,15 +303,13 @@ int Percolation::Check_percolation_CNTs(const vector<vector<int> > &boundary_cnt
     //This variable (fam) will store the family number given by Check_percolation_single_direction
     int fam;
     for (int i = (int)perc_flag.size() - 1; i >= 0 ; i--) {
-        //hout <<"Check_clusters_percolation " << i << " size " << clusters_cnt.size() << endl;
-        //hout << "percolation_flags.size()=" << percolation_flags.size() << endl;
-        if (!Check_percolation_single_direction(perc_flag[i], fam)){
-            //percolation_flags and clusters_cnt have the same size
-            //hout << "NO\n";
+        //hout <<"Check_clusters_percolation " << i << " isolated.size " << isolated.size() << endl;
+        //hout << "perc_flag.size()=" << perc_flag.size() << endl;
+        //If there is percolation, then add the isolated CNT to the clusters_cnt vector
+        if (Check_percolation_single_CNT(perc_flag[i], fam)){
             clusters_cnt.push_back(isolated[i]);
             //remove the non-percolating cluster
             isolated.erase(isolated.begin()+i);
-        } else {
             //Add the family number to the vector of families
             family.insert(family.begin(), fam);
         }
@@ -267,8 +317,8 @@ int Percolation::Check_percolation_CNTs(const vector<vector<int> > &boundary_cnt
     return 1;
 }
 
-//This function will check if there is percolation for a single cluster in x, y and/or z directions
-int Percolation::Check_percolation_single_direction(vector<short int> cluster_flag, int &family)
+//This function will check if there is percolation for a single cluster consisting of a single CNT in x, y or z directions
+int Percolation::Check_percolation_single_CNT(vector<short int> cluster_flag, int &family)
 {
     //Falgs that will tell me the family the cluster belogns to
     int percolating[] = {0, 0, 0};

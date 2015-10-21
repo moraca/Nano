@@ -54,7 +54,20 @@ int Hoshen_Kopelman::Determine_nanotube_clusters(const struct Cutoff_dist &cutof
         hout << "Error in Determinate_nanotube_clusters." <<endl;
         return 0;
     }
+    /*/
+    hout << "delete from hk76"<<endl;
+    for (int i = 0; i < (int)isolated.size(); i++) {
+        hout << "isolated["<<i<<"].size()="<<isolated[i].size()<<endl;
+    }
+    for (int i = 0; i < (int)clusters_cnt.size(); i++) {
+        hout << "clusters_cnt["<<i<<"].size()="<<clusters_cnt[i].size()<<endl;
+    }
+    hout << "delete from hk76"<<endl;
     
+    Printer *P = new Printer;
+    P->Print_1d_vec(label_map, "label_map.txt");
+    P->Print_1d_vec(labels_labels, "labels_labels.txt");
+    P->Print_1d_vec(labels, "labels.txt");//*/
 	return 1;
 }
 
@@ -83,6 +96,9 @@ int Hoshen_Kopelman::Scan_sub_regions(const vector<Point_3D> &points_in, const v
     //Variable for an inner loop
     long int inner;
     
+    //new_label will take the value of the newest cluster
+    int new_label = 0;
+    
     for (long int i = 0; i < sectioned_domain.size(); i++) {
         inner = sectioned_domain[i].size();
         for (long int j = 0; j < inner-1; j++) {
@@ -108,7 +124,7 @@ int Hoshen_Kopelman::Scan_sub_regions(const vector<Point_3D> &points_in, const v
                     }
                     
                     //Here is where the actual HK76 algotihm takes place
-                    if (!HK76(CNT1, CNT2)) {
+                    if (!HK76(CNT1, CNT2, new_label)) {
                         hout << "Error in Contacts_and_HK76" << endl;
                         return 0;
                     }
@@ -155,6 +171,9 @@ int Hoshen_Kopelman::Scan_sub_regions_then_delete(const vector<Point_3D> &points
     //Variable for an inner loop
     long int inner;
     
+    //new_label will take the value of the newest cluster
+    int new_label = 0;
+    
     for (long int i = 0; i < sectioned_domain.size(); i++) {
         inner = sectioned_domain[i].size();
         for (long int j = 0; j < inner-1; j++) {
@@ -176,7 +195,7 @@ int Hoshen_Kopelman::Scan_sub_regions_then_delete(const vector<Point_3D> &points
                     contacts_point[P2].push_back(P1);
                     contacts_point[P1].push_back(P2);
                     //Here is where the actual HK76 algotihm takes place
-                    if (!HK76(CNT1, CNT2)) {
+                    if (!HK76(CNT1, CNT2, new_label)) {
                         hout << "Error in Contacts_and_HK76" << endl;
                         return 0;                       
                     }
@@ -194,9 +213,9 @@ int Hoshen_Kopelman::Scan_sub_regions_then_delete(const vector<Point_3D> &points
 
 //Function for the Hoshen-Kopelman (HK76) algorithm only
 //It is assumed that this function is used only when a contact is found. Otherwise the results will be wrong and probably one cluster with all CNTs will be generated
-int Hoshen_Kopelman::HK76(int CNT1, int CNT2) {
+int Hoshen_Kopelman::HK76(int CNT1, int CNT2, int &new_label) {
     //L is just a label variable and new_label will take the value of the newest cluster
-    int L, new_label = 0;
+    int L;
     
     //If both labels of a CNT are -1, then both CNT will form a new cluster labeled with the current value in new_label
     //If only one of the CNTs has label -1, then use the same label as the other CNT
@@ -340,11 +359,12 @@ int Hoshen_Kopelman::Make_CNT_clusters(const vector<vector<long int> > &structur
                 return 0;
             }
             clusters_cnt[n_cluster].push_back(CNT);
+        } else {
+            isolated.push_back(empty);
+            isolated.back().push_back(CNT);
         }
     }
     
     return 1;
 }
-
-
 //-------------------------------------------------------------------------------------------------------------------------------------

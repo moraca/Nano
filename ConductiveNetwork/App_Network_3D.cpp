@@ -75,24 +75,32 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
         ct1 = time(NULL);
         hout << "Determine percolating clusters time: "<<(int)(ct1-ct0)<<" secs."<<endl;
         
+        //-----------------------------------------------------------------------------------------------------------------------------------------
         //These vectors are used to store the fractions of the different families in the current observation window
-        //families_lengths has 7 elements because of the 6 percolated families and the non-percoalted CNTs, the same is true for fractions
-        vector<double> families_lengths(7,0);
-        vector<double> fractions(7,0);
-        vector<double> branches_lengths(6,0);
-        
+        //families_lengths has 8 elements because of the 7 percolated families and the non-percoalted CNTs, the same is true for fractions
+        vector<double> families_lengths(8,0);
+        vector<double> fractions(8,0);
+        vector<double> branches_lengths(7,0);
+
         //Loop over the different clusters so that the direct electrifying algorithm is apllied on each cluster
         if (HoKo->clusters_cnt.size()) {
+            //hout << "clusters_cnt.size()="<<HoKo->clusters_cnt.size()<<endl;
             for (int i = 0; i < (int)HoKo->clusters_cnt.size(); i++) {
                 //-----------------------------------------------------------------------------------------------------------------------------------------
                 //Direct Electrifying algorithm
                 Direct_Electrifying *DEA = new Direct_Electrifying;
+                ct0 = time(NULL);
                 if(DEA->Calculate_voltage_field(cnts_structure, HoKo->contacts_point, Cutwins->boundary_flags, HoKo->clusters_cnt[i], cnts_radius, Perc->family[i], Init->electric_para)==0) return 0;
+                ct1 = time(NULL);
+                hout << "Calculate voltage field time: "<<(int)(ct1-ct0)<<" secs."<<endl;
                 
                 //-----------------------------------------------------------------------------------------------------------------------------------------
                 //Determine the backbone and dead branckes
                 Backbone_Network *Backbonet = new Backbone_Network;
+                ct0 = time(NULL);
                 if(Backbonet->Determine_backbone_network(Perc->family[i], HoKo->clusters_cnt[i], DEA->voltages, DEA->LM_matrix, DEA->elements,cnts_structure, cnts_point, families_lengths, branches_lengths)==0) return 0;
+                ct1 = time(NULL);
+                hout << "Determine backbone network time: "<<(int)(ct1-ct0)<<" secs."<<endl;
 
             }
         } else {
@@ -101,7 +109,10 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
         
         //Calculate the fractions of CNTs that belong to each family and save them to a file
         Clusters_fractions *Fracs = new Clusters_fractions;
-        if (Fracs->Calculate_fractions(cnts_structure, Cutwins->cnts_inside, HoKo->isolated, cnts_point, families_lengths, branches_lengths, fractions)==0) return 0;//*/
+        ct0 = time(NULL);
+        if (Fracs->Calculate_fractions(cnts_structure, Cutwins->cnts_inside, HoKo->isolated, cnts_point, families_lengths, branches_lengths, fractions)==0) return 0;
+        ct1 = time(NULL);
+        hout << "Calculate fractions time: "<<(int)(ct1-ct0)<<" secs."<<endl;
 	}
 
 	return 1;

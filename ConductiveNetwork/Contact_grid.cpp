@@ -31,6 +31,8 @@
         Current observation window. window=0 means the largest observation window
  
  Output (These three are class variables):
+    vector<vector< long int> > sectioned_domain
+        Vector with overlaping sub-regions. This vector is used to look for contact points faster
  
  */
 
@@ -96,12 +98,16 @@ int Contact_grid::Generate_contact_grid(const struct Geom_RVE &sample, struct Cu
     sectioned_domain.clear();
     vector<long int> empty_long;
     sectioned_domain.assign(sx*sy*sz, empty_long);
+    hout<<"There are "<<sx*sy*sz<<" overlapping sub-regions."<<endl;
     
     //First loop over the CNTs inside the box, then loop over the points inside each CNT
     for (int i = 0; i < (int)cnts_inside.size(); i++) {
+        //hout<<"cnts_inside["<<i<<"]="<<cnts_inside[i]<<' ';
         CNT = cnts_inside[i];
+        //hout<<"structure["<<CNT<<"].size()="<<structure[CNT].size()<<endl;
         for (int j = 0; j < (int)structure[CNT].size(); j++) {
             P = structure[CNT][j];
+            //hout<<"P=structure["<<CNT<<"]["<<j<<"]="<<structure[CNT][j]<<' ';
             //Save coordinates of the point
             x = points_in[P].x;
             y = points_in[P].y;
@@ -166,9 +172,11 @@ int Contact_grid::Generate_contact_grid(const struct Geom_RVE &sample, struct Cu
                     if (!fy) jj++; //if flag is zero, do this loop only once
                     for (int kk = 0; kk < 2; kk++) {
                         if (!fz) kk++; //if flag is zero, do this loop only once
+                        //hout <<"a="<<a<<" fx="<<fx<<" b="<<b<<" fy="<<fy<<" c="<<c<<" fz="<<fz;
                         t = calculate_t(temp[ii][0],temp[jj][1],temp[kk][2],sx,sy);
-                        //hout <<"a="<<a<<" b="<<b<<" c="<<c<<" t="<<t<<endl;
+                        //hout<<" t="<<t<<" sectioned_domain["<<t<<"].size()="<<sectioned_domain[t].size();
                         sectioned_domain[t].push_back(P);
+                        //hout<<'.'<<endl;
                     }
                 }
             }

@@ -44,6 +44,7 @@ int Direct_Electrifying::Calculate_voltage_field(const vector<vector<long int> >
     //Initialize the size of the LM matrix to be equal to the number of points
     LM_matrix.assign(contacts_point.size(), -1);
     
+    //hout << "LM_matrix cluster.size()="<<cluster.size()<<endl;
     //Initialize the size of the elements matrix to be equal to the number of CNTs
     vector<long int> empty;
     elements.assign(structure.size(), empty);
@@ -52,14 +53,18 @@ int Direct_Electrifying::Calculate_voltage_field(const vector<vector<long int> >
         return 0;
     }
     
+    //hout << "Fill_sparse_stiffness_matrix"<<endl;
     //Variables for using the SSS for the sparse matrix
     vector<long int> col_ind, row_ptr;
     vector<double> values, diagonal, R;
     //With the LM matrix, now fill the sparse stiffness matrix
     Fill_sparse_stiffness_matrix(structure, contacts_point, cluster, global_nodes, LM_matrix, elements, col_ind, row_ptr, values, diagonal, R);
     
+    //hout << "Solve_DEA_equations_CG_SSS"<<endl;
     //This is where the actual direct electrifying algorithm (DEA) takes place
     Solve_DEA_equations_CG_SSS(global_nodes, col_ind, row_ptr, values, diagonal, electric_param, R);
+    
+    //hout << "end"<<endl;
     
 	return 1;
 }
@@ -81,30 +86,45 @@ int Direct_Electrifying::Get_LM_matrix(const vector<vector<long int> > &structur
         for (int j = 0; j < (int)structure[CNT].size(); j++) {
             //Point number
             P = structure[CNT][j];
-            //If the point has contacts, then add the elements to the LM_matix
+            //hout<<"P="<<P<<' ';
             if (contacts_point[P].size()) {
-                //check if the point is in a relevant boudary
-                if ((boundary_flags[P].size()==2) && Is_in_relevant_boundary(family, boundary_flags[P][0])) {
-                    //If the point is in a relevant boundary add the reserved node number
-                    LM_matrix[P] = boundary_flags[P][1];
-                } else {
-                    //If the point is not in a boundary, then add a new node number to the CNT
-                    LM_matrix[P] = global_nodes;
-                    //Increase the number of nodes
-                    global_nodes++;
-                }
+                //If the point has contacts, then add the elements to the LM_matix
+                Add_point_to_LM_matrix(P, family, boundary_flags, global_nodes, LM_matrix);
                 //Add the node to the corresponding CNT. This will be an element node
                 elements[CNT].push_back(P);
             }
         }
-        //Check if the endpoints of the CNT are already in the elements matrix, otherwise add them
-        if (elements[CNT].front() != structure[CNT].front())
-            elements[CNT].insert(elements[CNT].begin(), structure[CNT].front());
-        if (elements[CNT].back() != structure[CNT].back())
-            elements[CNT].push_back(structure[CNT].back());        
+        //hout<<"elements["<<CNT<<"].size()="<<elements[CNT].size();
+        //Check if the endpoints of the CNT are already in the elements matrix, otherwise add them to the elements matrix and the LM_matrix
+        if (elements[CNT].front() != structure[CNT].front()){
+            P = structure[CNT].front();
+            elements[CNT].insert(elements[CNT].begin(), P);
+            Add_point_to_LM_matrix(P, family, boundary_flags, global_nodes, LM_matrix);
+        }
+        if (elements[CNT].back() != structure[CNT].back()){
+            P = structure[CNT].back();
+            elements[CNT].push_back(P);
+            Add_point_to_LM_matrix(P, family, boundary_flags, global_nodes, LM_matrix);
+        }
+        //hout<<endl;
     }
     
     return 1;
+}
+
+void Direct_Electrifying::Add_point_to_LM_matrix(long int P, int family, const vector<vector<short int> > &boundary_flags, int &global_nodes, vector<int> &LM_matrix)
+{
+    //check if the point is in a relevant boudary
+    if ((boundary_flags[P].size()==2) && Is_in_relevant_boundary(family, boundary_flags[P][0])) {
+        //If the point is in a relevant boundary add the reserved node number
+        LM_matrix[P] = (int)boundary_flags[P][1];
+    } else {
+        //If the point is not in a boundary, then add a new node number to the point
+        LM_matrix[P] = global_nodes;
+        //Increase the number of nodes
+        global_nodes++;
+    }
+    
 }
 
 //This function checks if a boundary point is in a relevant boundary depending on the family the cluster belongs to.
@@ -139,6 +159,7 @@ void Direct_Electrifying::Fill_sparse_stiffness_matrix(const vector<vector<long 
     diagonal.assign(nodes, 0);
     
     
+    //hout << "Fill_2d_matrices"<<endl;
     //Fill the 2D matrices
     Fill_2d_matrices(elements, cluster, LM_matrix, col_ind_2d, values_2d, diagonal, contacts_point);
 
@@ -157,33 +178,40 @@ void Direct_Electrifying::Fill_sparse_stiffness_matrix(const vector<vector<long 
     R.clear();
     R.assign(nodes-2, 0);
     
+    //hout << "From_2d_to_1d_vectors"<<endl;
     From_2d_to_1d_vectors(col_ind_2d, values_2d, col_ind, row_ptr, values, diagonal, R);
     
-    //Print2DVec(col_ind_2d, "col_ind_2d.txt");
+    
 }
 
 void Direct_Electrifying::Fill_2d_matrices(const vector<vector<long int> > &elements, const vector<int> &cluster, const vector<int> &LM_matrix, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal, vector<vector<long int> > &contacts_point)
 {
     //Variables
     int CNT;
-    long int P1, node1;
+    long int P1, P2, node1, node2;
     
     //Scan every CNT in the cluster
-    for (long int i = 0; i < cluster.size(); i++) {
+    for (long int i = 0; i < (long int)cluster.size(); i++) {
         CNT = cluster[i];
-        for (long int j = 0; j < elements[CNT].size()-1; j++) {
+        //hout << "CNT="<<CNT<<endl;
+        for (long int j = 0; j < (long int)elements[CNT].size()-1; j++) {
             //Find node numbers of the first two elements
             P1 = elements[CNT][j];
             node1 = LM_matrix[P1];
+            P2 = elements[CNT][j+1];
+            node2 = LM_matrix[P2];
             //Add the elements to the sparse vectors
-            Add_elements_to_sparse_stiffness(contacts_point, LM_matrix, P1, node1, j+1, col_ind_2d, values_2d, diagonal);
+            //hout << "Add_elements_to_sparse_stiffness "<<j<<" node1="<<node1<<" node2="<<node2<<endl;
+            Add_elements_to_sparse_stiffness(node1, node2, col_ind_2d, values_2d, diagonal);
             
             //Check if the current node1 has any contacts and add the corresponding contributions to the
             //stiffness matrix
+            //hout << "Check_for_other_elements nested loop "<<j<<endl;
             Check_for_other_elements(LM_matrix, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
         }
         //Check if the last node has any contacts and add the corresponding contributions to the
         //stiffness matrix
+        //hout << "Check_for_other_elements "<<endl;
         P1 = elements[CNT].back();
         node1 = LM_matrix[P1];
         Check_for_other_elements(LM_matrix, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
@@ -196,10 +224,12 @@ void Direct_Electrifying::Check_for_other_elements(const vector<int> &LM_matrix,
 {
     if (contacts_point[P1].size()) {
         for (long int k = 0; k < contacts_point[P1].size(); k++) {
-            //Add the elements to the sparse vectors
-            Add_elements_to_sparse_stiffness(contacts_point, LM_matrix, P1, node1, k, col_ind_2d, values_2d, diagonal);
-            //Remove the contac tha was used so it is not used again in the future
             long int P2 = contacts_point[P1][k];
+            //hout <<" contact P2="<<P2;
+            long int node2 = LM_matrix[P2];
+            //Add the elements to the sparse vectors
+            Add_elements_to_sparse_stiffness(node1, node2, col_ind_2d, values_2d, diagonal);
+            //Remove the contac tha was used so it is not used again in the future
             Remove_from_vector(P1, contacts_point[P2]);
             //hout << "Removed ";
         }
@@ -209,12 +239,8 @@ void Direct_Electrifying::Check_for_other_elements(const vector<int> &LM_matrix,
     
 }
 
-void Direct_Electrifying::Add_elements_to_sparse_stiffness(const vector<vector<long int> > &contacts_point, const vector<int> &LM_matrix, long int P1, long int node1, long int k, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal)
+void Direct_Electrifying::Add_elements_to_sparse_stiffness(long int node1, long int node2, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal)
 {
-    long int P2 = contacts_point[P1][k];
-    long int node2 = LM_matrix[P2];
-    //hout << " P1="<<P1<<" node1="<<node1<<" contact P2="<<P2<<" node2="<<node2<<endl;
-    
     //Add the diagonal elements of the stiffness matrix
     diagonal[node1] += 1;
     diagonal[node2] += 1;

@@ -52,13 +52,13 @@ int Backbone_Network::Find_dead_branches(const vector<double> &voltages, const v
     double I;
     
     //Scan all the CNTs that belong to the current cluster
-    for (long int i = 0; i < cluster.size(); i++) {
+    for (long int i = 0; i < (long int)cluster.size(); i++) {
         CNT = cluster[i];
         //The dead branches are in th extremes of a CNT, they cannot be in the middle.
         //Hence I just need to check the current of the first and last elements of the CNT
         
         //Check all elements from the begining until one that carries current is found (if any)
-        for (long int j = 0; j < elements[CNT].size()-1; j++) {
+        for (long int j = 0; j < (long int)elements[CNT].size()-1; j++) {
             P1 = elements[CNT][j];
             node1 = LM_matrix[P1];
             P2 = elements[CNT][j+1];
@@ -104,6 +104,7 @@ int Backbone_Network::Find_dead_branches(const vector<double> &voltages, const v
         }
         
         //Take care of the last point of the CNT
+        P2 = elements[CNT].back();
         //The last point of the CNT is the second index of the non-conducting segment only if I < zero_cutoff
         //otherwise it is the second index of the conducting segment
         if (I < zero_cutoff) {
@@ -113,13 +114,13 @@ int Backbone_Network::Find_dead_branches(const vector<double> &voltages, const v
         }
         
         //Check that the vectors have the corrent size. percolated_indices can only have size 0 or 2
-        if ( (percolated_indices[i].size() != 2) || (percolated_indices[i].size() != 0) ) {
-            hout << "Error in Find_dead_branches. The vector percolated_indices has size " << percolated_indices.size();
+        if ( (percolated_indices[i].size() != 2) && (percolated_indices[i].size() != 0) ) {
+            hout << "Error in Find_dead_branches. The vector percolated_indices["<<i<<"] has size " << percolated_indices[i].size();
             hout << " but it can only have size 0 or 2." << endl;
             return 0;
         }
         //Check that the vectors have the corrent size. dead_indices can only have size 0, 2 or 4
-        if ( (dead_indices[i].size() != 4) || (dead_indices[i].size() != 2) || (dead_indices[i].size() != 0) ) {
+        if ( (dead_indices[i].size() != 4) && (dead_indices[i].size() != 2) && (dead_indices[i].size() != 0) ) {
             hout << "Error in Find_dead_branches. The vector dead_indices has size " << dead_indices.size();
             hout << " but it can only have size 0, 2 or 4." << endl;
             return 0;
@@ -199,10 +200,11 @@ int Backbone_Network::Calculate_lengths(const int &family, const vector<Point_3D
     for (int i = 0; i < (int)percolated_indices.size(); i++) {
         //Check if there is a conducting segment, if there is add the corresponding length
         if (percolated_indices[i].size()){
-            backbone = backbone + Segment_length(percolated_indices[i][1], percolated_indices[i][1], points_in);
+            backbone = backbone + Segment_length(percolated_indices[i][0], percolated_indices[i][1], points_in);
         }
         //Check if there is one or two non-conducting segments
         if (dead_indices[i].size() == 2) {
+            branches = branches + Segment_length(dead_indices[i][0], dead_indices[i][1], points_in);
         } else if (dead_indices[i].size() == 4){
             branches = branches + Segment_length(dead_indices[i][0], dead_indices[i][1], points_in);
             branches = branches + Segment_length(dead_indices[i][2], dead_indices[i][3], points_in);

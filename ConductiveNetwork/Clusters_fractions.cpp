@@ -19,11 +19,10 @@ int Clusters_fractions::Calculate_fractions(const vector<vector<long int> > &str
         CNT = cnts_inside[i];
         total_length = total_length + CNT_length(structure, points_in, CNT);
     }
-    return 1;
     
-    //Calculate the fractions of the percoalted families, i.e. from i=0 to i=5
-    for (int i = 0; i < 6; i++) {
-        fractions[i] = branches_lengths[i]/total_length;
+    //Calculate the fractions of the percoalted families, i.e. from i=0 to i=6
+    for (int i = 0; i <= 6; i++) {
+        fractions[i] = families_lengths[i]/total_length;
     }
     
     //Now calculate the length of the isolated CNTs
@@ -40,27 +39,31 @@ int Clusters_fractions::Calculate_fractions(const vector<vector<long int> > &str
     for (int i = 0; i < (int)branches_lengths.size(); i++) {
         dead_branches = dead_branches + branches_lengths[i];
     }
-    families_lengths[6] = isolated_length +  dead_branches;
+    families_lengths[7] = isolated_length +  dead_branches;
     //Calculate the fraction of the NP family
-    fractions[6] = families_lengths[6]/total_length;
+    fractions[7] = families_lengths[7]/total_length;
     
     //Check that the families lengths and the total length are the same (or nearly the same)
     double check_length = 0;
     for (int i = 0; i < (int)families_lengths.size(); i++) {
         check_length = check_length + families_lengths[i];
     }
-    if (abs(check_length - total_length) < Zero){
-        hout << "Error in Calculate_fractions. The total length of the CNTs in the observation window does not match with ";
+    families_lengths.push_back(check_length);
+    families_lengths.push_back(total_length);
+    
+    //Append vectors to files
+    Append_1d_vector_to_file(families_lengths, "clusters_lengths.txt");
+    Append_1d_vector_to_file(branches_lengths, "dead_branches_lengths.txt");
+    Append_1d_vector_to_file(fractions, "clusters_fractions.txt");
+    
+    if (abs(check_length - total_length) >  Zero){
+        hout << "Error in Calculate_fractions. The total length of the CNTs in the observation window does not match with "<<endl;
         hout << "the length of the CNTs in the percolated and non-percolated clusters. " << endl;
         hout << "Length in clusters = " <<  check_length << endl;
         hout << "Length of CNTs inside the observation window = " << total_length << endl;
         return 0;
     }
     
-    //Append vectors to files
-    Append_1d_vector_to_file(families_lengths, "clusters_lengths.txt");
-    Append_1d_vector_to_file(branches_lengths, "dead_branches_lengths.txt");
-    Append_1d_vector_to_file(fractions, "clusters_fractions.txt");
     
     return 1;
 }
