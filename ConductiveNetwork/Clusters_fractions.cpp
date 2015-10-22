@@ -7,6 +7,8 @@
 //====================================================================================
 
 #include "Clusters_fractions.h"
+#include <iostream>
+#include <iomanip>      // std::setprecision
 
 //This function calcultes the fractions of the percolated families. It also calculates the lengths of the non-percolated CNTs
 //There is a check of the total length
@@ -56,10 +58,10 @@ int Clusters_fractions::Calculate_fractions(const vector<vector<long int> > &str
     Append_1d_vector_to_file(branches_lengths, "dead_branches_lengths.txt");
     Append_1d_vector_to_file(fractions, "clusters_fractions.txt");
     
-    if (abs(check_length - total_length) >  Zero){
+    if (abs((check_length - total_length)/total_length) >  Zero){
         hout << "Error in Calculate_fractions. The total length of the CNTs in the observation window does not match with "<<endl;
         hout << "the length of the CNTs in the percolated and non-percolated clusters. " << endl;
-        hout << "Length in clusters = " <<  check_length << endl;
+        hout << setwp(1,20) << "Length in clusters = " << check_length << endl;
         hout << "Length of CNTs inside the observation window = " << total_length << endl;
         return 0;
     }

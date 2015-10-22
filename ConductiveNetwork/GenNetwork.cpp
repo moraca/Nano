@@ -105,7 +105,7 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
 		if(Get_random_value(nanotube_geo.rad_distrib_type, nanotube_geo.rad_min, nanotube_geo.rad_max, seed_cnt_radius, cnt_rad)==0) return 0;
 
 		//---------------------------------------------------------------------------
-		//Randomly generate a direction in the spherical coordinates as the original direction of CNT segments
+		//Randomly generate a direction in the spherical coordinates as the intital direction of CNT segments
 		double cnt_sita, cnt_pha;
 		if(Get_uniform_direction(nanotube_geo, seed_cnt_sita, seed_cnt_pha, cnt_sita, cnt_pha)==0) return 0;
 		MathMatrix multiplier(3,3);
@@ -119,7 +119,7 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
 		const double step_wei_para = nanotube_geo.linear_density;
 
 		//---------------------------------------------------------------------------
-        //Randomly generate a seed (original point) of a CNT in the extended RVE	(Comments: the seed generation is after the radius generation for the non-overlapping nanotubes generation)
+        //Randomly generate a seed (initial point) of a CNT in the extended RVE	(Comments: the seed generation is after the radius generation for the non-overlapping nanotubes generation)
 		struct cuboid excub;										//generate a cuboid to represent the RVE
 		excub.poi_min = geom_rve.ex_origin;
 		excub.len_x = geom_rve.ex_len;
@@ -153,7 +153,7 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
 			
 			//To calculate the coordinates of the new CNT point (transformation of coordinates)
 			cnt_poi = cnt_poi + Get_new_point(multiplier, nanotube_geo.step_length);
-			cnt_poi.flag = 1;							//1 means that point is not the original point
+			cnt_poi.flag = 1;							//1 means that point is not the intial point
 
 			//---------------------------------------------------------------------------
 			//If a CNT penetrates the ellipsoidal surface of a cluster from inside, the growth of this CNT will be headed back in the cluster in a probability p, (0<=p<=1).
@@ -660,7 +660,7 @@ int GenNetwork::Get_random_value(const string &dist_type, const double &min, con
 	return 1;
 }
 //---------------------------------------------------------------------------
-//Randomly generate a seed (original point) of a CNT in the RVE
+//Randomly generate a seed (intial point) of a CNT in the RVE
 int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed, Point_3D &point)const
 {
 	seed = (2053*seed + 13849)%MAX_INT;
@@ -672,12 +672,12 @@ int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed, Point_3D &po
 	seed = (2053*seed + 13849)%MAX_INT;
 	point.z = cub.poi_min.z + seed*cub.hei_z/MAX_INT;
     
-	point.flag = 0; //0 denotes this point is the original point of a CNT
+	point.flag = 0; //0 denotes this point is the initial point of a CNT
     
 	return 1;
 }
 //---------------------------------------------------------------------------
-//Randomly generate a direction in the spherical coordinates as the original direction of CNT segments
+//Randomly generate a direction in the spherical coordinates as the initial direction of CNT segments
 int GenNetwork::Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, int &seed_sita, int &seed_pha, double &cnt_sita, double &cnt_pha)const
 {
 	if(nanotube_geo.dir_distrib_type=="random")
@@ -692,7 +692,7 @@ int GenNetwork::Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, i
 	}
 	else if(nanotube_geo.dir_distrib_type=="specific")
 	{
-		//A specific original-direction
+		//A specific initial-direction
 		seed_sita = (2053*seed_sita + 13849)%MAX_INT;
 		seed_pha = (2053*seed_pha + 13849)%MAX_INT;
         
@@ -862,18 +862,20 @@ double GenNetwork::Effective_length_given_region(const struct cuboid &cub, const
     vector<Point_3D> ipoi_vec;
     
     //Decide the corresponding case and calculate volume fraction
-    if (last_bool&&new_bool) return last_point.distance_to(new_point); //both points are inside so add the total length
-    else if (last_bool&&(!new_bool))  //if the new point is outside
+    if (last_bool&&new_bool)
+        return last_point.distance_to(new_point); //both points are inside so add the total length
+    else if (last_bool&&(!new_bool))  //if the last point is inside and the new point is outside
 	{
         if(Get_intersecting_point_RVE_surface(cub, last_point, new_point, ipoi_vec)==0) return 0;
 	    return last_point.distance_to(ipoi_vec[0]);
-    } 
-	else if (new_bool)  //if the new point is inside
+    }
+    else if ((!last_bool)&&new_bool)  //if the last point is outside and the new point is inside
 	{
         if(Get_intersecting_point_RVE_surface(cub, new_point, last_point, ipoi_vec)==0) return 0;
-	    return last_point.distance_to(ipoi_vec[0]);
+	    return new_point.distance_to(ipoi_vec[0]);
     }
-	else return 0.0;
+    else
+        return 0.0; //if both points are outside
 }
 //---------------------------------------------------------------------------
 //Checking the angle between two segments in one nanotube (if less than PI/2, provide an alarm)
