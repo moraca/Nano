@@ -113,16 +113,24 @@ int Backbone_Network::Find_dead_branches(const vector<double> &voltages, const v
             percolated_indices[i].push_back(P2);
         }
         
-        //Check that the vectors have the corrent size. percolated_indices can only have size 0 or 2
+        //Check that the vectors have the correct size. percolated_indices can only have size 0 or 2
         if ( (percolated_indices[i].size() != 2) && (percolated_indices[i].size() != 0) ) {
             hout << "Error in Find_dead_branches. The vector percolated_indices["<<i<<"] has size " << percolated_indices[i].size();
             hout << " but it can only have size 0 or 2." << endl;
+            hout << "\tThe vector dead_indices["<<i<<"] has size " << dead_indices[i].size()<<endl;
+            hout << "\tCNTs in cluster: " << cluster.size() << ", current CNT: "<<CNT;
+            hout << ", elements[CNT].size()=" << elements[CNT].size() << endl;
+            hout << "\tLast calculated current: "<<I<<", zero cutoff: "<<zero_cutoff<<endl;
             return 0;
         }
         //Check that the vectors have the corrent size. dead_indices can only have size 0, 2 or 4
         if ( (dead_indices[i].size() != 4) && (dead_indices[i].size() != 2) && (dead_indices[i].size() != 0) ) {
-            hout << "Error in Find_dead_branches. The vector dead_indices has size " << dead_indices.size();
-            hout << " but it can only have size 0, 2 or 4." << endl;
+            hout << "Error in Find_dead_branches. The vector dead_indices["<<i<<"] has size " << dead_indices[i].size();
+            hout << " but it can only have size 0, 2 or 4." <<endl;
+            hout << "\tThe vector percolated_indices["<<i<<"] has size " << percolated_indices[i].size()<<endl;
+            hout << "\tCNTs in cluster: " << cluster.size() << ", current CNT: "<<CNT;
+            hout << ", elements[CNT].size()=" << elements[CNT].size() << endl;
+            hout << "\tLast calculated current: "<<I<<", zero cutoff: "<<zero_cutoff<<endl;
             return 0;
         }
 
@@ -146,9 +154,9 @@ double Backbone_Network::Zero_voltage(const vector<double> &voltages, const vect
     vector<double> currents;
     
     //First calculate all currents
-    for (long int i = 0; i < cluster.size(); i++) {
+    for (long int i = 0; i < (long int)cluster.size(); i++) {
         CNT = cluster[i];
-        for (long int j = 0; j < elements[CNT].size()-1; j++) {
+        for (long int j = 0; j < (long int)elements[CNT].size()-1; j++) {
             P1 = elements[CNT][j];
             node1 = LM_matrix[P1];
             P2 = elements[CNT][j+1];
@@ -158,9 +166,11 @@ double Backbone_Network::Zero_voltage(const vector<double> &voltages, const vect
         }
     }
     
+    //Sort currents
+    sort(currents.begin(),currents.end());
     //Print1DVec(currents, "currents.txt");
     //vector<double> cutoffs;
-    //Find the cutoff. This happens when the ratio is below 10e-4
+    //Find the cutoff. 
     for(int i = (int) currents.size()-1; i >= 0 ; i--){
         //zero_cutoff = currents[i-1]/currents[i];
         zero_cutoff = currents[i]/currents.back();
@@ -174,7 +184,9 @@ double Backbone_Network::Zero_voltage(const vector<double> &voltages, const vect
             break;
         }
     }
-    //Print1DVec(cutoffs, "cutoffs.txt");
+    Printer *P = new Printer;
+    P->Print_1d_vec(currents, "currents.txt");
+    //P->Print_1d_vec(cutoffs, "cutoffs.txt");
     return zero_cutoff;
 }
 

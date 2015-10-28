@@ -10,6 +10,9 @@
 #define BACKBONE_NETWORK_H
 
 #include "Input_Reader.h"
+#include "Printer.h"
+#include <algorithm>
+
 
 //-------------------------------------------------------
 class Backbone_Network

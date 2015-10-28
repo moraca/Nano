@@ -8,7 +8,6 @@
 
 #include "Clusters_fractions.h"
 #include <iostream>
-#include <iomanip>      // std::setprecision
 
 //This function calcultes the fractions of the percolated families. It also calculates the lengths of the non-percolated CNTs
 //There is a check of the total length

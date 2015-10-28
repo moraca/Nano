@@ -49,6 +49,10 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
 																		vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const
 {
 	//Generate random seed in terms of local time
+    //unsigned int time_seed = (unsigned int)time(NULL);
+    //unsigned int time_seed = 1445931984;
+    //hout << "Time seed "<<time_seed<<endl;
+    //srand(time_seed);
     srand((unsigned int)time(NULL));
 
 	//---------------------------------------------------------------------------

@@ -82,6 +82,7 @@ int Direct_Electrifying::Get_LM_matrix(const vector<vector<long int> > &structur
     
     for (int i = 0; i < (int)cluster.size(); i++) {
         CNT = cluster[i];
+        
         //Scan the CNT contacts
         for (int j = 0; j < (int)structure[CNT].size(); j++) {
             //Point number
@@ -94,6 +95,7 @@ int Direct_Electrifying::Get_LM_matrix(const vector<vector<long int> > &structur
                 elements[CNT].push_back(P);
             }
         }
+        
         //hout<<"elements["<<CNT<<"].size()="<<elements[CNT].size();
         //Check if the endpoints of the CNT are already in the elements matrix, otherwise add them to the elements matrix and the LM_matrix
         if (elements[CNT].front() != structure[CNT].front()){
@@ -105,6 +107,13 @@ int Direct_Electrifying::Get_LM_matrix(const vector<vector<long int> > &structur
             P = structure[CNT].back();
             elements[CNT].push_back(P);
             Add_point_to_LM_matrix(P, family, boundary_flags, global_nodes, LM_matrix);
+        }
+        
+        //Check that the elements vector has a valid size
+        if (elements[CNT].size() <= 1) {
+            hout << "Error in Get_LM_matrix. The vector elements["<<CNT<<"] has size "<< elements[CNT].size();
+            hout << " but it has to have at least two elements." << endl;
+            hout << "\tCNT has "<<structure[CNT].size()<<" points"<<endl;
         }
         //hout<<endl;
     }
@@ -357,6 +366,7 @@ void Direct_Electrifying::Conjugate_gradient(long int nodes, const vector<long i
     //Initial residual
     double R0 = 1.0E-10*sqrt(fabs(V_dot_v(R, R)));
     //double R0 = Zero*sqrt(fabs(V_dot_v(R, R)));
+    //double R0 = 1.0E-10;
     
     for (k = 1; k <= max_iter; k++) {
         //Calculate Ap

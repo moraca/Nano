@@ -60,6 +60,12 @@ int Cutoff_Wins::Extract_observation_window(struct Geom_RVE sample, struct Nanot
     hout<<"Observation window geometry:"<<endl;
     hout<<"xmin="<<xmin<<" ymin="<<ymin<<" zmin="<<zmin<<endl;
     hout<<"w_x="<<w_x<<" w_y="<<w_y<<" w_z="<<w_z<<endl;
+    
+    //Vector check for debugging. Comment or delete after debugging
+    //vector<vector<long int> > structure_check(structure);
+    //Print the points
+    //Printer *P = new Printer;
+   // P->Print_1d_vec(points_in, "points_in.txt");
 
     //hout << "5 ";
     //Scan every Nanotube that is the boundary region. Delete and trim CNTs when needed.
@@ -70,15 +76,222 @@ int Cutoff_Wins::Extract_observation_window(struct Geom_RVE sample, struct Nanot
     
     //hout << "6 ";
     //Fill the vector cnts_inside
+    int flag = 0;
     for (int i = 0; i < (int)structure.size(); i++) {
-        if (structure[i].size())
-            cnts_inside.push_back(i);
+        if (structure[i].size()) {
+            if (structure[i].size() == 1) {
+                hout << "Error in Extract_observation_window. A CNT ("<<i<<") has only one point. A CNT must have at least 2 points."<<endl;
+                long int P = structure[i][0];
+                hout << "\tP=("<<points_in[P].x<<", "<<points_in[P].y<<", "<<points_in[P].z<<")"<<endl;
+                //hout << "\tThere were "<< structure_check.size()<<" CNTs before trimming. ";
+                //hout << "CNT "<<i<<" had "<<structure_check[i].size()<<" points before trimming"<<endl;
+                flag = 1;
+            } else {
+                cnts_inside.push_back(i);
+            }
+        }
+    }
+    if (flag) {
+        return 0;
     }
     //hout << "9 ";
 	return 1;
 }
 
 int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, int window, struct Geom_RVE sample, vector<Point_3D> &points_in, vector<vector<long int> > &structure, vector<double> &radii)
+{
+    //These variables will help me locate the point with respect with the box
+    string currentPoint;
+    //Variables for current and next points and current CNT
+    long int P1;
+    int CNT;
+    //Empty vector to increase size of other vectors
+    //Initialize the vector of boundary_flags with empty vectors
+    vector<short int> empty_short;
+    boundary_flags.assign(points_in.size(), empty_short);
+    //Initialize the vector of boundary_flags with empty vectors
+    vector<int> empty_int;
+    boundary_cnt.assign(6, empty_int);
+    //hout << "cnts_inside.size() = "<<cnts_inside.size()<<endl;
+    //This varibale is used to initialize the vectors below
+    vector<long int> empty_long;
+    for (long int i = 0; i < (long int)shells_cnt[window].size(); i++) {
+        CNT = shells_cnt[window][i];
+        //hout << "Check0 " <<  CNT << ' ' << structure[CNT].size() << ' ' << endl;
+        //hout << " all=" << structure.size() << ' ' ;
+        //hout << "Check0.1 " ;
+        
+        //Vector to store the indices of the segments
+        vector<int> branches_indices_CNT;
+        
+        //Scan all points in a given CNT
+        for (int j = 0; j < (int)structure[CNT].size(); j++) {
+            P1 = structure[CNT][j];
+            currentPoint = Where_is(points_in[P1]);
+            if ((currentPoint == "inside") ) {
+                //If a point is "inside", save the local point number only if the current size of branches_indices[CNT] is even
+                //When branches_indices[CNT].size() is even, that means one of two cases:
+                //1) It is empty, so it is the first time it reaches this part, so a new segement needs to be started.
+                //   Thus, add the local point number. In the following iterations, if the points are still inside,
+                //   no point will be added since now the size of the vector is odd, i.e. 1
+                //2) It is not empty and its size was made even by entering the "outside case", then it went back to the
+                //   "inside" case. Hence, a new segment needs to be added. In the following iterations, if the points are still inside,
+                //   no point will be added since now the size of the vector is odd.
+                if (branches_indices_CNT.size()%2 == 0) {
+                    branches_indices_CNT.push_back(j);
+                }
+            } else {
+                if (branches_indices_CNT.size()%2 == 1) {
+                    branches_indices_CNT.push_back(j);
+                }
+            }
+        }
+        
+        //If the last two segments of a CNT are "outside"-"inside", then the vector branches_indices[CNT] will have odd size
+        //in such case, the last point needs to be added
+        if (branches_indices_CNT.size()%2 == 1) {
+            int s = (int)structure[CNT].size()-1;
+            branches_indices_CNT.push_back(s);
+        }
+        
+        //After the segments have been defined, it is time to trim the CNT
+        if (branches_indices_CNT.size() == 0) {
+            //If there are no indices, that means all the CNT is outside, so delete all points of that CNT
+            structure[CNT].clear();
+        } else {
+            //Scan each segment to handle boundary points
+            for (int k = 0; k < (int)branches_indices_CNT.size(); k=k+2) {
+                int index1 = branches_indices_CNT[k];
+                int index2 = branches_indices_CNT[k+1];
+                //Beginning of segement
+                //Check if the first index is the first point of the CNT, otherwise add a boundary point
+                if (index1 != 0) {
+                    if (!First_index(points_in, structure[CNT], index1)){
+                        hout << "Error in Trim_boundary_cnts2. branches_indices_CNT["<<k<<"]="<<branches_indices_CNT[k];
+                        return 0;
+                    }
+                    //branches_indices[CNT][k] might be modified so I need to update it
+                    branches_indices_CNT[k] = index1;
+                }
+                //End of segment
+                //Check if the second index is the last point of the CNT, otherwise add a boundary point
+                if (index2 != (int)structure[CNT].size()-1) {
+                    if(!Second_index(points_in, structure[CNT], index2)){
+                        hout << "Error in Trim_boundary_cnts2. branches_indices_CNT["<<k+1<<"]="<<branches_indices_CNT[k+1];
+                        return 0;
+                    }
+                    //branches_indices[CNT][k+1] might be modified so I need to update it
+                    branches_indices_CNT[k+1] = index2;
+                }
+                if (index1 == index2) {
+                    hout << "Error in Trim_boundary_cnts2. index1 = index2 = "<<index1<<" on CNT "<<CNT<<endl;
+                    hout << "points_in[structure[CNT][index2-1]] is "<<Where_is(points_in[structure[CNT][index2-1]]);
+                    hout << " points_in[structure[CNT][index2]] is "<<Where_is(points_in[structure[CNT][index2]]) << endl;
+                    return 0;
+                }
+                //If there are more than one segments, add the extra segments as new CNTs
+                //A minimum of two segments means that k will have values 0 and 2, so whenever k is 2 or more there are multiple segments
+                if (k >=2) {
+                    //Add a new CNT
+                    structure.push_back(empty_long);
+                    
+                    //This bg variable is used to add the new CNT into the corresponding shell-sub-region
+                    Background_vectors *bg = new Background_vectors;
+                    
+                    //Add the points of the segment to the new CNT
+                    //At the same time, update the CNT number of the points in the new CNT and add the CNT to the corresponding shell or shells
+                    int new_CNT = ((int)structure.size()) - 1;
+                    for (int kk = index1; kk <= index2; kk++) {
+                        long int P = structure[CNT][kk];
+                        structure.back().push_back(P);
+                        points_in[P].flag = new_CNT;
+                        bg->Add_to_shell(sample, points_in[P], shells_cnt);
+                    }
+                    
+                    //Update the radii vector
+                    //The new CNT is just a segment of the old one, so they should have the same radius
+                    radii.push_back(radii[CNT]);
+                }
+            }
+            //At this point all indices are inclusive of the boundary points, and these boundary points have been added into the
+            //points_in vector by substituting outside points.
+            
+            //Move the points that are inside to the front of the CNT
+            //If index1 is zero, the points of the first segment are already at the front of the CNT, so there is nothing to do
+            int index1 = branches_indices_CNT.front();
+            int index2 = branches_indices_CNT[1];
+            if (index1 != 0) {
+                for (int kk = index1; kk <= index2 ; kk++) {
+                    structure[CNT][kk-index1] = structure[CNT][kk];
+                }
+            }
+            //Remove the points that are outside or belong to other CNTs
+            while ((int)structure[CNT].size() > (index2-index1+1)) {
+                structure[CNT].pop_back();
+            }
+        }
+        
+    }
+
+    return 1;
+}
+
+int Cutoff_Wins::First_index(vector<Point_3D> &points_in, vector<long int> &structure_CNT, int &index1)
+{
+    long int global_i = structure_CNT[index1];
+    long int global_o = global_i-1;
+
+    //Check if the outside point is in the boundary. This actually happened in some simulations so it is useful to check
+    //So if the outside point is actually at the boundary, there is nothing to do.
+    //Only when the outside point is not at the boundary, then we proceed to calculate the projection to the boundary
+    if ( Where_is(points_in[global_o]) != "boundary") {
+        if (!Substitute_boundary_point(points_in, global_i, global_o)){
+            hout << "Error in First_index. global_i="<<global_i<<" global_o="<<global_o<<" structure_CNT.size()="<<structure_CNT.size();
+            hout <<" index1="<<index1<<endl;
+            hout <<"\tP_i=("<<points_in[global_i].x<<", "<<points_in[global_i].y<<", "<<points_in[global_i].z<<") P_o=(";
+            hout <<points_in[global_o].x<<", "<<points_in[global_o].y<<", "<<points_in[global_o].z<<")"<<endl;
+            return 0;
+        }
+        //Now, the outside poin has the coordinates of the boundary point
+        Add_to_boundary_vectors(points_in[global_o], global_o);
+    }
+    //The first index is always inside, so:
+    //    if the previous point is outside, the previous point needs to be included as it will bow be the boundary point
+    //    if the previous point is boundary, it has to be added
+    //Hence, independently of where the previous point is, it has to be included, so it will be the new index
+    index1--;
+    return 1;
+}
+
+int Cutoff_Wins::Second_index(vector<Point_3D> &points_in, vector<long int> &structure_CNT, int &index2)
+{
+    //The second index can be either inside or outside, so first I need to find out where it is and proceed accordingly
+    if (Where_is(points_in[ structure_CNT[index2] ]) == "outside"){
+        long int global_o = structure_CNT[index2];
+        long int global_i = global_o-1;
+        
+        //Check if what is supposed to be the inside point is actually in the boundary.
+        //If it hapens that the inside point is actually at the boundary, then this point has to be index 2
+        if ( Where_is(points_in[global_i]) == "boundary") {
+            index2--;
+        } else{
+            //Since the index2 point is outside, then the previous point is inside.
+            //We then we proceed to calculate the projection to the boundary
+            if (!Substitute_boundary_point(points_in, global_i, global_o)){
+                hout << "Error in Second_index. global_i="<<global_i<<" global_o="<<global_o<<" structure_CNT.size()="<<structure_CNT.size();
+                hout <<" index2="<<index2<<endl;
+                hout <<"\tP_i=("<<points_in[global_i].x<<", "<<points_in[global_i].y<<", "<<points_in[global_i].z<<") P_o=(";
+                hout <<points_in[global_o].x<<", "<<points_in[global_o].y<<", "<<points_in[global_o].z<<")"<<endl;
+                return 0;
+            }
+            //Now, the outside point, i.e. index2, has the coordinates of the boundary point so I need to kep it unchanged
+            Add_to_boundary_vectors(points_in[global_o], global_o);
+        }
+    }
+    return 1;
+}
+
+int Cutoff_Wins::Trim_boundary_cnts2(vector<vector<int> > &shells_cnt, int window, struct Geom_RVE sample, vector<Point_3D> &points_in, vector<vector<long int> > &structure, vector<double> &radii)
 {
     //These variables will help me locate the point with respect with the box
     string currentPoint, nextPoint;
@@ -100,7 +313,7 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, int window
         P1 = structure[CNT][0];
         currentPoint = Where_is(points_in[P1]);
         //hout << "Check0.1 " ;
-        for (long int j = 1; j <= structure[CNT].size(); j++) {
+        for (long int j = 1; j <= (long int)structure[CNT].size(); j++) {
             //hout << "Check1 " << i << ' ' << j << " CNT=" << CNT << ' ' << "P1=" << P1 << " s[CNT].s=" << structure[CNT].size() << ' ' << currentPoint << ' ';
             //Handle the last point
             if (j == structure[CNT].size()) {
@@ -129,6 +342,13 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, int window
                     }
                     //Trim the CNT from the projected boundary point, which now is in position j
                     Trim_CNT(shells_cnt, sample, points_in, structure, radii, j, CNT);
+                    //Check if the CNT has only one point from the generation part
+                    if (structure[CNT].size()==1) {
+                        hout << "Error in Trim_boundary_cnts. A CNT ("<<CNT<<") was generated with only one point (if iteration 0) or ";
+                        hout << "was left with one point after trimming (if iteration not 0)"<<endl;
+                        return 0;
+                    }
+
                     //Now the position of nextPoint is for the boundary point, so I need to update nextPoint
                     nextPoint = "boundary";
                     //hout << "Check5 ";
@@ -167,9 +387,16 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, int window
                         //hout << "Check14.2 ";
                         //If the boundary is not the first point, then a segment of the CNT is inside the observation window so trim the CNT
                         Trim_CNT(shells_cnt, sample, points_in, structure, radii, j-1, CNT);
+                        //Check if the CNT has only one point from the generation part
+                        if (structure[CNT].size()==1) {
+                            hout << "Error in Trim_boundary_cnts. A CNT ("<<CNT<<") was generated with only one point (if iteration 0) or ";
+                            hout << "was left with one point after trimming (if iteration not 0)"<<endl;
+                            return 0;
+                        }
+
                         //Add the current point to the corresponding boundary vector
                         long int point_number = structure[CNT][j-1];
-                        Add_to_boundary_vectors(sample, points_in[point_number], point_number);
+                        Add_to_boundary_vectors(points_in[point_number], point_number);
                     }
                 } else if ((nextPoint == "nothing")&&(j==1)) {
                     //hout << "Check13.1 ";
@@ -180,7 +407,7 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, int window
                     //hout << "Check13.2 ";
                     //Add the current point to the corresponding boundary vector
                     long int point_number = structure[CNT][j-1];
-                    Add_to_boundary_vectors(sample, points_in[point_number], point_number);
+                    Add_to_boundary_vectors(points_in[point_number], point_number);
                 }
                 //hout << "Check15 ";
             } else {
@@ -307,9 +534,6 @@ int Cutoff_Wins::Get_intersecting_point_RVE_surface(Point_3D &point0, Point_3D &
 
 void Cutoff_Wins::Trim_CNT(vector<vector<int> > &shells_cnt, struct Geom_RVE sample, vector<Point_3D> &points_in, vector<vector<long int> > &structure, vector<double> &radii, long int boundary, int CNT)
 {
-    //This bg variable is used to add the new CNT into the corresponding shell-sub-region
-    Background_vectors *bg = new Background_vectors;
-    
     //Here check which point is the current point
     vector<long int> empty;
     structure.push_back(empty);
@@ -317,6 +541,9 @@ void Cutoff_Wins::Trim_CNT(vector<vector<int> > &shells_cnt, struct Geom_RVE sam
     structure.back().insert(structure.back().begin(),structure[CNT].begin()+boundary+1, structure[CNT].end());
     //Erase form CNT
     structure[CNT].erase(structure[CNT].begin()+boundary+1, structure[CNT].end());
+    
+    //This bg variable is used to add the new CNT into the corresponding shell-sub-region
+    Background_vectors *bg = new Background_vectors;
     
     //Update the CNT number of the points that were moved and add the new CNT to the corresponding shell or shells
     long int P;
@@ -334,7 +561,7 @@ void Cutoff_Wins::Trim_CNT(vector<vector<int> > &shells_cnt, struct Geom_RVE sam
 
 //Add the corrent point to the corrsponding boundary vector.
 //The boundary vectors are used in the direct electrifying algorithm to find the nodes with known boundary conditions
-void Cutoff_Wins::Add_to_boundary_vectors(struct Geom_RVE sample, Point_3D point3d, long int point)
+void Cutoff_Wins::Add_to_boundary_vectors(Point_3D point3d, long int point)
 {
     //Add point and CNT to the boundary vector
     double x = point3d.x;
