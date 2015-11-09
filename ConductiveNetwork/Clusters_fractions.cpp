@@ -57,6 +57,16 @@ int Clusters_fractions::Calculate_fractions(const vector<vector<long int> > &str
     Append_1d_vector_to_file(branches_lengths, "dead_branches_lengths.txt");
     Append_1d_vector_to_file(fractions, "clusters_fractions.txt");
     
+    //Calculate the fraction of the geometrically percolated clusters
+    vector<double> geom_fractions(8,0);
+    for (int i = 0; i < 7; i++) {
+        geom_fractions[i] = (families_lengths[i] + branches_lengths[i])/total_length;
+        //The total fractions of geometrically percolated clusters
+        geom_fractions[7] = geom_fractions[7] + geom_fractions[i];
+    }
+    
+    Append_1d_vector_to_file(geom_fractions, "geom_fractions.txt");
+    
     if (abs((check_length - total_length)/total_length) >  Zero){
         hout << "Error in Calculate_fractions. The total length of the CNTs in the observation window does not match with "<<endl;
         hout << "the length of the CNTs in the percolated and non-percolated clusters. " << endl;

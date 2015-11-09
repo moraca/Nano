@@ -63,16 +63,17 @@ int Cutoff_Wins::Extract_observation_window(struct Geom_RVE sample, struct Nanot
     
     //Vector check for debugging. Comment or delete after debugging
     //vector<vector<long int> > structure_check(structure);
-    //Print the points
-    //Printer *P = new Printer;
-   // P->Print_1d_vec(points_in, "points_in.txt");
-
+    
     //hout << "5 ";
     //Scan every Nanotube that is the boundary region. Delete and trim CNTs when needed.
     if (!Trim_boundary_cnts(shells_cnt, window, sample, points_in, structure, radii)){
         hout << "Error in Locate_and_trim_boundary_cnts (initial)" << endl;
         return 0;
     }
+    
+    //Print the points
+    //Printer *P = new Printer;
+    //P->Print_1d_vec(points_in, "cnts_point_IT.txt");
     
     //hout << "6 ";
     //Fill the vector cnts_inside
@@ -91,9 +92,14 @@ int Cutoff_Wins::Extract_observation_window(struct Geom_RVE sample, struct Nanot
             }
         }
     }
+    
+    //Export tecplot files of the observation window
+    //P->Print_CNTs_in_window(sample, points_in, cnts_inside, structure, window);
+    
     if (flag) {
         return 0;
     }
+    
     //hout << "9 ";
 	return 1;
 }

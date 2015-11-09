@@ -25,6 +25,7 @@
 #include "Gauss.h"
 #include "Hns.h"
 #include "Tecplot_Export.h"
+
 using namespace hns;
 
 //-------------------------------------------------------
@@ -32,7 +33,7 @@ class GenNetwork
 {
 	public:
 		//Data Member
-		
+
 		//Constructor
 		GenNetwork(){};
 

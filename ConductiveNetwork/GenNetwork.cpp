@@ -136,9 +136,10 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
 
 		new_cnt.push_back(cnt_poi);	//store this seed point in the vector for a new nanotube
 		cnt_seed_count++;					//record the number of seed generations
-		if(cnt_seed_count>1E6) 
+        int max_seed = 1E9;
+		if(cnt_seed_count>max_seed)
 		{ 
-			hout << "The number of seed genrations is lager than 1E6, but the nanotube generation still fails to acheive the demanded volume fraction." << endl; 
+			hout << "The number of seed genrations is lager than "<<max_seed<<", but the nanotube generation still fails to acheive the demanded volume fraction." << endl;
 			return 0; 
 		}
 
@@ -175,7 +176,10 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
 				//Calculate all intersection points between the new segment and surfaces of RVE
 				//(using a parametric equatio:  the parameter 0<t<1, and sort all intersection points from the smaller t to the greater t)  
 				vector<Point_3D> ipoi_vec;  //a vector for intersection points
-				if(Get_intersecting_point_RVE_surface(excub, new_cnt.back(), cnt_poi, ipoi_vec)==0) return 0;
+                if(Get_intersecting_point_RVE_surface(excub, new_cnt.back(), cnt_poi, ipoi_vec)==0) {
+                    hout << "Error in Generate_network_threads"<<endl;
+                    return 0;
+                }
 				cnt_poi = ipoi_vec[0];
 				touch_end = true;
 			}
@@ -667,6 +671,7 @@ int GenNetwork::Get_random_value(const string &dist_type, const double &min, con
 //Randomly generate a seed (intial point) of a CNT in the RVE
 int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed, Point_3D &point)const
 {
+    /*/
 	seed = (2053*seed + 13849)%MAX_INT;
 	point.x = cub.poi_min.x + seed*cub.len_x/MAX_INT;
     
@@ -676,7 +681,20 @@ int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed, Point_3D &po
 	seed = (2053*seed + 13849)%MAX_INT;
 	point.z = cub.poi_min.z + seed*cub.hei_z/MAX_INT;
     
-	point.flag = 0; //0 denotes this point is the initial point of a CNT
+	point.flag = 0; //0 denotes this point is the initial point of a CNT*/
+    
+    //The modification below was made just in case there was a loss in precision
+
+    seed = (2053*seed + 13849)%MAX_INT;
+    point.x = cub.poi_min.x + cub.len_x*((double)seed/MAX_INT);
+    
+    seed = (2053*seed + 13849)%MAX_INT;
+    point.y = cub.poi_min.y + cub.wid_y*((double)seed/MAX_INT);
+    
+    seed = (2053*seed + 13849)%MAX_INT;
+    point.z = cub.poi_min.z + cub.hei_z*((double)seed/MAX_INT);//*/
+
+    point.flag = 0; //0 denotes this point is the initial point of a CNT
     
 	return 1;
 }
@@ -686,14 +704,24 @@ int GenNetwork::Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, i
 {
 	if(nanotube_geo.dir_distrib_type=="random")
 	{
-		//sita is chosen in [0, PI] with uniform distribution
+		/*/sita is chosen in [0, PI] with uniform distribution
 		seed_sita = (2053*seed_sita + 13849)%MAX_INT;
 		cnt_sita = seed_sita*PI/MAX_INT;
         
 		//pha is chosen in [0, 2PI] with uniform distribution
 		seed_pha = (2053*seed_pha + 13849)%MAX_INT;
-		cnt_pha = 2.0*seed_pha*PI/MAX_INT;
-	}
+		cnt_pha = 2.0*seed_pha*PI/MAX_INT; //*/
+        
+        //The modification below was made just in case there was a loss in precision
+        //sita is chosen in [0, PI] with uniform distribution
+        seed_sita = (2053*seed_sita + 13849)%MAX_INT;
+        cnt_sita = PI*((double)seed_sita/MAX_INT);
+        
+        //pha is chosen in [0, 2PI] with uniform distribution
+        seed_pha = (2053*seed_pha + 13849)%MAX_INT;
+        cnt_pha = 2.0*PI*((double)seed_pha/MAX_INT);//*/
+
+    }
 	else if(nanotube_geo.dir_distrib_type=="specific")
 	{
 		//A specific initial-direction
@@ -718,23 +746,28 @@ int GenNetwork::Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, i
 //Transform angles into matrix
 MathMatrix GenNetwork::Get_transformation_matrix(const double &sita, const double &pha)const
 {
-	//cnt_sita½Ç±ä»»¾ØÕó
-	MathMatrix Msita(3,3);
-	Msita.element[0][0] = cos(sita);
-	Msita.element[0][2] = sin(sita);
-	Msita.element[1][1] = 1;
-	Msita.element[2][0] = -sin(sita);
-	Msita.element[2][2] = cos(sita);
+    //M = M_pha*M_sita
+    //          |cos(pha) -sin(pha) 0|
+    // M_pha  = |sin(pha)  cos(pha) 0|
+    //          |   0         0     1|
+    //
+    //          | cos(sita)  0  sin(sita)|
+    // M_sita = |     0      1      0    |
+    //          |-sin(sita)  0  cos(sita)|
+    //Calculate the matrix elements directly, instead of multiplying two matrices
+    MathMatrix M(3,3);
+    M.element[0][0] = cos(pha)*cos(sita);
+    M.element[0][1] = -sin(pha);
+    M.element[0][2] = cos(pha)*sin(sita);
     
-	//cnt_pha½Ç±ä»»¾ØÕó
-	MathMatrix Mpha(3,3);
-	Mpha.element[0][0] = cos(pha);
-	Mpha.element[0][1] = -sin(pha);
-	Mpha.element[1][0] = sin(pha);
-	Mpha.element[1][1] = cos(pha);
-	Mpha.element[2][2] = 1;
+    M.element[1][0] = sin(pha)*cos(sita);
+    M.element[1][1] = cos(pha);
+    M.element[1][2] = sin(pha)*sin(sita);
     
-	return Mpha*Msita;
+    M.element[2][0] = -sin(sita);
+    M.element[2][2] = cos(sita);
+    
+    return M;
 }
 //---------------------------------------------------------------------------
 //Randomly generate a direction in the spherical coordinates
@@ -742,38 +775,47 @@ MathMatrix GenNetwork::Get_transformation_matrix(const double &sita, const doubl
 //Then, the radial angle, sita, obeys a normal distribution (sita \in fabs[(-omega,+omega)]) and the zonal angle, pha, obeys a uniform distribution (pha \in (0,2PI))
 int GenNetwork::Get_normal_direction(const double &omega, int &seed_sita, int &seed_pha, double &cnt_sita, double &cnt_pha)const
 {
-	//sita centres 0 and obeys a normal distribution in (-omega, +omega)
-	int sum=0;
-	for(int i=0; i<12; i++)
-	{
-		seed_sita = (2053*seed_sita + 13849)%MAX_INT;
-		sum += seed_sita;
-	}
-	cnt_sita = fabs((sum*omega)/(6.0*MAX_INT)-omega);
+    /*/sita centres 0 and obeys a normal distribution in (-omega, +omega)
+    int sum=0;
+    for(int i=0; i<12; i++)
+    {
+        seed_sita = (2053*seed_sita + 13849)%MAX_INT;
+        sum += seed_sita;
+    }
+    cnt_sita = fabs((sum*omega)/(6.0*MAX_INT)-omega);//*/
     
-	//pha satisfies a uniform distribution in (0, 2PI)
-	seed_pha = (2053*seed_pha + 13849)%MAX_INT;
-	cnt_pha = 2.0*seed_pha*PI/MAX_INT;
-
-	return 1;
+    //The modification below was made just in case there was a loss in precision
+    //sita centres 0 and obeys a normal distribution in (-omega, +omega)
+    int sum=0;
+    for(int i=0; i<12; i++)
+    {
+        seed_sita = (2053*seed_sita + 13849)%MAX_INT;
+        sum += seed_sita;
+    }
+    double sum_d = (double)sum;
+    cnt_sita = fabs((sum_d*omega)/(6.0*((double)MAX_INT))-omega);//*/
+    
+    /*/pha satisfies a uniform distribution in (0, 2PI)
+    seed_pha = (2053*seed_pha + 13849)%MAX_INT;
+    cnt_pha = 2.0*seed_pha*PI/MAX_INT;//*/
+    
+    //The modification below was made just in case there was a loss in precision
+    //pha satisfies a uniform distribution in (0, 2PI)
+    seed_pha = (2053*seed_pha + 13849)%MAX_INT;
+    cnt_pha = 2.0*PI*((double)seed_pha/MAX_INT);//*/
+    
+    return 1;
 }
 //---------------------------------------------------------------------------
 //To calculate the coordinates of the new CNT point (transformation of coordinates)
 Point_3D GenNetwork::Get_new_point(MathMatrix &Matrix, const double &Rad)const
 {
-	//1D vector
-	MathMatrix Rvec(3,1);
-	Rvec.element[0][0] = 0;
-	Rvec.element[1][0] = 0;
-	Rvec.element[2][0] = Rad;
+    //Point = Matrix*v
+    //v = [0; 0; Rad]
+    //Calculate the new point directly
+    Point_3D Point(Matrix.element[0][2]*Rad, Matrix.element[1][2]*Rad, Matrix.element[2][2]*Rad);
     
-	//1D vector
-	MathMatrix Res(3,1);
-	Res = Matrix*Rvec;
-    
-	Point_3D Point(Res.element[0][0], Res.element[1][0], Res.element[2][0]);
-    
-	return Point;
+    return Point;
 }
 //---------------------------------------------------------------------------
 //To judge if a point is included in a RVE
@@ -823,7 +865,13 @@ int GenNetwork::Get_intersecting_point_RVE_surface(const struct cuboid &cub, con
     
 	if((int)t_ratio.size()<1||(int)t_ratio.size()>3)
 	{
-		hout << "Error, the number of intersection points between the segement and the surfaces of RVE is" << (int)t_ratio.size() << ", less than one or more than three!" << endl;
+		hout << "Error, the number of intersection points between the segement and the surfaces of RVE is " << (int)t_ratio.size() << ", less than one or more than three!" << endl;
+        hout << "Cuboid P_min="<<cub.poi_min.x<<' '<<cub.poi_min.y<<' '<<cub.poi_min.z<<endl;
+        hout << "Cuboid size="<<cub.len_x<<' '<<cub.wid_y<<' '<<cub.hei_z<<endl;
+        hout << "P0= "<<point0.x<<' '<<point0.y<<' '<<point0.z<<' '<<endl;
+        hout << "Judge_RVE_including_point="<<Judge_RVE_including_point(cub, point0)<<endl;
+        hout << "P1= "<<point1.x<<' '<<point1.y<<' '<<point1.z<<' '<<endl;
+        hout << "Judge_RVE_including_point="<<Judge_RVE_including_point(cub, point1)<<endl;
 		return 0;
 	}
     
@@ -870,12 +918,18 @@ double GenNetwork::Effective_length_given_region(const struct cuboid &cub, const
         return last_point.distance_to(new_point); //both points are inside so add the total length
     else if (last_bool&&(!new_bool))  //if the last point is inside and the new point is outside
 	{
-        if(Get_intersecting_point_RVE_surface(cub, last_point, new_point, ipoi_vec)==0) return 0;
+        if(Get_intersecting_point_RVE_surface(cub, last_point, new_point, ipoi_vec)==0){
+            hout << "Error in Effective_length_given_region, case last_bool&&(!new_bool) "<<endl;
+            return 0;
+        }
 	    return last_point.distance_to(ipoi_vec[0]);
     }
     else if ((!last_bool)&&new_bool)  //if the last point is outside and the new point is inside
 	{
-        if(Get_intersecting_point_RVE_surface(cub, new_point, last_point, ipoi_vec)==0) return 0;
+        if(Get_intersecting_point_RVE_surface(cub, new_point, last_point, ipoi_vec)==0) {
+            hout << "Error in Effective_length_given_region, case (!last_bool)&&new_bool"<<endl;
+            return 0;
+        }
 	    return new_point.distance_to(ipoi_vec[0]);
     }
     else
@@ -901,11 +955,19 @@ int GenNetwork::CNTs_quality_testing(const vector<vector<Point_3D> > &cnts_point
 
 			//Checking the angle between two segments (nod21ºÍnod01)
 			double cos_ang210 = (x21*x01+y21*y01+z21*z01)/(sqrt(x21*x21+y21*y21+z21*z21)*sqrt(x01*x01+y01*y01+z01*z01));
+            
+            //Check if cos_ang210 is small enough to be considered zero
+            if (abs(cos_ang210) < Zero)
+                cos_ang210 = 0;
 
 			//Judge the cos value(<= 90degree and >=0degree£¬cos value<=1.0 and >=0.0)
 			if(cos_ang210<=1.0&&cos_ang210>=0.0)
 			{
 				hout << "Error: there exists at least one angle which is larger than PI/2!" << endl;
+                hout << "cos_ang210="<<cos_ang210<<endl;
+                hout << "P1 = "<<cnts_points[i][j-1].x<<' '<<cnts_points[i][j-1].y<<' '<<cnts_points[i][j-1].z<<endl;
+                hout << "P2 = "<<cnts_points[i][j].x<<' '<<cnts_points[i][j].y<<' '<<cnts_points[i][j].z<<endl;
+                hout << "P3 = "<<cnts_points[i][j+1].x<<' '<<cnts_points[i][j+1].y<<' '<<cnts_points[i][j+1].z<<endl;
 				return 0;
 			}
 		}
@@ -1116,6 +1178,7 @@ int GenNetwork::Get_projected_points_in_plane(const Point_3D &center, const Poin
 //Transform the 2D cnts_points into 1D cpoints and 2D cstructuers
 int GenNetwork::Transform_cnts_points(const vector<vector<Point_3D> > &cnts_points, vector<Point_3D> &cpoints, vector<vector<long int> > &cstructures)const
 {
+    hout << "There are "<<cnts_points.size()<<" CNTs"<<endl;
 	long int count = 0;
 	for(int i=0; i<(int)cnts_points.size(); i++)
 	{
@@ -1129,6 +1192,8 @@ int GenNetwork::Transform_cnts_points(const vector<vector<Point_3D> > &cnts_poin
 		}
 		cstructures.push_back(struct_temp);
 	}
+    
+    hout << "There are "<<cpoints.size() << " points"<<endl;
 
 	return 1;
 }

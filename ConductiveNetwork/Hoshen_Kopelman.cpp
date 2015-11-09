@@ -54,7 +54,15 @@ int Hoshen_Kopelman::Determine_nanotube_clusters(const struct Cutoff_dist &cutof
         hout << "Error in Determinate_nanotube_clusters." <<endl;
         return 0;
     }
+    
     /*/
+    Printer *P = new Printer;
+    P->Print_2d_vec(isolated, "isolated_IT.txt");
+    P->Print_2d_vec(clusters_cnt, "clusters_cnt_IT.txt");
+    //
+    P->Print_1d_vec(label_map, "label_map.txt");
+    P->Print_1d_vec(labels_labels, "labels_labels.txt");
+    P->Print_1d_vec(labels, "labels.txt");
     hout << "delete from hk76"<<endl;
     for (int i = 0; i < (int)isolated.size(); i++) {
         hout << "isolated["<<i<<"].size()="<<isolated[i].size()<<endl;
@@ -64,11 +72,8 @@ int Hoshen_Kopelman::Determine_nanotube_clusters(const struct Cutoff_dist &cutof
     }
     hout << "delete from hk76"<<endl;
     
-    Printer *P = new Printer;
-    P->Print_1d_vec(label_map, "label_map.txt");
-    P->Print_1d_vec(labels_labels, "labels_labels.txt");
-    P->Print_1d_vec(labels, "labels.txt");//*/
-	return 1;
+    //*/
+    return 1;
 }
 
 //This function scans all the subregions to look for points close enough for tunneling to happen, i.e. points that are in contact.

@@ -28,6 +28,8 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
     delete Genet;
     ct1 = time(NULL);
     hout << "Nanotube network generation time: " << (int)(ct1-ct0) <<" secs." << endl;
+    Printer *P = new Printer;
+    P->Print_1d_vec(cnts_point, "cnts_point_00.txt");
     
     //-----------------------------------------------------------------------------------------------------------------------------------------
 	ct0 = time(NULL);
@@ -73,7 +75,7 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
         //Determine percolation
         Percolation *Perc = new Percolation;
         ct0 = time(NULL);
-        if (Perc->Determine_percolating_clusters(Init->geom_rve, Init->nanotube_geo, Cutwins->boundary_cnt, HoKo->labels, HoKo->labels_labels, HoKo->label_map, HoKo->clusters_cnt, HoKo->isolated)==0) return 0;
+        if (Perc->Determine_percolating_clusters(Init->geom_rve, Init->nanotube_geo, Cutwins->boundary_cnt, HoKo->labels, HoKo->labels_labels, HoKo->label_map, HoKo->clusters_cnt, HoKo->isolated, i)==0) return 0;
         ct1 = time(NULL);
         hout << "Determine percolating clusters time: "<<(int)(ct1-ct0)<<" secs."<<endl;
         

@@ -9,7 +9,7 @@
 #include "Percolation.h"
 
 
-int Percolation::Determine_percolating_clusters(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated)
+int Percolation::Determine_percolating_clusters(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated, const int &window)
 {
     time_t ct0, ct1;
     //---------------------------------------------------------------------------------------------------------------------------
@@ -27,7 +27,7 @@ int Percolation::Determine_percolating_clusters(const struct Geom_RVE &sample, c
     //Check if the (single) CNTs that do not form clusters might percolate
     hout << "CNT percolation ";
     ct0 = time(NULL);
-    if (!Single_CNT_percolation(boundary_cnt, labels, labels_labels, clusters_cnt, isolated, sample, cnts)) {
+    if (!Single_CNT_percolation(boundary_cnt, labels, labels_labels, clusters_cnt, isolated, sample, cnts, window)) {
         hout << "Error in Single_CNT_percolation" << endl;
         return 0;
     }
@@ -180,15 +180,25 @@ int Percolation::Check_percolation_single_cluster(const vector<short int> &clust
 //It assumed that this function is called when the CNTs have a lenth equal or grater than the dimensions of the sample
 //In this function, the vector of isolated CNTs is scanned to look for percolated CNTs.
 //A single CNT can only percolate on X, Y or Z.
-int Percolation::Single_CNT_percolation(const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels,vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated, const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts)
+int Percolation::Single_CNT_percolation(const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels,vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated, const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const int &window)
 {
+    //These are variables for the geometry of the observation window
+    //Dimensions of the current observation window
+    double w_x = sample.win_max_x - window*sample.win_delt_x;
+    double w_y = sample.win_max_y - window*sample.win_delt_y;
+    double w_z = sample.win_max_z - window*sample.win_delt_z;
+    //These variables are the coordinates of the lower corner of the observation window
+    //double xmin = sample.origin.x + (sample.len_x - w_x)/2;
+    //double ymin = sample.origin.y + (sample.wid_y - w_y)/2;
+    //double zmin = sample.origin.z + (sample.hei_z - w_z)/2;
+    
     //These variables are flags to determine in which directions there might be percolation by a single CNT
     int px = 0, py= 0, pz = 0;
-    if (cnts.len_max >= sample.len_x)
+    if (cnts.len_max >= w_x)
         px = 1;
-    if (cnts.len_max >= sample.wid_y)
+    if (cnts.len_max >= w_y)
         py = 1;
-    if (cnts.len_max >= sample.hei_z)
+    if (cnts.len_max >= w_z)
         pz = 1;
     
     //hout << "0 ";
