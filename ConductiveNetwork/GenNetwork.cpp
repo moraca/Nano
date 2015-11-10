@@ -48,17 +48,12 @@ int GenNetwork::Generate_nanotube_networks(const struct Geom_RVE &geom_rve, cons
 int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, 
 																		vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const
 {
-	//Generate random seed in terms of local time
-    //unsigned int time_seed = (unsigned int)time(NULL);
-    //unsigned int time_seed = 1445931984;
-    //hout << "Time seed "<<time_seed<<endl;
-    //srand(time_seed);
-    srand((unsigned int)time(NULL));
 
 	//---------------------------------------------------------------------------
 	//Generate the data for nanotube clusters limited in ellipsoid surfaces (each ellipsoid is within the RVE and is separated with each other)
 	if(clust_geo.vol_fra_criterion>0.0)
 	{
+        srand((unsigned int)time(NULL));
 		int seed_ellip_poi = rand()%MAX_INT;
 		int seed_ellip_axis = rand()%MAX_INT;
 		int seed_ellip_angle = rand()%MAX_INT;
@@ -75,14 +70,11 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
 //		if(Get_spherical_clusters_regular_arrangement(cub, clust_geo, seed_ellip_poi, seed_ellip_axis, seed_ellip_angle)==0) return 0;
 	}
 
+    //---------------------------------------------------------------------------
+    //Generate random seeds in terms of local time
+    int seed_cnt_x0, seed_cnt_y0, seed_cnt_z0, seed_cnt_length, seed_cnt_radius, seed_cnt_sita, seed_cnt_pha, seed_growth_probability;
+    
 	//---------------------------------------------------------------------------
-	//Generate random seeds for cnts
-	int seed_cnt_origin = rand()%MAX_INT;     //MAX_INT==2^15-1 in a 16-bit computer, the range of rand() is [0, MAX_INT]
-	int seed_cnt_length = rand()%MAX_INT;		//MAX_INT==2^31-1 in a 32-bit computer, the range of rand() is [0, MAX_INT]
-	int seed_cnt_radius = rand()%MAX_INT;
-	int seed_cnt_sita = rand()%MAX_INT;
-	int seed_cnt_pha = rand()%MAX_INT;
-	int seed_growth_probability = rand()%MAX_INT;
 
 	double vol_sum = 0;  //the sum of volume of generated CNTs 
 	double wt_sum = 0;   //the sum of weight of generated CNTs
@@ -91,7 +83,11 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
     while((nanotube_geo.criterion == "vol"&&vol_sum < nanotube_geo.real_volume)||
 			 (nanotube_geo.criterion == "wt"&&wt_sum < nanotube_geo.real_weight))
 	{
-		//---------------------------------------------------------------------------
+        //---------------------------------------------------------------------------
+        if (cnt_seed_count%MAX_INT == 0) {
+            Generate_new_seeds(seed_cnt_x0, seed_cnt_y0, seed_cnt_z0, seed_cnt_length, seed_cnt_radius, seed_cnt_sita, seed_cnt_pha, seed_growth_probability);
+        }
+        //---------------------------------------------------------------------------
 		//Define a vector for a new nanotube
 		vector<Point_3D> new_cnt;
 		int new_cnt_size = (int)new_cnt.size();
@@ -132,9 +128,11 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
 		excub.volume = excub.len_x*excub.wid_y*excub.hei_z;
 
 		Point_3D cnt_poi;
-		if(Get_seed_point(excub, seed_cnt_origin, cnt_poi)==0) return 0;
+		if(Get_seed_point(excub, seed_cnt_x0, seed_cnt_y0, seed_cnt_z0, cnt_poi)==0) return 0;
 
 		new_cnt.push_back(cnt_poi);	//store this seed point in the vector for a new nanotube
+        
+        //---------------------------------------------------------------------------
 		cnt_seed_count++;					//record the number of seed generations
         int max_seed = 1E9;
 		if(cnt_seed_count>max_seed)
@@ -142,6 +140,8 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
 			hout << "The number of seed genrations is lager than "<<max_seed<<", but the nanotube generation still fails to acheive the demanded volume fraction." << endl;
 			return 0; 
 		}
+        //---------------------------------------------------------------------------
+        //
 
 		//---------------------------------------------------------------------------
 		//The growth process of nanotube
@@ -239,6 +239,29 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
 	if(nanotube_geo.criterion == "wt") hout << "    The volume fraction of generated CNTs is about : " << vol_sum/geom_rve.volume << endl;
 
 	return 1;
+}
+//---------------------------------------------------------------------------
+//Call this function to call the random generator number and generate new seeds
+void GenNetwork::Generate_new_seeds(int &seed_cnt_x0, int &seed_cnt_y0, int &seed_cnt_z0, int &seed_cnt_length, int &seed_cnt_radius, int &seed_cnt_sita, int &seed_cnt_pha, int &seed_growth_probability)const
+{
+    //Generate random seed in terms of local time
+    //unsigned int time_seed = (unsigned int)time(NULL);
+    //unsigned int time_seed = 1445931984;
+    //hout << "Time seed "<<time_seed<<endl;
+    //srand(time_seed);
+    srand((unsigned int)time(NULL));
+   
+    //---------------------------------------------------------------------------
+    //Generate random seeds for cnts
+    seed_cnt_x0 = rand()%MAX_INT;     //MAX_INT==2^15-1 in a 16-bit computer, the range of rand() is [0, MAX_INT]
+    seed_cnt_y0 = rand()%MAX_INT;     //MAX_INT==2^31-1 in a 32-bit computer, the range of rand() is [0, MAX_INT]
+    seed_cnt_z0 = rand()%MAX_INT;
+    seed_cnt_length = rand()%MAX_INT;
+    seed_cnt_radius = rand()%MAX_INT;
+    seed_cnt_sita = rand()%MAX_INT;
+    seed_cnt_pha = rand()%MAX_INT;
+    seed_growth_probability = rand()%MAX_INT;
+    
 }
 //---------------------------------------------------------------------------
 //Generate a number of ellipsoids
@@ -669,7 +692,7 @@ int GenNetwork::Get_random_value(const string &dist_type, const double &min, con
 }
 //---------------------------------------------------------------------------
 //Randomly generate a seed (intial point) of a CNT in the RVE
-int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed, Point_3D &point)const
+int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed_x, int &seed_y, int &seed_z, Point_3D &point)const
 {
     /*/
 	seed = (2053*seed + 13849)%MAX_INT;
@@ -685,14 +708,14 @@ int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed, Point_3D &po
     
     //The modification below was made just in case there was a loss in precision
 
-    seed = (2053*seed + 13849)%MAX_INT;
-    point.x = cub.poi_min.x + cub.len_x*((double)seed/MAX_INT);
+    seed_x = (2053*seed_x + 13849)%MAX_INT;
+    point.x = cub.poi_min.x + cub.len_x*((double)seed_x/MAX_INT);
     
-    seed = (2053*seed + 13849)%MAX_INT;
-    point.y = cub.poi_min.y + cub.wid_y*((double)seed/MAX_INT);
+    seed_y = (2053*seed_y + 13849)%MAX_INT;
+    point.y = cub.poi_min.y + cub.wid_y*((double)seed_y/MAX_INT);
     
-    seed = (2053*seed + 13849)%MAX_INT;
-    point.z = cub.poi_min.z + cub.hei_z*((double)seed/MAX_INT);//*/
+    seed_z = (2053*seed_z + 13849)%MAX_INT;
+    point.z = cub.poi_min.z + cub.hei_z*((double)seed_z/MAX_INT);//*/
 
     point.flag = 0; //0 denotes this point is the initial point of a CNT
     

@@ -50,6 +50,8 @@ class GenNetwork
 
 		//Generate a network defined by points and connections 
 		int Generate_network_threads(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const;
+        //Call this function to call the random generator number and generate new seeds
+        void Generate_new_seeds(int &seed_cnt_x0, int &seed_cnt_y0, int &seed_cnt_z0, int &seed_cnt_length, int &seed_cnt_radius, int &seed_cnt_sita, int &seed_cnt_pha, int &seed_growth_probability)const;
 		//Checking the angle between two segments in one nanotube (if less than PI/2, provide an alarm)
 		int CNTs_quality_testing(const vector<vector<Point_3D> > &cnts_points)const;
 		//Generate a number of ellipsoids
@@ -61,7 +63,7 @@ class GenNetwork
 		//Export the data of ellipsoid surfaces
 		void Export_cluster_ellipsoids_data(const vector<struct elliparam> &ellips, const double &ellip_ratio)const;
 		//Randomly generate a seed (original point) of a CNT in the RVE
-		int Get_seed_point(const struct cuboid &cub, int &seed, Point_3D &point)const;
+		int Get_seed_point(const struct cuboid &cub, int &seed_x, int &seed_y, int &seed_z, Point_3D &point)const;
 		//Generate a random value through a probability distribution function
 		int Get_random_value(const string &dist_type, const double &min, const double &max, int &seed, double &value)const;
 		//Randomly generate a direction in the spherical coordinates as the original direction of CNT segments
