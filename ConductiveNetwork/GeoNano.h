@@ -21,6 +21,7 @@
 #include "Fem_3D.h"
 #include "Gauss.h"
 #include "Hns.h"
+#include "Input_Reader.h"
 using namespace hns;
 
 const int MAX_INT = 65536; //2^16 用于取随机数
@@ -74,15 +75,15 @@ struct Clust_Geo
 	double cnt_real_volume;			//纳米管团簇椭球中所包含的纳米管实际体积
 };
 //---------------------------------------------------------------------------
-//记录椭球参数信息
-struct elliparam		
+/*/记录椭球参数信息
+struct elliparam
 {	
 	double x, y, z;		//椭球的中心点
 	double a, b, c;		//椭球的长、中和短轴
 	double alpha1, alpha2, alpha3; //椭球的九个夹角参数
 	double beta1, beta2, beta3;
 	double gamma1, gamma2, gamma3;
-};
+};//*/
 //-------------------------------------------------------
 //Defining this type of structure will be more helpful
 struct Region_Geo {
@@ -125,6 +126,7 @@ private:
     int Import_geometric_data(ifstream &infile, struct RVE_Geo &cell_geo, struct Region_Geo &overlap_regions, struct Region_Geo &cnt_regions, struct CNT_Geo &cnts_geo, struct Clust_Geo &clust_geo, const int &samples_count, vector<vector<long int> > &sectioned_domain, vector<vector<int> > &sectioned_domain_cnt, double &d_vdw, double &cutoff)const;
     //生成纳米管网络
     int Generate_nanotube_networks(const struct RVE_Geo &cell_geo, const struct CNT_Geo &cnts_geo, vector<vector<Point_3D> > &cnts_points, struct Clust_Geo &clust_geo, vector<struct elliparam> &ellips);
+    double Effective_length(Point_3D last_point, Point_3D new_point);
     long int Default_region(Point_3D point);
     void Add_to_regions(Point_3D point, long int point_coordinate);
     int Check_penetration(Point_3D &point, long int point_region, double cnt_rad, vector<Point_3D> cnt_new, vector<vector<Point_3D> > cnts, RVE_Geo cell_geo, int &boundary_flag);

@@ -15,7 +15,7 @@ void Printer::Print_1d_vec(const vector<Point_3D> &list, const string &filename)
     ofstream otec(filename.c_str());
     otec.precision(15);
     hout << "Saving file: " << filename << "\n";
-    for (long int i=0; i < list.size(); i++) {
+    for (long int i=0; i < (long int)list.size(); i++) {
         otec << list[i].x << "\t" << list[i].y << "\t" << list[i].z << "\t" << list[i].flag << "\n";
     }
     otec.close();
@@ -26,7 +26,7 @@ void Printer::Print_1d_vec(const vector<char> &list, const string &filename)
 {
     ofstream otec(filename.c_str());
     hout << "Saving file: " << filename << "\n";
-    for (long int i=0; i < list.size(); i++) {
+    for (long int i=0; i < (long int)list.size(); i++) {
         //otec << i << "\t" << list[i] << "\n";
         otec << list[i] << "\n";
     }
@@ -39,7 +39,7 @@ void Printer::Print_1d_vec(const vector<int> &list, const string &filename)
     ofstream otec(filename.c_str());
     hout << "Saving file: " << filename << "\n";
     //otec << "Positions \n";
-    for (long int i=0; i < list.size(); i++) {
+    for (long int i=0; i < (long int)list.size(); i++) {
         //otec << i << "\t" << list[i] << "\n";
         otec << list[i] << "\n";
     }
@@ -52,7 +52,7 @@ void Printer::Print_1d_vec(const vector<double> &list, const string &filename)
     ofstream otec(filename.c_str());
     otec.precision(15);
     hout << "Saving file: " << filename << "\n";
-    for (long int i=0; i < list.size(); i++) {
+    for (long int i=0; i < (long int)list.size(); i++) {
         //otec << i << "\t" << list[i] << "\n";
         otec << list[i] << "\n";
     }
@@ -65,7 +65,7 @@ void Printer::Append_1D_vec(const vector<double> &list, const string &filename)
     ofstream otec(filename.c_str(), std::ios_base::app);
     otec.precision(15);
     hout << "Appending to file: " << filename << "\n";
-    for (long int i=0; i < list.size(); i++) {
+    for (long int i=0; i < (long int)list.size(); i++) {
         //otec << i << "\t" << list[i] << "\n";
         otec << list[i] << "\t";
     }
@@ -78,7 +78,7 @@ void Printer::Print_1d_vec(const vector<long int> &list, const string &filename)
 {
     ofstream otec(filename.c_str());
     hout << "Saving file: " << filename << "\n";
-    for (long int i=0; i < list.size(); i++) {
+    for (long int i=0; i < (long int)list.size(); i++) {
         //otec << i << "\t" << list[i] << "\n";
         otec << list[i] << "\n";
     }
@@ -90,7 +90,7 @@ void Printer::Print_2d_vec(const vector<vector<int> > &num_mat, const string &fi
 {
     ofstream otec(filename.c_str());
     hout << "Saving file: " << filename << "\n";
-    for (long int i=0; i < num_mat.size(); i++) {
+    for (long int i=0; i < (long int)num_mat.size(); i++) {
         for (long int j = 0; j < num_mat[i].size(); j++) {
             otec << num_mat[i][j] << '\t' ;
         }
@@ -104,7 +104,7 @@ void Printer::Print_2d_vec(const vector<vector<long int> > &num_mat, const strin
 {
     ofstream otec(filename.c_str());
     hout << "Saving file: " << filename << "\n";
-    for (long int i=0; i < num_mat.size(); i++) {
+    for (long int i=0; i < (long int)num_mat.size(); i++) {
         for (long int j = 0; j < num_mat[i].size(); j++) {
             otec << num_mat[i][j] << '\t' ;
         }
@@ -119,7 +119,7 @@ void Printer::Print_2d_vec(const vector<vector<double> > &num_mat, const string 
     ofstream otec(filename.c_str());
     otec.precision(15);
     hout << "Saving file: " << filename << "\n";
-    for (long int i=0; i < num_mat.size(); i++) {
+    for (long int i=0; i < (long int)num_mat.size(); i++) {
         for (long int j = 0; j < num_mat[i].size(); j++) {
             otec << num_mat[i][j] << '\t' ;
         }

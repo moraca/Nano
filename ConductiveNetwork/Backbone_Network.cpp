@@ -13,7 +13,7 @@
 //The vector dead_indices can only have sizes 0, 2 or 4 in case the whole CNT conducts, or it has one dead branch or it has two dead branches
 //respectively
 //The vector percolated_indices can only have sizes 0 or 2 in case the CNT does not conduct or it has a conducting segment, respectively
-int Backbone_Network::Determine_backbone_network(const int &family, const vector<int> &cluster, const vector<double> &voltages, const vector<int> &LM_matrix, const vector<vector<long int> > &elements, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, vector<double> &families_lengths, vector<double> &branches_lengths)
+int Backbone_Network::Determine_backbone_network(const int &family, const vector<int> &cluster, const vector<double> &voltages, const vector<int> &LM_matrix, const vector<vector<long int> > &elements, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, vector<double> &families_lengths, vector<double> &branches_lengths, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices)
 {
     //Find the dead branches of each CNT in the cluster. Save the information on the vectors dead_indices and percolated_indices
     if (!Find_dead_branches(voltages, cluster, LM_matrix, elements, structure)) {
@@ -26,6 +26,9 @@ int Backbone_Network::Determine_backbone_network(const int &family, const vector
         hout << "Error in Determine_backbone_network" << endl;
         return 0;
     }
+    
+    //Finally, add the indices to the global vectors so that they can be exported as tecplot files
+    Add_indices_to_global_vectors(family, all_dead_indices, all_indices);
     
 	return 1;
 }
@@ -238,4 +241,23 @@ double Backbone_Network::Segment_length(long int index1, long int index2, const 
         length = length + points_in[j].distance_to(points_in[j+1]);
     }
     return length;
+}
+
+//
+void Backbone_Network::Add_indices_to_global_vectors(const int &family, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices)
+{
+    //Add indices for percolated segments
+    for (int i = 0; i < (int)percolated_indices.size(); i++) {
+        for (int j = 0; j < (int)percolated_indices[i].size(); j++) {
+            all_indices[family].push_back(percolated_indices[i][j]);
+        }
+    }
+    
+    //Add indices for dead branches
+    for (int i = 0; i < (int)dead_indices.size(); i++) {
+        for (int j = 0; j < (int)dead_indices[i].size(); j++) {
+            all_dead_indices[family].push_back(dead_indices[i][j]);
+        }
+    }
+    
 }

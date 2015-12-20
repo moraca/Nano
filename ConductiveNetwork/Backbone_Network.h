@@ -26,11 +26,12 @@ public:
     Backbone_Network(){};
     
     //Member Functions
-    int Determine_backbone_network(const int &family, const vector<int> &cluster, const vector<double> &voltages, const vector<int> &LM_matrix, const vector<vector<long int> > &elements, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, vector<double> &families_lengths, vector<double> &branches_lengths);
+    int Determine_backbone_network(const int &family, const vector<int> &cluster, const vector<double> &voltages, const vector<int> &LM_matrix, const vector<vector<long int> > &elements, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, vector<double> &families_lengths, vector<double> &branches_lengths, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices);
     int Find_dead_branches(const vector<double> &voltages, const vector<int> &cluster, const vector<int> &LM_matrix, const vector<vector<long int> > &elements, const vector<vector<long int> > &structure);
     double Zero_voltage(const vector<double> &voltages, const vector<int> &cluster, const vector<int> &LM_matrix, const vector<vector<long int> > &elements);
     int Calculate_lengths(const int &family, const vector<Point_3D> &points_in, vector<double> &families_lengths, vector<double> &branches_lengths);
     double Segment_length(long int index1, long int index2, const vector<Point_3D> &points_in);
+    void Add_indices_to_global_vectors(const int &family, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices);
     
 private:
     

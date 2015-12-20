@@ -19,7 +19,7 @@ using namespace hns;
 #include "Hoshen_Kopelman.h"
 #include "Direct_Electrifying.h"
 #include "Backbone_Network.h"
-#include "Background_grid.h"
+#include "Background_vectors.h"
 #include "Contact_grid.h"
 #include "Percolation.h"
 #include "Clusters_fractions.h"
@@ -38,6 +38,8 @@ public:
     
     //Member Functions
     int Create_conductive_network_3D(Input *Init)const;
+    int Export_tecplot_files(const int &iter, const struct Geom_RVE &sample, const vector<Point_3D> &points_in, const vector<double> &radii, const vector<vector<long int> > &structure, const vector<vector<int> > &isolated, vector<vector<long int> > &all_dead_indices, const vector<vector<long int> > &all_indices)const;
+    int Convert_index_to_structure(const vector<long int> &indices, vector<vector<long int> > &structure)const;
 };
 //---------------------------------------------------------------------------
 #endif

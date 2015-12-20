@@ -1113,6 +1113,129 @@ int GenNetwork::Generate_cnts_nodes_elements(vector<vector<Node> > &nodes, vecto
 	return 1;
 }
 //---------------------------------------------------------------------------
+//Generate the nodes and tetrahedron elements of nanotubes (No const following this function because a sum operation on two Point_3D points inside). This function uses a 1D point vector and a 2D structure vector that references the point vector
+int GenNetwork::Generate_cnts_nodes_elements(vector<vector<Node> > &nodes, vector<vector<Element> > &eles, const vector<Point_3D> &cnts_points, const vector<double> &cnts_radius, const vector<vector<long int> > &structure)
+{
+    //Looping the generated nanotubes
+    for(int i=0; i<(int)structure.size(); i++)
+    {
+        vector<Node> nod_temp;
+        vector<Element> ele_temp;
+        
+        const int cps = (int)structure[i].size();
+        for(int j=0; j<cps; j++)
+        {
+            //Calculate the normal vector of the plane
+            Point_3D plane_normal;
+            if(j==0)
+            {
+                long int P1 = structure[i][j];
+                long int P2 = structure[i][j+1];
+                plane_normal.x = cnts_points[P1].x - cnts_points[P2].x;
+                plane_normal.y = cnts_points[P1].y - cnts_points[P2].y;
+                plane_normal.z = cnts_points[P1].z - cnts_points[P2].z;
+            }
+            else if(j==cps-1)
+            {
+                long int P1 = structure[i][j-1];
+                long int P2 = structure[i][j];
+                plane_normal.x = cnts_points[P1].x - cnts_points[P2].x;
+                plane_normal.y = cnts_points[P1].y - cnts_points[P2].y;
+                plane_normal.z = cnts_points[P1].z - cnts_points[P2].z;
+            }
+            else
+            {
+                long int P1 = structure[i][j-1];
+                long int P2 = structure[i][j];
+                long int P3 = structure[i][j+1];
+                const Point_3D vect[3] = { cnts_points[P1], cnts_points[P2], cnts_points[P3] };
+                const double A = pow(vect[0].x-vect[1].x,2)+pow(vect[0].y-vect[1].y,2)+pow(vect[0].z-vect[1].z,2);
+                const double B = pow(vect[2].x-vect[1].x,2)+pow(vect[2].y-vect[1].y,2)+pow(vect[2].z-vect[1].z,2);
+                const double tt = sqrt(A/B);
+                
+                //Coordinate transformation to find the intersection points
+                double x, y, z;
+                x=vect[1].x+tt*(vect[2].x-vect[1].x);
+                y=vect[1].y+tt*(vect[2].y-vect[1].y);
+                z=vect[1].z+tt*(vect[2].z-vect[1].z);
+                
+                plane_normal.x = vect[0].x - x;
+                plane_normal.y = vect[0].y - y;
+                plane_normal.z = vect[0].z - z;
+            }
+            //The center point of the circle on the plane
+            Point_3D plane_center = cnts_points[structure[i][j]];
+            
+            //Define the number of sections along the circumference
+            const int num_sec = 36;
+            if(j==0)
+            {
+                double normal_sita, normal_pha;  //Direction angles
+                //Calculate the angles of the normal verctor of the plane in the spherical coordinate
+                if(Get_angles_vector_in_spherial_coordinates(plane_normal, normal_sita, normal_pha)==0) return 0;
+                
+                //Calculate a group of equidistant points along the circumference which is on the plane defined by the center point of the circle and the normal vector
+                if(Get_points_circle_in_plane(plane_center, normal_sita, normal_pha, cnts_radius[i], num_sec, nod_temp)==0) return 0;
+            }
+            else
+            {
+                //Calculate a group of projected points (which are on the plane with the center point of the circle and the normal vector)
+                //which are projected from a group of points on the previous circumference and projected along the direction of line_vec
+                Point_3D line_vec;
+                long int P1 = structure[i][j-1];
+                long int P2 = structure[i][j];
+                line_vec.x = cnts_points[P1].x - cnts_points[P2].x;
+                line_vec.y = cnts_points[P1].y - cnts_points[P2].y;
+                line_vec.z = cnts_points[P1].z - cnts_points[P2].z;
+                if(Get_projected_points_in_plane(plane_center, plane_normal, line_vec, num_sec, nod_temp)==0) return 0;
+            }
+            
+            //Generate a vector of elements
+            if(j!=0)
+            {
+                int nodes_num[6];
+                nodes_num[0] = (j-1)*(num_sec+1);   //The number of the center
+                nodes_num[3] = j*(num_sec+1);
+                for(int k=1; k<=num_sec; k++)
+                {
+                    nodes_num[1] = (j-1)*(num_sec+1) + k;
+                    nodes_num[2] = (j-1)*(num_sec+1) + 1 + k%num_sec;
+                    nodes_num[4] = j*(num_sec+1) + k;
+                    nodes_num[5] = j*(num_sec+1) + 1 + k%num_sec;
+                    
+                    Element eles_num[3];
+                    //----------------------------------------------------------------
+                    //Insert the numbers of nodes to the elements
+                    eles_num[0].nodes_id.push_back(nodes_num[0]);
+                    eles_num[0].nodes_id.push_back(nodes_num[1]);
+                    eles_num[0].nodes_id.push_back(nodes_num[2]);
+                    eles_num[0].nodes_id.push_back(nodes_num[3]);
+                    
+                    eles_num[1].nodes_id.push_back(nodes_num[1]);
+                    eles_num[1].nodes_id.push_back(nodes_num[2]);
+                    eles_num[1].nodes_id.push_back(nodes_num[3]);
+                    eles_num[1].nodes_id.push_back(nodes_num[5]);
+                    
+                    eles_num[2].nodes_id.push_back(nodes_num[1]);
+                    eles_num[2].nodes_id.push_back(nodes_num[3]);
+                    eles_num[2].nodes_id.push_back(nodes_num[4]);
+                    eles_num[2].nodes_id.push_back(nodes_num[5]);
+                    //----------------------------------------------------------------
+                    //Insert the number of elements to element vector
+                    ele_temp.push_back(eles_num[0]);
+                    ele_temp.push_back(eles_num[1]);
+                    ele_temp.push_back(eles_num[2]);
+                }
+            }
+        }
+        
+        nodes.push_back(nod_temp);
+        eles.push_back(ele_temp);
+    }
+    
+    return 1;
+}
+//---------------------------------------------------------------------------
 //Calculate the angles of a verctor in the spherical coordinate
 int GenNetwork::Get_angles_vector_in_spherial_coordinates(const Point_3D &normal, double &sita, double &pha)const
 {
