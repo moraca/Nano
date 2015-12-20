@@ -46,7 +46,14 @@ int Direct_Electrifying::Calculate_voltage_field(const vector<vector<long int> >
     int global_nodes = reserved_nodes;
     //Initialize the size of the LM matrix to be equal to the number of points
     LM_matrix.assign(contacts_point.size(), -1);
+    
     //hout << "LM_matrix.size()="<<LM_matrix.size()<<" cluster.size()="<<cluster.size()<<endl;
+    //If there is a cluster wiht one CNT, then there is no need to do the DEA
+    //This heppens when the CNT length is larger than one or more dimensions of the observation window
+    if (cluster.size() == 1) {
+        return 1;
+    }
+    
     //Initialize the vector boundary_node_map
     Initialize_boundary_node_map();
     //Initialize the size of the elements matrix to be equal to the number of CNTs
@@ -156,8 +163,13 @@ int Direct_Electrifying::Get_LM_matrix(const vector<vector<long int> > &structur
     for (int i = 0; i < (int)cluster.size(); i++) {
         CNT = cluster[i];
         
-        //Scan the CNT contacts
-        for (int j = 0; j < (int)structure[CNT].size(); j++) {
+        //Always check the first point as most likely boundary points are an endpoint of the CNT
+        P = structure[CNT].front();
+        Add_point_to_LM_matrix(P, family, boundary_flags, global_nodes, LM_matrix);
+        elements[CNT].push_back(P);
+        
+        //Scan the rest of the CNT for contacts except the last point, starting on j=1 since j=0 was already taken care of
+        for (int j = 1; j < (int)structure[CNT].size()-1; j++) {
             //Point number
             P = structure[CNT][j];
             //hout<<"P="<<P<<' ';
@@ -170,17 +182,10 @@ int Direct_Electrifying::Get_LM_matrix(const vector<vector<long int> > &structur
         }
         
         //hout<<"elements["<<CNT<<"].size()="<<elements[CNT].size();
-        //Check if the endpoints of the CNT are already in the elements matrix, otherwise add them to the elements matrix and the LM_matrix
-        if (elements[CNT].front() != structure[CNT].front()){
-            P = structure[CNT].front();
-            elements[CNT].insert(elements[CNT].begin(), P);
-            Add_point_to_LM_matrix(P, family, boundary_flags, global_nodes, LM_matrix);
-        }
-        if (elements[CNT].back() != structure[CNT].back()){
-            P = structure[CNT].back();
-            elements[CNT].push_back(P);
-            Add_point_to_LM_matrix(P, family, boundary_flags, global_nodes, LM_matrix);
-        }
+        //Always check the last point as most likely boundary points are an endpoint of the CNT
+        P = structure[CNT].back();
+        Add_point_to_LM_matrix(P, family, boundary_flags, global_nodes, LM_matrix);
+        elements[CNT].push_back(P);
         
         //Check that the elements vector has a valid size
         if (elements[CNT].size() <= 1) {

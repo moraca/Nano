@@ -15,22 +15,41 @@
 //The vector percolated_indices can only have sizes 0 or 2 in case the CNT does not conduct or it has a conducting segment, respectively
 int Backbone_Network::Determine_backbone_network(const int &family, const vector<int> &cluster, const vector<double> &voltages, const vector<int> &LM_matrix, const vector<vector<long int> > &elements, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, vector<double> &families_lengths, vector<double> &branches_lengths, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices)
 {
-    //Find the dead branches of each CNT in the cluster. Save the information on the vectors dead_indices and percolated_indices
-    if (!Find_dead_branches(voltages, cluster, LM_matrix, elements, structure)) {
-        hout << "Error in Determine_backbone_network" << endl;
-        return 0;
+    //First check if the percolated cluster has only one CNT, in that case there are no dead branches
+    //If the size of the cluster is greater than one, then probably there are branches that need to be removed
+    if (cluster.size() > 1) {
+        //Find the dead branches of each CNT in the cluster. Save the information on the vectors dead_indices and percolated_indices
+        if (!Find_dead_branches(voltages, cluster, LM_matrix, elements, structure)) {
+            hout << "Error in Determine_backbone_network" << endl;
+            return 0;
+        }
+        
+    } else {
+        //When there is only one percolated CNT, then the percolated_indices only contains
+        //the first and last point of the CNT and dead_indices remains empty
+        int CNT = cluster.front();
+        //This varibale is used to initialize the vectors below
+        vector<long int> empty;
+        percolated_indices.push_back(empty);
+        percolated_indices.back().push_back(structure[CNT].front());
+        percolated_indices.back().push_back(structure[CNT].back());
+        //Initialize dead_indices as it needs to have the same size as percolated_indices
+        dead_indices.push_back(empty);
     }
+    //hout << "Indices" << endl;
     
     //Use the dead_indices and percolated_indices to calculate the fraction of CNTs that belong to each family
     if (!Calculate_lengths(family, points_in, families_lengths, branches_lengths)) {
         hout << "Error in Determine_backbone_network" << endl;
         return 0;
     }
+    //hout << "Calculate_lengths "<<endl;
     
     //Finally, add the indices to the global vectors so that they can be exported as tecplot files
     Add_indices_to_global_vectors(family, all_dead_indices, all_indices);
+    //hout << "Add_indices_to_global_vectors" << endl;
     
-	return 1;
+    return 1;
 }
 
 

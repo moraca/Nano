@@ -166,12 +166,13 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, int window
             structure[CNT].clear();
         } else {
             //Scan each segment to handle boundary points
+            int new_CNT = CNT;
             for (int k = 0; k < (int)branches_indices_CNT.size(); k=k+2) {
                 int index1 = branches_indices_CNT[k];
                 int index2 = branches_indices_CNT[k+1];
                 
                 //Beginning of segement
-                if (!First_index(points_in, structure[CNT], index1)){
+                if (!First_index(points_in, structure[CNT], new_CNT, index1)){
                     hout << "Error in Trim_boundary_cnts. branches_indices_CNT["<<k<<"]="<<branches_indices_CNT[k];
                     return 0;
                 }
@@ -179,7 +180,7 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, int window
                 branches_indices_CNT[k] = index1;
                 
                 //End of segment
-                if(!Second_index(points_in, structure[CNT], index2)){
+                if(!Second_index(points_in, structure[CNT], new_CNT, index2)){
                     hout << "Error in Trim_boundary_cnts. branches_indices_CNT["<<k+1<<"]="<<branches_indices_CNT[k+1];
                     return 0;
                 }
@@ -205,7 +206,6 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, int window
                     
                     //Add the points of the segment to the new CNT
                     //At the same time, update the CNT number of the points in the new CNT and add the CNT to the corresponding shell or shells
-                    int new_CNT = ((int)structure.size()) - 1;
                     for (int kk = index1; kk <= index2; kk++) {
                         long int P = structure[CNT][kk];
                         structure.back().push_back(P);
@@ -219,6 +219,9 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, int window
                     //The new CNT is just a segment of the old one, so they should have the same radius
                     radii.push_back(radii[CNT]);
                 }
+                //Update the new_CNT number, when there is one segment, the new value of this variable is not used
+                //If there are two or more sements, then the new value of this variable is used
+                new_CNT = (int)structure.size();
             }
             //At this point all indices are inclusive of the boundary points, and these boundary points have been added into the
             //points_in vector by substituting outside points.
@@ -243,7 +246,7 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, int window
     return 1;
 }
 
-int Cutoff_Wins::First_index(vector<Point_3D> &points_in, vector<long int> &structure_CNT, int &index1)
+int Cutoff_Wins::First_index(vector<Point_3D> &points_in, vector<long int> &structure_CNT, int &new_CNT, int &index1)
 {
     //Check if the first index is the first point of the CNT, otherwise add a boundary point
     if (index1 == 0) {
@@ -251,7 +254,7 @@ int Cutoff_Wins::First_index(vector<Point_3D> &points_in, vector<long int> &stru
         //In such case, add it to the boundary vectors
         long int P = structure_CNT.front();
         if ( Where_is(points_in[P]) == "boundary") {
-            Add_to_boundary_vectors(points_in[P], P);
+            Add_to_boundary_vectors(points_in[P], P, new_CNT);
         }
     } else {
         //If the first index is not the first point of the CNT, then I need to add a boundary point
@@ -279,19 +282,19 @@ int Cutoff_Wins::First_index(vector<Point_3D> &points_in, vector<long int> &stru
         //Since the first index is always inside, and since in this "else"-statement we already know that it is not the
         //first point of the CNT, then for sure a boundary point needs to be added. Whether because the previous index
         //is a boundary point or because we added a boundary point to the previous index
-        Add_to_boundary_vectors(points_in[global_o], global_o);
+        Add_to_boundary_vectors(points_in[global_o], global_o, new_CNT);
     }
     return 1;
 }
 
-int Cutoff_Wins::Second_index(vector<Point_3D> &points_in, vector<long int> &structure_CNT, int &index2)
+int Cutoff_Wins::Second_index(vector<Point_3D> &points_in, vector<long int> &structure_CNT, int &new_CNT, int &index2)
 {
     //Check if the second index is the last point of the CNT
     if (index2 == (int)structure_CNT.size()-1) {
         //If it is the last point, just check if it is a boundary point and add it to the boundary vectors
         long int P = structure_CNT.back();
         if ( Where_is(points_in[P]) == "boundary") {
-            Add_to_boundary_vectors(points_in[P], P);
+            Add_to_boundary_vectors(points_in[P], P, new_CNT);
         }
     } else {
         //If the second index is not the last point of the CNT, then I need to add a boundary point
@@ -318,7 +321,7 @@ int Cutoff_Wins::Second_index(vector<Point_3D> &points_in, vector<long int> &str
                     return 0;
                 }
                 //Now, the outside point, i.e. index2, has the coordinates of the boundary point so I need to kep it unchanged
-                Add_to_boundary_vectors(points_in[global_o], global_o);
+                Add_to_boundary_vectors(points_in[global_o], global_o, new_CNT);
             }
         }
     }
@@ -437,25 +440,24 @@ int Cutoff_Wins::Get_intersecting_point_RVE_surface(Point_3D &point0, Point_3D &
 
 //Add the corrent point to the corrsponding boundary vector.
 //The boundary vectors are used in the direct electrifying algorithm to find the nodes with known boundary conditions
-void Cutoff_Wins::Add_to_boundary_vectors(Point_3D point3d, long int point)
+void Cutoff_Wins::Add_to_boundary_vectors(Point_3D point3d, long int point, int new_CNT)
 {
     //Add point and CNT to the boundary vector
     double x = point3d.x;
     double y = point3d.y;
     double z = point3d.z;
-   int CNT = point3d.flag;
     if ( abs(x - xmin) < Zero){
-        Add_CNT_to_boundary(boundary_cnt[0], CNT, point,0,0);
+        Add_CNT_to_boundary(boundary_cnt[0], new_CNT, point,0,0);
     } else if ( abs(x - (xmin+w_x)) < Zero ){
-        Add_CNT_to_boundary(boundary_cnt[1], CNT, point,0,1);
+        Add_CNT_to_boundary(boundary_cnt[1], new_CNT, point,0,1);
     } else if ( abs(y - ymin) < Zero ){
-        Add_CNT_to_boundary(boundary_cnt[2], CNT, point,1,0);
+        Add_CNT_to_boundary(boundary_cnt[2], new_CNT, point,1,0);
     } else if ( abs(y - (ymin+w_y)) < Zero ){
-        Add_CNT_to_boundary(boundary_cnt[3], CNT, point,1,1);
+        Add_CNT_to_boundary(boundary_cnt[3], new_CNT, point,1,1);
     } else if ( abs(z - zmin) < Zero ) {
-        Add_CNT_to_boundary(boundary_cnt[4], CNT, point,2,0);
+        Add_CNT_to_boundary(boundary_cnt[4], new_CNT, point,2,0);
     } else if ( abs(z - (zmin+w_z)) < Zero ) {
-        Add_CNT_to_boundary(boundary_cnt[5], CNT, point,2,1);
+        Add_CNT_to_boundary(boundary_cnt[5], new_CNT, point,2,1);
     }
 }
 

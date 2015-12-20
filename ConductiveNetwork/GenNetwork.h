@@ -33,13 +33,12 @@ class GenNetwork
 {
 	public:
 		//Data Member
-
+        
 		//Constructor
 		GenNetwork(){};
 
 		//Member Functions
-		int Generate_nanotube_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, 
-															vector<Point_3D> &cpoints, vector<double> &cnts_radius, vector<vector<long int> > &cstructures)const;
+		int Generate_nanotube_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs, vector<Point_3D> &cpoints, vector<double> &cnts_radius, vector<vector<long int> > &cstructures)const;
 		//Generate the nodes and tetrahedron elements of nanotubes (No const following this function because a sum operation on two Point_3D points inside)
 		int Generate_cnts_nodes_elements(vector<vector<Node> > &nodes, vector<vector<Element> > &eles, const vector<vector<Point_3D> > &cnts_points, const vector<double> &cnts_radius);
         //Generate the nodes and tetrahedron elements of nanotubes (No const following this function because a sum operation on two Point_3D points inside). This function uses a 1D point vector and a 2D structure vector that references the point vector
@@ -51,7 +50,28 @@ class GenNetwork
 		//Member Functions
 
 		//Generate a network defined by points and connections 
-		int Generate_network_threads(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const;
+		int Generate_network_threads(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs, vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const;
+        //---------------------------------------------------------------------------
+        //---------------------------------------------------------------------------
+        //---------------------------------------------------------------------------
+        //This functions initializes the vector sub-regions
+        void Initialize_subregions(const struct Geom_RVE &geom_rve, vector<int> &nsubregions, vector<vector<long int> > &sectioned_domain)const;
+        //Check if the current CNT is penetrating another CNT, i.e. is the new point is overlapping other point
+        int Check_penetration(const struct Geom_RVE &geom_rve, const struct Nanotube_Geo &nanotube_geo, const vector<vector<Point_3D> > &cnts, const vector<vector<int> > &global_coordinates, const vector<vector<long int> > &sectioned_domain, const vector<double> &radii, const vector<Point_3D> &cnt_new, const vector<int> &n_subregions, const double &cnt_rad, const double &d_vdW, const int &MAX_ATTEMPTS, int &point_overlap_count, int &point_overlap_count_unique, Point_3D &point)const;
+        int Get_subregion(const struct Geom_RVE &geom_rve, const vector<int> &n_subregions, const Point_3D &point)const;
+        void Get_penetrating_points(const vector<vector<Point_3D> > &cnts, const vector<vector<int> > &global_coordinates, const vector<long int> &subregion_vec, const vector<double> &radii, const double &cnt_rad, const double &d_vdw, Point_3D &point, vector<vector<int> > &affected_points, vector<double> &cutoffs_p, vector<double> &distances)const;
+        void Move_point(const struct Geom_RVE &geom_rve, const struct Nanotube_Geo &nanotube_geo, const vector<vector<Point_3D> > &cnts, const vector<Point_3D> &cnt_new, Point_3D &point, vector<double> &cutoffs, vector<double> &distances, vector<vector<int> > &affected_points)const;
+        int Check_points_in_same_position(vector<double> &cutoffs, vector<double> &distances, vector<vector<int> > &affected_points)const;
+        void Overlapping_points_same_position(const struct Geom_RVE &geom_rve, const struct Nanotube_Geo &nanotube_geo, const vector<Point_3D> &cnt_new, Point_3D &point)const;
+        void One_overlapping_point(const vector<vector<Point_3D> > &cnts, const vector<double> &cutoffs, const vector<double> &distances, const vector<vector<int> > &affected_points, Point_3D &point)const;
+        void Two_overlapping_points(const vector<vector<Point_3D> > &cnts, const vector<double> &cutoffs, const vector<vector<int> > &affected_points, Point_3D &point)const;
+        void Three_or_more_overlapping_points(const vector<vector<Point_3D> > &cnts, const vector<double> &cutoffs, const vector<double> &distances, const vector<vector<int> > &affected_points, Point_3D &point)const;
+        int Check_segment_orientation(const Point_3D &point, const vector<Point_3D> &cnt_new)const;
+        void Add_to_overlapping_regions(const struct Geom_RVE &geom_rve, double overlap_max_cutoff, Point_3D point, long int global_num, const vector<int> &n_subregions, vector<vector<long int> > &sectioned_domain)const;
+        int Calculate_t(int a, int b, int c, int sx, int sy)const;
+        //---------------------------------------------------------------------------
+        //---------------------------------------------------------------------------
+        //---------------------------------------------------------------------------
         //Call this function to call the random generator number and generate new seeds
         void Generate_new_seeds(int &seed_cnt_x0, int &seed_cnt_y0, int &seed_cnt_z0, int &seed_cnt_length, int &seed_cnt_radius, int &seed_cnt_sita, int &seed_cnt_pha, int &seed_growth_probability)const;
 		//Checking the angle between two segments in one nanotube (if less than PI/2, provide an alarm)
@@ -79,6 +99,8 @@ class GenNetwork
 		Point_3D Get_new_point(MathMatrix &Matrix, const double &Rad)const;
 		//To judge if a point is included in a RVE
 		int Judge_RVE_including_point(const struct cuboid &cub, const Point_3D &point)const;
+        //To judge if a point is included in a RVE
+        int Judge_RVE_including_point(const struct Geom_RVE &geom_rve, const Point_3D &point)const;
 		//Calculate all intersection points between the new segment and surfaces of RVE
 		//(using a parametric equatio:  the parameter 0<t<1, and sort all intersection points from the smaller t to the greater t)  
 		int Get_intersecting_point_RVE_surface(const struct cuboid &cub, const Point_3D &point0, const Point_3D &point1, vector<Point_3D> &ipoi_vec)const;

@@ -43,7 +43,7 @@ public:
 	//Constructor
 	foutstream();
 
-	//the definetions for operators
+	//the definitions for operators
 	foutstream& operator << (short n);
 	foutstream& operator << (unsigned short n);
 	foutstream& operator << (int n);

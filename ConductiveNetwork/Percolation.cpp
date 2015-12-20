@@ -230,13 +230,13 @@ int Percolation::Single_CNT_percolation(const vector<vector<int> > &boundary_cnt
     //Fill label_map_iso
     for (int i = 0; i < (int)isolated.size(); i++) {
         //This function is called after the clusters are checked for percolation, so in the isolated vector there are single CNTs and clusters
-        //As I am intereste in single CNTs (isolated[i].size() == 1), when I find clusters (isolated[i].size() > 1) I break the loop
+        //As I am interested in single CNTs (isolated[i].size() == 1), when I find clusters (isolated[i].size() > 1) I break the loop
         if (isolated[i].size() > 1)
             break;
         //hout << "isolated["<<i<<"].size()="<<isolated[i].size()<<endl;
         int CNT = isolated[i].front();
         labels_iso[CNT] = i;
-        single_CNTs = i+1;
+        single_CNTs++;
     }
     //hout << "2 ";
     
@@ -307,7 +307,8 @@ void Percolation::Fill_percolation_flags_single_direction_CNT_percoaltion(const 
         //hout << "CNT=" << CNT << ' ';
         //Label of the CNT, which also corresponds to its perc_flag number
         L = labels_iso[CNT];
-        //If the label is -1, then the CNT is an isolated cluster and need to check if the percolation flags need to be activated
+        //If the label is -1, then the CNT is not an isolated cluster so it belongs to a cluster with more than one CNT
+        //Hence, if the label is different from -1, then turn on the flag
         if (L != -1) {
             //Activate the flag corresponding to the boundary
             perc_flag[L][boundary_number] = 1;
@@ -330,7 +331,7 @@ int Percolation::Check_percolation_CNTs(const vector<vector<int> > &boundary_cnt
             //remove the non-percolating cluster
             isolated.erase(isolated.begin()+i);
             //Add the family number to the vector of families
-            family.insert(family.begin(), fam);
+            family.push_back(fam);
         }
     }
     return 1;

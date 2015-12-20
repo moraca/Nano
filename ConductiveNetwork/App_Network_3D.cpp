@@ -24,7 +24,7 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
     hout << "-_- To generate nanotube network......" << endl;
     ct0 = time(NULL);
     GenNetwork *Genet = new GenNetwork;
-    if(Genet->Generate_nanotube_networks(Init->geom_rve, Init->cluster_geo, Init->nanotube_geo, cnts_point, cnts_radius, cnts_structure)==0) return 0;
+    if(Genet->Generate_nanotube_networks(Init->geom_rve, Init->cluster_geo, Init->nanotube_geo, Init->cutoff_dist, cnts_point, cnts_radius, cnts_structure)==0) return 0;
     delete Genet;
     ct1 = time(NULL);
     hout << "Nanotube network generation time: " << (int)(ct1-ct0) <<" secs." << endl;
