@@ -11,31 +11,36 @@
 
 int Percolation::Determine_percolating_clusters(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated, const int &window)
 {
-    time_t ct0, ct1;
+    //time_t ct0, ct1;
     //---------------------------------------------------------------------------------------------------------------------------
     //Check if the clusters of CNTs percolate
-    hout << "Cluster percolation ";
-    ct0 = time(NULL);
+    //hout << "Cluster percolation ";
+    //ct0 = time(NULL);
     if (!Cluster_CNT_percolation(boundary_cnt, labels, labels_labels, label_map, clusters_cnt, isolated)) {
         hout << "Error in Determine_percolating_clusters" << endl;
         return 0;
     }
-    ct1 = time(NULL);
-    hout << "time: " << (int)(ct1-ct0) <<" secs." << endl;
+    //ct1 = time(NULL);
+    //hout << "time: " << (int)(ct1-ct0) <<" secs." << endl;
   
     //---------------------------------------------------------------------------------------------------------------------------
     //Check if the (single) CNTs that do not form clusters might percolate
-    hout << "CNT percolation ";
-    ct0 = time(NULL);
+    //ct0 = time(NULL);
     if (!Single_CNT_percolation(boundary_cnt, labels, labels_labels, clusters_cnt, isolated, sample, cnts, window)) {
         hout << "Error in Single_CNT_percolation" << endl;
         return 0;
     }
-    ct1 = time(NULL);
-    hout << "time: " << (int)(ct1-ct0) <<" secs." << endl;
+    //ct1 = time(NULL);
+    //hout << "CNT percolation time: " << (int)(ct1-ct0) <<" secs." << endl;
     
     //---------------------------------------------------------------------------------------------------------------------------
-    hout << "percolated clusters = "<<  clusters_cnt.size() << endl;
+    hout << "Percolated clusters = "<<  clusters_cnt.size() << endl;
+    hout << "Percolated families = ";
+    for (int i = 0; i < (int)family.size(); i++) {
+        hout << family[i] << ' ';
+    }
+    hout << endl;
+    
     //Just a check. family and clusters_cnt MUST have the same size
     //hout << "Check"<<endl;
     if (family.size() != clusters_cnt.size()) {
@@ -43,7 +48,7 @@ int Percolation::Determine_percolating_clusters(const struct Geom_RVE &sample, c
         hout << "fam size = " << family.size()<< "\t cluster size = "<<  clusters_cnt.size() << endl;
         return 0;
     }
-    //Print2DVec(clusters_cnt_iso, "isolated.txt");
+    
     return 1;
 }
 
@@ -251,7 +256,11 @@ int Percolation::Single_CNT_percolation(const vector<vector<int> > &boundary_cnt
             hout << "Error in Single_CNT_percolation" << endl;
             return 0;
         }
-        hout << "Single CNT clusters="<<clusters_tmp.size()<<endl;
+        
+        //In case there are percolated clusters of 1 CNT, print the number of such clusters
+        if (clusters_tmp.size()) {
+            hout << "Single CNT clusters = "<<clusters_tmp.size()<<endl;
+        }
         
         //Add the percolated CNTs to clusters_cnt vector
         for (int i = 0; i < (int)clusters_tmp.size(); i++) {

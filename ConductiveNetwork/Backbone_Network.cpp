@@ -175,21 +175,32 @@ double Backbone_Network::Zero_voltage(const vector<double> &voltages, const vect
     //vector<double> cutoffs;
     //Find the cutoff. 
     for(int i = (int) currents.size()-1; i >= 0 ; i--){
-        //zero_cutoff = currents[i-1]/currents[i];
-        zero_cutoff = currents[i]/currents.back();
+        //Temporarily store the drop in current in the variable zero_cutoff
+        zero_cutoff = currents[i-1]/currents[i];
+        //zero_cutoff = currents[i]/currents.back();
         //cutoffs.push_back(zero_cutoff);
         //hout << currents[i-1] << ' ' << currents[i] << ' ' << zero_cutoff << endl;
-        //When there is a jump in the order of marnitude then that is the cutoff for zero current
-        if (zero_cutoff < 1E-9){
-            //A large enough drop in the order of magnitude of the current is taken to be the cutoff for "zero current"
-            zero_cutoff = currents[i];
-            hout << currents[i-1] << ' ' << currents[i] << ' ' << zero_cutoff << ' ' << currents[i]/currents.back() << endl;
-            break;
+        //When there is a jump in the order of magnitude then that is the cutoff for zero current
+        if (zero_cutoff < 1E-4){
+            if (zero_cutoff < 1E-15){
+                //In case the gap is from 1e-X to 0, where is 15 or more, then probably the zero current
+                //should be a drop of ten orders of magnitude as it was before, otherwise, use the
+                //gap to determine the zero cutoff
+                zero_cutoff = currents.front()*1e-10;
+                hout << "Gap in current = ("<<currents[i]<< ", "<<currents[i-1] << "), zero_cutoff = " << zero_cutoff << endl;
+                break;
+            } else {
+                //A large enough drop in the order of magnitude of the current is taken to be the cutoff for "zero current"
+                zero_cutoff = currents[i-1]*10;
+                hout << "Gap in current = ("<<currents[i]<< ", "<<currents[i-1] << "), zero_cutoff = " << zero_cutoff << endl;
+                break;
+            }
         }
     }
     Printer *P = new Printer;
     P->Print_1d_vec(currents, "currents.txt");
     //P->Print_1d_vec(cutoffs, "cutoffs.txt");
+    delete P;
     return zero_cutoff;
 }
 

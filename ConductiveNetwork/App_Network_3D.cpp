@@ -128,11 +128,12 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
         if (Fracs->Calculate_fractions(cnts_structure, Cutwins->cnts_inside, HoKo->isolated, cnts_point, families_lengths, branches_lengths, fractions)==0) return 0;
         ct1 = time(NULL);
         hout << "Calculate fractions time: "<<(int)(ct1-ct0)<<" secs."<<endl;
-
+        
+        /*/
         ct0 = time(NULL);
         if (Export_tecplot_files(i, Init->geom_rve, cnts_point, cnts_radius, cnts_structure, HoKo->isolated, all_dead_indices, all_indices)==0) return 0;
         ct1 = time(NULL);
-        hout << "Export tecplot files time: "<<(int)(ct1-ct0)<<" secs."<<endl;
+        hout << "Export tecplot files time: "<<(int)(ct1-ct0)<<" secs."<<endl;//*/
         
         it1 = time(NULL);
         hout << "Iteration "<<i<<" time: "<<(int)(it1-it0)<<" secs."<<endl;
