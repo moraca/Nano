@@ -72,29 +72,27 @@ class GenNetwork
         //---------------------------------------------------------------------------
         //---------------------------------------------------------------------------
         //---------------------------------------------------------------------------
-        //Call this function to call the random generator number and generate new seeds
-        void Generate_new_seeds(int &seed_cnt_x0, int &seed_cnt_y0, int &seed_cnt_z0, int &seed_cnt_length, int &seed_cnt_radius, int &seed_cnt_sita, int &seed_cnt_pha, int &seed_growth_probability)const;
 		//Checking the angle between two segments in one nanotube (if less than PI/2, provide an alarm)
 		int CNTs_quality_testing(const vector<vector<Point_3D> > &cnts_points)const;
 		//Generate a number of ellipsoids
-		int Get_ellip_clusters(const struct cuboid &cub, const struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const;
+		int Get_ellip_clusters(const struct cuboid &cub, const struct Cluster_Geo &clust_geo)const;
 		//Generate a number of sperical clusters in regular arrangement
-		int Get_spherical_clusters_regular_arrangement(const struct cuboid &cub, struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const;
+		int Get_spherical_clusters_regular_arrangement(const struct cuboid &cub, struct Cluster_Geo &clust_geo)const;
 		//Print the ellipsoid surfaces by grids
 		void Export_cluster_ellipsoids_mesh(const struct cuboid &cub, const vector<struct elliparam> &ellips)const;
 		//Export the data of ellipsoid surfaces
 		void Export_cluster_ellipsoids_data(const vector<struct elliparam> &ellips, const double &ellip_ratio)const;
 		//Randomly generate a seed (original point) of a CNT in the RVE
-		int Get_seed_point(const struct cuboid &cub, int &seed_x, int &seed_y, int &seed_z, Point_3D &point)const;
+		int Get_seed_point(const struct cuboid &cub, Point_3D &point)const;
 		//Generate a random value through a probability distribution function
-		int Get_random_value(const string &dist_type, const double &min, const double &max, int &seed, double &value)const;
+		int Get_random_value(const string &dist_type, const double &min, const double &max, double &value)const;
 		//Randomly generate a direction in the spherical coordinates as the original direction of CNT segments
-		int Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, int &seed_sita, int &seed_pha, double &cnt_sita, double &cnt_pha)const;
+		int Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, double &cnt_sita, double &cnt_pha)const;
 		//Transform angles into matrix
 		MathMatrix Get_transformation_matrix(const double &sita, const double &pha)const;
 		//Randomly generate a direction in the spherical coordinates, to have the positive Z-axis to be a central axis
 		//Then, the radial angle, sita, obeys a normal distribution (sita \in fabs[(-omega,+omega)]) and the zonal angle, pha, obeys a uniform distribution (pha \in (0,2PI))
-		int Get_normal_direction(const double &omega, int &seed_sita, int &seed_pha, double &cnt_sita, double &cnt_pha)const;
+		int Get_normal_direction(const double &omega, double &cnt_sita, double &cnt_pha)const;
 		//To calculate the coordinates of the new CNT point (transformation of coordinates)
 		Point_3D Get_new_point(MathMatrix &Matrix, const double &Rad)const;
 		//To judge if a point is included in a RVE

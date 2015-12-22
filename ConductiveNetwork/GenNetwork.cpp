@@ -58,11 +58,6 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
     //Generate the data for nanotube clusters limited in ellipsoid surfaces (each ellipsoid is within the RVE and is separated with each other)
     if(clust_geo.vol_fra_criterion>0.0)
     {
-        //srand((unsigned int)time(NULL));
-        int seed_ellip_poi = rand()%MAX_INT;
-        int seed_ellip_axis = rand()%MAX_INT;
-        int seed_ellip_angle = rand()%MAX_INT;
-        
         struct cuboid cub;										//Generate a cuboid for RVE
         cub.poi_min = geom_rve.origin;
         cub.len_x = geom_rve.len_x;
@@ -70,14 +65,10 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
         cub.hei_z = geom_rve.hei_z;
         cub.volume = cub.len_x*cub.wid_y*cub.hei_z;
         
-        if(Get_ellip_clusters(cub, clust_geo, seed_ellip_poi, seed_ellip_axis, seed_ellip_angle)==0) return 0;
+        if(Get_ellip_clusters(cub, clust_geo)==0) return 0;
         //Generate a number of sperical clusters in regular arrangement
-        //		if(Get_spherical_clusters_regular_arrangement(cub, clust_geo, seed_ellip_poi, seed_ellip_axis, seed_ellip_angle)==0) return 0;
+        //		if(Get_spherical_clusters_regular_arrangement(cub, clust_geo)==0) return 0;
     }
-    
-    //---------------------------------------------------------------------------
-    //Generate random seeds in terms of local time
-    int seed_cnt_x0, seed_cnt_y0, seed_cnt_z0, seed_cnt_length, seed_cnt_radius, seed_cnt_sita, seed_cnt_pha, seed_growth_probability;
     
     //---------------------------------------------------------------------------
     double vol_sum = 0;  //the sum of volume of generated CNTs
@@ -131,10 +122,6 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
           (nanotube_geo.criterion == "wt"&&wt_sum < nanotube_geo.real_weight))
     {
         //---------------------------------------------------------------------------
-        if (cnt_seed_count%MAX_INT == 0) {
-            Generate_new_seeds(seed_cnt_x0, seed_cnt_y0, seed_cnt_z0, seed_cnt_length, seed_cnt_radius, seed_cnt_sita, seed_cnt_pha, seed_growth_probability);
-        }
-        //---------------------------------------------------------------------------
         //Define a vector for a new nanotube
         vector<Point_3D> new_cnt;
         int new_cnt_size = (int)new_cnt.size();
@@ -142,19 +129,19 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
         //---------------------------------------------------------------------------
         //Randomly generate a length of a CNT
         double cnt_length;
-        if(Get_random_value(nanotube_geo.len_distrib_type, nanotube_geo.len_min, nanotube_geo.len_max, seed_cnt_length, cnt_length)==0) return 0;
+        if(Get_random_value(nanotube_geo.len_distrib_type, nanotube_geo.len_min, nanotube_geo.len_max, cnt_length)==0) return 0;
         //Calculate the total number of growth step for a CNT
         int step_num = (int)(cnt_length/nanotube_geo.step_length) + 1;
         
         //---------------------------------------------------------------------------
         //Randomly generate a radius of a CNT
         double cnt_rad;
-        if(Get_random_value(nanotube_geo.rad_distrib_type, nanotube_geo.rad_min, nanotube_geo.rad_max, seed_cnt_radius, cnt_rad)==0) return 0;
+        if(Get_random_value(nanotube_geo.rad_distrib_type, nanotube_geo.rad_min, nanotube_geo.rad_max, cnt_rad)==0) return 0;
         
         //---------------------------------------------------------------------------
         //Randomly generate a direction in the spherical coordinates as the intital direction of CNT segments
         double cnt_sita, cnt_pha;
-        if(Get_uniform_direction(nanotube_geo, seed_cnt_sita, seed_cnt_pha, cnt_sita, cnt_pha)==0) return 0;
+        if(Get_uniform_direction(nanotube_geo, cnt_sita, cnt_pha)==0) return 0;
         MathMatrix multiplier(3,3);
         multiplier = Get_transformation_matrix(cnt_sita, cnt_pha);
         
@@ -169,13 +156,13 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
         //Randomly generate a seed (initial point) of a CNT in the extended RVE	(Comments: the seed generation is after the radius generation for the non-overlapping nanotubes generation)
         
         Point_3D cnt_poi;
-        if(Get_seed_point(excub, seed_cnt_x0, seed_cnt_y0, seed_cnt_z0, cnt_poi)==0) return 0;
+        if(Get_seed_point(excub, cnt_poi)==0) return 0;
         
         //COMMENT HERE TO ALLOW OVERLAPPING. JUST USE A * BETWEEN THE // AT THE BEGINNING OF THIS LINE
         //Check overlapping of the intial point
         int counter = 1;
         while (penetrating_model_flag && !Check_penetration(geom_rve, nanotube_geo, cnts_points, global_coordinates, sectioned_domain, cnts_radius, new_cnt, n_subregions, cnt_rad, cutoffs.van_der_Waals_dist, MAX_ATTEMPTS, point_overlap_count, point_overlap_count_unique, cnt_poi)) {
-            if(Get_seed_point(excub, seed_cnt_x0, seed_cnt_y0, seed_cnt_z0, cnt_poi)==0) return 0;
+            if(Get_seed_point(excub, cnt_poi)==0) return 0;
             cnt_seed_count++;					//record the number of seed generations
             //hout << "Seed deleted" << endl;
             if (counter == MAX_ATTEMPTS) {
@@ -207,7 +194,7 @@ int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const 
             //Randomly generate a direction in the spherical coordinates
             //To have the positive Z-axis to be a central axis
             //Then, the radial angle, sita, obeys a normal distribution (sita \in fabs[(-omega,+omega)]) and the zonal angle, pha, obeys a uniform distribution (pha \in (0,2PI))
-            if(Get_normal_direction(nanotube_geo.angle_max, seed_cnt_sita, seed_cnt_pha, cnt_sita, cnt_pha)==0) return 0;
+            if(Get_normal_direction(nanotube_geo.angle_max, cnt_sita, cnt_pha)==0) return 0;
             
             //To calculate the new multiplier for transformation of coordinates
             multiplier = multiplier*Get_transformation_matrix(cnt_sita, cnt_pha);
@@ -583,18 +570,18 @@ void GenNetwork::Overlapping_points_same_position(const struct Geom_RVE &geom_rv
     if (!cnt_new.size()) {
         //Point is the first point
         //Move the point to a random location
-        point.x = ((double)(rand()%MAX_INT)/MAX_INT)*geom_rve.ex_len + geom_rve.ex_origin.x;
-        point.y = ((double)(rand()%MAX_INT)/MAX_INT)*geom_rve.ey_wid + geom_rve.ex_origin.y;
-        point.z = ((double)(rand()%MAX_INT)/MAX_INT)*geom_rve.ez_hei + geom_rve.ex_origin.z;
+        point.x = ((double)rand()/RAND_MAX)*geom_rve.ex_len + geom_rve.ex_origin.x;
+        point.y = ((double)rand()/RAND_MAX)*geom_rve.ey_wid + geom_rve.ex_origin.y;
+        point.z = ((double)rand()/RAND_MAX)*geom_rve.ez_hei + geom_rve.ex_origin.z;
     } else if (cnt_new.size() == 1) {
         //point is the second point
         //If there is only one point, just move the new point to a new direction
         
         //Generate a rotation matrix
-        double phi = ((double)(rand()%MAX_INT)/MAX_INT)*2*PI;
+        double phi = ((double)rand()/RAND_MAX)*2*PI;
         //For the second point, the limitation on the angles is not important since there are no other
         //segments to compare with
-        double theta = ((double)(rand()%MAX_INT)/MAX_INT)*2*PI - PI;
+        double theta = ((double)rand()/RAND_MAX)*2*PI - PI;
         MathMatrix rotation(3,3);
         rotation = Get_transformation_matrix(theta, phi);
         
@@ -610,8 +597,8 @@ void GenNetwork::Overlapping_points_same_position(const struct Geom_RVE &geom_rv
         //to a random direction
         
         //Generate a rotation matrix
-        double phi = ((double)(rand()%MAX_INT)/MAX_INT)*2*PI;
-        double theta = ((double)(rand()%MAX_INT)/MAX_INT)*PI - PI/2;
+        double phi = ((double)rand()/RAND_MAX)*2*PI;
+        double theta = ((double)rand()/RAND_MAX)*PI - PI/2;
         MathMatrix rotation(3,3);
         rotation = Get_transformation_matrix(theta, phi);
         
@@ -878,31 +865,8 @@ int GenNetwork::Calculate_t(int a, int b, int c, int sx, int sy)const
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
-//Call this function to call the random generator number and generate new seeds
-void GenNetwork::Generate_new_seeds(int &seed_cnt_x0, int &seed_cnt_y0, int &seed_cnt_z0, int &seed_cnt_length, int &seed_cnt_radius, int &seed_cnt_sita, int &seed_cnt_pha, int &seed_growth_probability)const
-{
-    //Generate random seed in terms of local time
-    //unsigned int time_seed = (unsigned int)time(NULL);
-    //unsigned int time_seed = 1445931984;
-    //hout << "Time seed "<<time_seed<<endl;
-    //srand(time_seed);
-    //srand((unsigned int)time(NULL));
-    
-    //---------------------------------------------------------------------------
-    //Generate random seeds for cnts
-    seed_cnt_x0 = rand()%MAX_INT;     //MAX_INT==2^15-1 in a 16-bit computer, the range of rand() is [0, MAX_INT]
-    seed_cnt_y0 = rand()%MAX_INT;     //MAX_INT==2^31-1 in a 32-bit computer, the range of rand() is [0, MAX_INT]
-    seed_cnt_z0 = rand()%MAX_INT;
-    seed_cnt_length = rand()%MAX_INT;
-    seed_cnt_radius = rand()%MAX_INT;
-    seed_cnt_sita = rand()%MAX_INT;
-    seed_cnt_pha = rand()%MAX_INT;
-    seed_growth_probability = rand()%MAX_INT;
-    
-}
-//---------------------------------------------------------------------------
 //Generate a number of ellipsoids
-int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, const struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const
+int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, const struct Cluster_Geo &clust_geo)const
 {
     double epsilon = 0.01;						//A ratio for extending ellipsoids
     double ellip_volume = 0.0;
@@ -917,25 +881,19 @@ int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, const struct Cluste
         //Ready to generate an ellipsoid
         struct elliparam ell_temp;
         //Generate the center point of an ellipsoid
-        seed_poi = (2053*seed_poi + 13849)%MAX_INT;
-        ell_temp.x=cub.poi_min.x + seed_poi*cub.len_x/MAX_INT;
+        ell_temp.x=cub.poi_min.x + ((double)rand()/RAND_MAX)*cub.len_x;
         
-        seed_poi = (2053*seed_poi + 13849)%MAX_INT;
-        ell_temp.y=cub.poi_min.y + seed_poi*cub.wid_y/MAX_INT;
+        ell_temp.y=cub.poi_min.y + ((double)rand()/RAND_MAX)*cub.wid_y;
         
-        seed_poi = (2053*seed_poi + 13849)%MAX_INT;
-        ell_temp.z=cub.poi_min.z + seed_poi*cub.hei_z/MAX_INT;
+        ell_temp.z=cub.poi_min.z + ((double)rand()/RAND_MAX)*cub.hei_z;
         
         //Generate the lengths of half-axes of an ellipsoid
-        seed_axis = (2053*seed_axis + 13849)%MAX_INT;
-        ell_temp.a=clust_geo.amin + seed_axis*(clust_geo.amax - clust_geo.amin)/MAX_INT;
+        ell_temp.a=clust_geo.amin + ((double)rand()/RAND_MAX)*(clust_geo.amax - clust_geo.amin);
         if(!(clust_geo.bmin==0&&clust_geo.cmin==0))
         {
-            seed_axis = (2053*seed_axis + 13849)%MAX_INT;
-            ell_temp.b = clust_geo.bmin + seed_axis*(ell_temp.a - clust_geo.bmin)/MAX_INT;
+            ell_temp.b = clust_geo.bmin + ((double)rand()/RAND_MAX)*(ell_temp.a - clust_geo.bmin);
             
-            seed_axis = (2053*seed_axis + 13849)%MAX_INT;
-            ell_temp.c = clust_geo.cmin + seed_axis*(ell_temp.b - clust_geo.cmin)/MAX_INT;
+            ell_temp.c = clust_geo.cmin + ((double)rand()/RAND_MAX)*(ell_temp.b - clust_geo.cmin);
         }
         else
         {
@@ -945,34 +903,28 @@ int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, const struct Cluste
         
         //Generate 9 angles: [(alpha1,beta1,gamma1),(alpha2,beta2,gamma2),(alpha3,beta3,gamma3)]
         //between three axes of ellipsoid (a,b,c) with three coordinate axes (ox,oy,oz)
-        seed_angle = (2053*seed_angle + 13849)%MAX_INT;
-        double alpha1 = seed_angle*PI/MAX_INT;
+        double alpha1 = ((double)rand()/RAND_MAX)*PI;
         double beta1 = 0;
         if(alpha1>PI/2.0)
         {
-            seed_angle = (2053*seed_angle + 13849)%MAX_INT;
-            beta1 = (alpha1-PI/2.0) + seed_angle*2*(PI-alpha1)/MAX_INT;
+            beta1 = (alpha1-PI/2.0) + ((double)rand()/RAND_MAX)*2*(PI-alpha1);
         }
         else
         {
-            seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
-            beta1 = (PI/2.0-alpha1) + seed_angle*2*alpha1/MAX_INT;
+            beta1 = (PI/2.0-alpha1) + ((double)rand()/RAND_MAX)*2*alpha1;
         }
         
         ell_temp.alpha1	=	cos(alpha1);																//alpha1 is chosen from (0, PI)
         ell_temp.beta1	=	cos(beta1);																//beta1 is chosen from (pi/2-r1) to (pi/2+r1)
-        seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
-        ell_temp.gamma1 = pow(-1.0, fmod(seed_angle, 2.0)+1.0)*sqrt(1.0-pow(ell_temp.alpha1,2)-pow(ell_temp.beta1,2));	 //Calculate the value of gamma but randomly choose "positive" or "negative"
+        ell_temp.gamma1 = pow(-1.0, fmod(rand(), 2.0)+1.0)*sqrt(1.0-pow(ell_temp.alpha1,2)-pow(ell_temp.beta1,2));	 //Calculate the value of gamma but randomly choose "positive" or "negative"
         double alpha2 = 0;																					//alpha2 is chosen from (pi/2-r1) to (pi/2+r1)
         if(alpha1>PI/2.0)
         {
-            seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
-            alpha2  = (alpha1-PI/2.0) + seed_angle*2*(PI-alpha1)/MAX_INT;
+            alpha2  = (alpha1-PI/2.0) + ((double)rand()/RAND_MAX)*2*(PI-alpha1);
         }
         else
         {
-            seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
-            alpha2  = (PI/2.0-alpha1) + seed_angle*2*alpha1/MAX_INT;
+            alpha2  = (PI/2.0-alpha1) + ((double)rand()/RAND_MAX)*2*alpha1;
         }
         ell_temp.alpha2 = cos(alpha2);
         
@@ -981,8 +933,7 @@ int GenNetwork::Get_ellip_clusters(const struct cuboid &cub, const struct Cluste
         B = 2*(ell_temp.alpha1*ell_temp.alpha2*ell_temp.beta1)/pow(ell_temp.gamma1,2);
         C = pow(ell_temp.alpha1*ell_temp.alpha2/ell_temp.gamma1,2)+pow(ell_temp.alpha2,2)-1.0;
         
-        seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
-        ell_temp.beta2 = (-B+pow(-1.0, fmod(seed_angle,2.0)+1)*sqrt(pow(B,2)-4*A*C))/(2*A);
+        ell_temp.beta2 = (-B+pow(-1.0, fmod(rand(),2.0)+1)*sqrt(pow(B,2)-4*A*C))/(2*A);
         ell_temp.gamma2 = -(ell_temp.beta1/ell_temp.gamma1)*ell_temp.beta2-(ell_temp.alpha1*ell_temp.alpha2/ell_temp.gamma1);
         
         double sign;
@@ -1198,7 +1149,7 @@ void GenNetwork::Export_cluster_ellipsoids_data(const vector<struct elliparam> &
 }
 //---------------------------------------------------------------------------
 //Generate a number of sperical clusters in regular arrangement (Increase the number of clusters which cannot be achieved by random distribution)
-int GenNetwork::Get_spherical_clusters_regular_arrangement(const struct cuboid &cub, struct Cluster_Geo &clust_geo, int &seed_poi, int &seed_axis, int &seed_angle)const
+int GenNetwork::Get_spherical_clusters_regular_arrangement(const struct cuboid &cub, struct Cluster_Geo &clust_geo)const
 {
     int snum = 2;			//The number of spheres on each side of RVE
     double sd_x = 0.5*cub.len_x/snum;
@@ -1226,34 +1177,28 @@ int GenNetwork::Get_spherical_clusters_regular_arrangement(const struct cuboid &
                 
                 //Generate 9 angles: [(alpha1,beta1,gamma1),(alpha2,beta2,gamma2),(alpha3,beta3,gamma3)]
                 //between three axes of ellipsoid (a,b,c) with three coordinate axes (ox,oy,oz)
-                seed_angle = (2053*seed_angle + 13849)%MAX_INT;
-                double alpha1 = seed_angle*PI/MAX_INT;
+                double alpha1 = ((double)rand()/RAND_MAX)*PI;
                 double beta1 = 0;
                 if(alpha1>PI/2.0)
                 {
-                    seed_angle = (2053*seed_angle + 13849)%MAX_INT;
-                    beta1 = (alpha1-PI/2.0) + seed_angle*2*(PI-alpha1)/MAX_INT;
+                    beta1 = (alpha1-PI/2.0) + ((double)rand()/RAND_MAX)*2*(PI-alpha1);
                 }
                 else
                 {
-                    seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
-                    beta1 = (PI/2.0-alpha1) + seed_angle*2*alpha1/MAX_INT;
+                    beta1 = (PI/2.0-alpha1) + ((double)rand()/RAND_MAX)*2*alpha1;
                 }
                 
                 ell_temp.alpha1	=	cos(alpha1);																//alpha1 is chosen from (0, PI)
                 ell_temp.beta1	=	cos(beta1);																//beta1 is chosen from (pi/2-r1) to (pi/2+r1)
-                seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
-                ell_temp.gamma1 = pow(-1.0, fmod(seed_angle, 2.0)+1.0)*sqrt(1.0-pow(ell_temp.alpha1,2)-pow(ell_temp.beta1,2));	  //Calculate the value of gamma but randomly choose "positive" or "negative"
+                ell_temp.gamma1 = pow(-1.0, fmod(rand(), 2.0)+1.0)*sqrt(1.0-pow(ell_temp.alpha1,2)-pow(ell_temp.beta1,2));	  //Calculate the value of gamma but randomly choose "positive" or "negative"
                 double alpha2 = 0;																					//alpha2 is chosen from (pi/2-r1) to (pi/2+r1)
                 if(alpha1>PI/2.0)
                 {
-                    seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
-                    alpha2  = (alpha1-PI/2.0) + seed_angle*2*(PI-alpha1)/MAX_INT;
+                    alpha2  = (alpha1-PI/2.0) + ((double)rand()/RAND_MAX)*2*(PI-alpha1);
                 }
                 else
                 {
-                    seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
-                    alpha2  = (PI/2.0-alpha1) + seed_angle*2*alpha1/MAX_INT;
+                    alpha2  = (PI/2.0-alpha1) + ((double)rand()/RAND_MAX)*2*alpha1;
                 }
                 ell_temp.alpha2 = cos(alpha2);
                 
@@ -1262,8 +1207,7 @@ int GenNetwork::Get_spherical_clusters_regular_arrangement(const struct cuboid &
                 B = 2*(ell_temp.alpha1*ell_temp.alpha2*ell_temp.beta1)/pow(ell_temp.gamma1,2);
                 C = pow(ell_temp.alpha1*ell_temp.alpha2/ell_temp.gamma1,2)+pow(ell_temp.alpha2,2)-1.0;
                 
-                seed_angle	= (2053*seed_angle + 13849)%MAX_INT;
-                ell_temp.beta2 = (-B+pow(-1.0, fmod(seed_angle,2.0)+1)*sqrt(pow(B,2)-4*A*C))/(2*A);
+                ell_temp.beta2 = (-B+pow(-1.0, fmod(rand(),2.0)+1)*sqrt(pow(B,2)-4*A*C))/(2*A);
                 ell_temp.gamma2 = -(ell_temp.beta1/ell_temp.gamma1)*ell_temp.beta2-(ell_temp.alpha1*ell_temp.alpha2/ell_temp.gamma1);
                 
                 double sign;
@@ -1305,43 +1249,31 @@ int GenNetwork::Get_spherical_clusters_regular_arrangement(const struct cuboid &
 }
 //---------------------------------------------------------------------------
 //Generate a random value through a probability distribution function
-int GenNetwork::Get_random_value(const string &dist_type, const double &min, const double &max, int &seed, double &value)const
+int GenNetwork::Get_random_value(const string &dist_type, const double &min, const double &max, double &value)const
 {
     if(min>max) { hout << "Error, the minimum value is larger than the maximum value (Get_random_value)!" << endl; return 0; }
     
     if(dist_type=="uniform")	//uniform distribution
     {
-        seed = (2053*seed + 13849)%MAX_INT;
-        value = seed*(max-min)/MAX_INT + min;
+        value = (max-min)*((double)rand()/RAND_MAX) + min;
     }
     else if(dist_type=="normal")	//normal distribution
     {
-        int sum=0;
+        long long int sum=0;
         for(int i=0; i<12; i++)
         {
-            seed = (2053*seed + 13849)%MAX_INT;
-            sum += seed;
+            sum = sum + rand();
         }
-        value = ((double)sum/MAX_INT-6.0)*(max-min)/12.0 + 0.5*(max+min);
+        value = ((double)sum/RAND_MAX-6.0)*(max-min)/12.0 + 0.5*(max+min);
     }
     
     return 1;
 }
 //---------------------------------------------------------------------------
 //Randomly generate a seed (intial point) of a CNT in the RVE
-int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed_x, int &seed_y, int &seed_z, Point_3D &point)const
+int GenNetwork::Get_seed_point(const struct cuboid &cub, Point_3D &point)const
 {
-    //
-    seed_x = (2053*seed_x + 13849)%MAX_INT;
-    point.x = cub.poi_min.x + cub.len_x*((double)seed_x/MAX_INT);
     
-    seed_y = (2053*seed_y + 13849)%MAX_INT;
-    point.y = cub.poi_min.y + cub.wid_y*((double)seed_y/MAX_INT);
-    
-    seed_z = (2053*seed_z + 13849)%MAX_INT;
-    point.z = cub.poi_min.z + cub.hei_z*((double)seed_z/MAX_INT);//*/
-
-    /*/Using only rand()
     point.x = cub.poi_min.x + cub.len_x*((double)rand()/RAND_MAX);
     
     point.y = cub.poi_min.y + cub.wid_y*((double)rand()/RAND_MAX);
@@ -1355,19 +1287,11 @@ int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed_x, int &seed_
 }
 //---------------------------------------------------------------------------
 //Randomly generate a direction in the spherical coordinates as the initial direction of CNT segments
-int GenNetwork::Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, int &seed_sita, int &seed_pha, double &cnt_sita, double &cnt_pha)const
+int GenNetwork::Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, double &cnt_sita, double &cnt_pha)const
 {
     if(nanotube_geo.dir_distrib_type=="random")
     {
-        //sita is chosen in [0, PI] with uniform distribution
-        seed_sita = (2053*seed_sita + 13849)%MAX_INT;
-        cnt_sita = PI*((double)seed_sita/MAX_INT);
-        
-        //pha is chosen in [0, 2PI] with uniform distribution
-        seed_pha = (2053*seed_pha + 13849)%MAX_INT;
-        cnt_pha = 2.0*PI*((double)seed_pha/MAX_INT);//*/
-
-        /*/Using only rand()
+        //Using only rand()
         //sita is chosen in [0, PI] with uniform distribution
         cnt_sita = PI*((double)rand()/RAND_MAX);
         
@@ -1377,11 +1301,8 @@ int GenNetwork::Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, i
     }
     else if(nanotube_geo.dir_distrib_type=="specific")
     {
-        //A specific initial-direction
-        seed_sita = (2053*seed_sita + 13849)%MAX_INT;
-        seed_pha = (2053*seed_pha + 13849)%MAX_INT;
-        
-        if((seed_sita+seed_pha)%2==0)
+        //Use the probability of a random number to be even
+        if(rand()%2==0)
         {
             cnt_sita = nanotube_geo.ini_sita;		//"positive" direction
             cnt_pha = nanotube_geo.ini_pha;		//"positive" direction
@@ -1426,21 +1347,8 @@ MathMatrix GenNetwork::Get_transformation_matrix(const double &sita, const doubl
 //Randomly generate a direction in the spherical coordinates
 //To have the positive Z-axis to be a central axis
 //Then, the radial angle, sita, obeys a normal distribution (sita \in fabs[(-omega,+omega)]) and the zonal angle, pha, obeys a uniform distribution (pha \in (0,2PI))
-int GenNetwork::Get_normal_direction(const double &omega, int &seed_sita, int &seed_pha, double &cnt_sita, double &cnt_pha)const
+int GenNetwork::Get_normal_direction(const double &omega, double &cnt_sita, double &cnt_pha)const
 {
-    /*/sita centres 0 and obeys a normal distribution in (-omega, +omega)
-    int sum=0;
-    for(int i=0; i<12; i++)
-    {
-        seed_sita = (2053*seed_sita + 13849)%MAX_INT;
-        sum += seed_sita;
-    }
-    double sum_d = (double)sum;
-    cnt_sita = fabs((sum_d*omega)/(6.0*((double)MAX_INT))-omega);
-    
-    //pha satisfies a uniform distribution in (0, 2PI)
-    seed_pha = (2053*seed_pha + 13849)%MAX_INT;
-    cnt_pha = 2.0*PI*((double)seed_pha/MAX_INT);//*/
 
     //Using only rand()
     //sita centres 0 and obeys a normal distribution in (-omega, +omega)
