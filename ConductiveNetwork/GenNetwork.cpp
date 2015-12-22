@@ -1331,20 +1331,7 @@ int GenNetwork::Get_random_value(const string &dist_type, const double &min, con
 //Randomly generate a seed (intial point) of a CNT in the RVE
 int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed_x, int &seed_y, int &seed_z, Point_3D &point)const
 {
-    /*/
-     seed = (2053*seed + 13849)%MAX_INT;
-     point.x = cub.poi_min.x + seed*cub.len_x/MAX_INT;
-     
-     seed = (2053*seed + 13849)%MAX_INT;
-     point.y = cub.poi_min.y + seed*cub.wid_y/MAX_INT;
-     
-     seed = (2053*seed + 13849)%MAX_INT;
-     point.z = cub.poi_min.z + seed*cub.hei_z/MAX_INT;
-     
-     point.flag = 0; //0 denotes this point is the initial point of a CNT*/
-    
-    //The modification below was made just in case there was a loss in precision
-    
+    //
     seed_x = (2053*seed_x + 13849)%MAX_INT;
     point.x = cub.poi_min.x + cub.len_x*((double)seed_x/MAX_INT);
     
@@ -1353,6 +1340,14 @@ int GenNetwork::Get_seed_point(const struct cuboid &cub, int &seed_x, int &seed_
     
     seed_z = (2053*seed_z + 13849)%MAX_INT;
     point.z = cub.poi_min.z + cub.hei_z*((double)seed_z/MAX_INT);//*/
+
+    /*/Using only rand()
+    point.x = cub.poi_min.x + cub.len_x*((double)rand()/RAND_MAX);
+    
+    point.y = cub.poi_min.y + cub.wid_y*((double)rand()/RAND_MAX);
+    
+    point.z = cub.poi_min.z + cub.hei_z*((double)rand()/RAND_MAX);//*/
+
     
     point.flag = 0; //0 denotes this point is the initial point of a CNT
     
@@ -1364,15 +1359,6 @@ int GenNetwork::Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, i
 {
     if(nanotube_geo.dir_distrib_type=="random")
     {
-        /*/sita is chosen in [0, PI] with uniform distribution
-         seed_sita = (2053*seed_sita + 13849)%MAX_INT;
-         cnt_sita = seed_sita*PI/MAX_INT;
-         
-         //pha is chosen in [0, 2PI] with uniform distribution
-         seed_pha = (2053*seed_pha + 13849)%MAX_INT;
-         cnt_pha = 2.0*seed_pha*PI/MAX_INT; //*/
-        
-        //The modification below was made just in case there was a loss in precision
         //sita is chosen in [0, PI] with uniform distribution
         seed_sita = (2053*seed_sita + 13849)%MAX_INT;
         cnt_sita = PI*((double)seed_sita/MAX_INT);
@@ -1380,7 +1366,14 @@ int GenNetwork::Get_uniform_direction(const struct Nanotube_Geo &nanotube_geo, i
         //pha is chosen in [0, 2PI] with uniform distribution
         seed_pha = (2053*seed_pha + 13849)%MAX_INT;
         cnt_pha = 2.0*PI*((double)seed_pha/MAX_INT);//*/
+
+        /*/Using only rand()
+        //sita is chosen in [0, PI] with uniform distribution
+        cnt_sita = PI*((double)rand()/RAND_MAX);
         
+        //pha is chosen in [0, 2PI] with uniform distribution
+        cnt_pha = 2.0*PI*((double)rand()/RAND_MAX);//*/
+
     }
     else if(nanotube_geo.dir_distrib_type=="specific")
     {
@@ -1436,16 +1429,6 @@ MathMatrix GenNetwork::Get_transformation_matrix(const double &sita, const doubl
 int GenNetwork::Get_normal_direction(const double &omega, int &seed_sita, int &seed_pha, double &cnt_sita, double &cnt_pha)const
 {
     /*/sita centres 0 and obeys a normal distribution in (-omega, +omega)
-     int sum=0;
-     for(int i=0; i<12; i++)
-     {
-     seed_sita = (2053*seed_sita + 13849)%MAX_INT;
-     sum += seed_sita;
-     }
-     cnt_sita = fabs((sum*omega)/(6.0*MAX_INT)-omega);//*/
-    
-    //The modification below was made just in case there was a loss in precision
-    //sita centres 0 and obeys a normal distribution in (-omega, +omega)
     int sum=0;
     for(int i=0; i<12; i++)
     {
@@ -1453,16 +1436,24 @@ int GenNetwork::Get_normal_direction(const double &omega, int &seed_sita, int &s
         sum += seed_sita;
     }
     double sum_d = (double)sum;
-    cnt_sita = fabs((sum_d*omega)/(6.0*((double)MAX_INT))-omega);//*/
+    cnt_sita = fabs((sum_d*omega)/(6.0*((double)MAX_INT))-omega);
     
-    /*/pha satisfies a uniform distribution in (0, 2PI)
-     seed_pha = (2053*seed_pha + 13849)%MAX_INT;
-     cnt_pha = 2.0*seed_pha*PI/MAX_INT;//*/
-    
-    //The modification below was made just in case there was a loss in precision
     //pha satisfies a uniform distribution in (0, 2PI)
     seed_pha = (2053*seed_pha + 13849)%MAX_INT;
     cnt_pha = 2.0*PI*((double)seed_pha/MAX_INT);//*/
+
+    //Using only rand()
+    //sita centres 0 and obeys a normal distribution in (-omega, +omega)
+    long long int sum=0;
+    for(int i=0; i<12; i++)
+    {
+        sum = sum + rand();
+    }
+    double sum_d = (double)sum;
+    cnt_sita = fabs((sum_d*omega)/(6.0*((double)RAND_MAX))-omega);
+    
+    //pha satisfies a uniform distribution in (0, 2PI)
+    cnt_pha = 2.0*PI*((double)rand()/RAND_MAX);//*/
     
     return 1;
 }
@@ -1627,14 +1618,14 @@ int GenNetwork::CNTs_quality_testing(const vector<vector<Point_3D> > &cnts_point
             double cos_ang210 = (x21*x01+y21*y01+z21*z01)/(sqrt(x21*x21+y21*y21+z21*z21)*sqrt(x01*x01+y01*y01+z01*z01));
             
             //Check if cos_ang210 is small enough to be considered zero
-            if (abs(cos_ang210) < Zero)
-                cos_ang210 = 0;
+            //if (abs(cos_ang210) < Zero)
+                //cos_ang210 = 0;
             
-            //Judge the cos value(<= 90degree and >=0degree£¬cos value<=1.0 and >=0.0)
-            if(cos_ang210<=1.0&&cos_ang210>=0.0)
+            //Judge the cos value(<= 90degree and >=0degree, cos value<=1.0 and >=0.0)
+            if( (cos_ang210<=1.0-Zero )&& cos_ang210>=Zero )
             {
                 hout << "Error: there exists at least one angle which is larger than PI/2!" << endl;
-                hout << "cos_ang210="<<cos_ang210<<endl;
+                hout << setwp(1,20)<<"cos_ang210="<<cos_ang210<<endl;
                 hout << "P1 = "<<cnts_points[i][j-1].x<<' '<<cnts_points[i][j-1].y<<' '<<cnts_points[i][j-1].z<<endl;
                 hout << "P2 = "<<cnts_points[i][j].x<<' '<<cnts_points[i][j].y<<' '<<cnts_points[i][j].z<<endl;
                 hout << "P3 = "<<cnts_points[i][j+1].x<<' '<<cnts_points[i][j+1].y<<' '<<cnts_points[i][j+1].z<<endl;
