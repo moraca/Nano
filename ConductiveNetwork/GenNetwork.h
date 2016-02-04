@@ -18,6 +18,7 @@
 #include<stdio.h>
 #include<time.h>
 #include<math.h>
+#include <random> 
 #include "Input_Reader.h"
 #include "Geometry_3D.h"
 #include "MathMatrix.h"
@@ -51,6 +52,14 @@ class GenNetwork
 
 		//Generate a network defined by points and connections 
 		int Generate_network_threads(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs, vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const;
+        int Generate_network_threads_mt(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs, vector<vector<Point_3D> > &cnts_points,  vector<double> &cnts_radius)const;
+        //---------------------------------------------------------------------------
+        //---------------------------------------------------------------------------
+        //---------------------------------------------------------------------------
+        int Get_random_value_mt(const string &dist_type, mt19937 &engine, uniform_real_distribution<double> &dist, const double &min, const double &max, double &value)const;
+        int Get_seed_point_mt(const struct cuboid &cub, Point_3D &point, mt19937 &engine_x, mt19937 &engine_y, mt19937 &engine_z, uniform_real_distribution<double> &dist)const;
+        int Get_uniform_direction_mt(const struct Nanotube_Geo &nanotube_geo, double &cnt_sita, double &cnt_pha, mt19937 &engine_sita, mt19937 &engine_pha, uniform_real_distribution<double> &dist)const;
+        int Get_normal_direction_mt(const double &omega, double &cnt_sita, double &cnt_pha, mt19937 &engine_sita, mt19937 &engine_pha, uniform_real_distribution<double> &dist)const;
         //---------------------------------------------------------------------------
         //---------------------------------------------------------------------------
         //---------------------------------------------------------------------------
