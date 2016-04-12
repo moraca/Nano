@@ -31,6 +31,11 @@ int Input::Read_Infile(ifstream &infile)
 		else if(str_temp=="Cluster_Geometry")	{ if(Read_cluster_geo_parameters(cluster_geo, infile)==0) return 0; }
 		else if(str_temp=="Cutoff_Distances")	{ if(Read_cutoff_distances(cutoff_dist, infile)==0) return 0; }
 		else if(str_temp=="Electrical_Parameters")	{ if(Read_electrical_paramters(electric_para, infile)==0) return 0; }
+        //---------------------------------------------------------------------------------------
+        //-------- AMC
+        else if(str_temp=="GNP_Geometry")	{ if(Read_gnp_geo_paramters(gnp_geo, infile)==0) return 0; }
+        //-------- AMC
+        //---------------------------------------------------------------------------------------
 		else 
 		{ 
 			cout << "Error: the keywords \"" << str_temp << "\" is not defined!" << endl; 
@@ -63,6 +68,11 @@ int Input::Read_Infile(ifstream &infile)
 	if(!cluster_geo.mark) { cout << "Attention: \"Cluster_Geometry\" will use default parameters!" << endl; hout << "Attention: \"Cluster_Geometry\" will use default parameters!" << endl; }
 	if(!cutoff_dist.mark) {	cout << "Attention: \"Cutoff_Distances\" will use default parameters!" << endl; hout << "Attention: \"Cutoff_Distances\" will use default parameters!" << endl; }
 	if(!electric_para.mark) {	cout << "Attention: \"Electrical_Parameters\" will use default parameters!" << endl; hout << "Attention: \"Electrical_Parameters\" will use default parameters!" << endl; }
+    //---------------------------------------------------------------------------------------
+    //-------- AMC
+    if(!gnp_geo.mark) {	cout << "Attention: \"GNP_Geometry\" will use default parameters!" << endl; hout << "Attention: \"GNP_Geometry\" will use default parameters!" << endl; }
+    //-------- AMC
+    //---------------------------------------------------------------------------------------
 
 	return 1;
 }
@@ -85,6 +95,7 @@ int Input::Data_Initialization()
 	//Initialize the geometric parameters of the RVE
 	geom_rve.keywords = "RVE_Geometry";
 	geom_rve.mark = false;
+    geom_rve.particle_type = "CNT_wires";
 	geom_rve.origin.x = 0.0;
 	geom_rve.origin.y = 0.0;
 	geom_rve.origin.z = 0.0;
@@ -222,7 +233,17 @@ int Input::Read_rve_geometry(struct Geom_RVE &geom_rve, ifstream &infile)
 	}
 	else geom_rve.mark = true;
 
-	//-----------------------------------------------------------------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+    //Define the type of particles inside the RVE: CNT_wires for CNTs or Hybrid_particles for GNP-CNT hybrid particles
+    istringstream istr_perticle_type(Get_Line(infile));
+    istr_perticle_type >> geom_rve.particle_type;
+    if (geom_rve.particle_type != "CNT_wires" && geom_rve.particle_type != "Hybrid_particles") {
+        cout << "Error: the type of particles shoud be either CNT_wires or Hybrid_particles." << endl;
+        hout << "Error: the type of particles shoud be either CNT_wires or Hybrid_particles." << endl;
+        return 0;
+    }
+    
+    //-----------------------------------------------------------------------------------------------------------------------------------------
 	//Define the domain of RVE: the lower-left corner point of RVE and the length, width and height of RVE
 	istringstream istr0(Get_Line(infile));
 	istr0 >> geom_rve.origin.x >> geom_rve.origin.y >> geom_rve.origin.z;
@@ -396,6 +417,18 @@ int Input::Read_nanotube_geo_parameters(struct Nanotube_Geo &nanotube_geo, ifstr
 		nanotube_geo.real_weight = nanotube_geo.weight_fraction*geom_rve.volume*geom_rve.density;
 	}
 	else { hout << "Error: the criterian of generation is neither 'vol' nor 'wt'." << endl; return 0; }
+    
+    //---------------------------------------------------------------------------------------
+    //-------- AMC
+    //
+    //Define the density of the CNTs (unit: gm/cm3)
+    istringstream istr_density(Get_Line(infile));
+    istr_density >> nanotube_geo.density;
+    if (nanotube_geo.density <= 0) {
+        hout << "Error: the density has to be a value greater than zero. Input value:" << nanotube_geo.density;
+        hout << "." << endl;
+        return 0;
+    }
 
 	return 1;
 }
@@ -484,6 +517,57 @@ int Input::Read_electrical_paramters(struct Electric_para &electric_para, ifstre
 	istr1 >> electric_para.resistivity_CF;
 
 	return 1;
+}
+//---------------------------------------------------------------------------------------
+//-------- AMC
+//---------------------------------------------------------------------------
+//Reading the geometric parameters of GNPs
+int Input::Read_gnp_geo_paramters(struct GNP_Geo &gnp_geo, ifstream &infile)
+{
+    if(gnp_geo.mark)
+    {
+        cout << "Attention: \"" << gnp_geo.keywords << "\" has been input!" << endl;
+        hout << "Attention: \"" << gnp_geo.keywords << "\" has been input!" << endl;
+        return 0;
+    }
+    else gnp_geo.mark = true;
+    
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+    //Define the distribution type (uniform or normal) of the length and width (unit: micrometer) of GNPs and the range (min, max) of GNPs in a RVE
+    istringstream istr_gnp_len(Get_Line(infile));
+    istr_gnp_len >> gnp_geo.size_distrib_type;
+    if(gnp_geo.size_distrib_type!="uniform"&&gnp_geo.size_distrib_type!="normal"){ hout << "Error: the distribution of the length should be either normal or uniform." << endl;	return 0; }
+    istr_gnp_len >> gnp_geo.len_min >> gnp_geo.len_max;
+    if(gnp_geo.len_min<0||gnp_geo.len_max<0||gnp_geo.len_max<gnp_geo.len_min){ hout << "Error: the length must be non-negative and min must be smaller than max." << endl; return 0; }
+    
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+    //Define the distribution type (uniform or normal) of the thickness (unit: micrometer) of GNPs and the thickness range (min, max) of GNPs in a RVE
+    istringstream istr_gnp_thick(Get_Line(infile));
+    istr_gnp_thick >> gnp_geo.thick_distrib_type;
+    if(gnp_geo.thick_distrib_type!="uniform"&&gnp_geo.thick_distrib_type!="normal"){ hout << "Error: the distribution of the radius should be either normal or uniform." << endl;	return 0; }
+    istr_gnp_thick >> gnp_geo.t_min >> gnp_geo.t_max;
+    if(gnp_geo.t_min<0||gnp_geo.t_max<0||gnp_geo.t_max<gnp_geo.t_min)
+    { hout << "Error: the GNP thickness must be non-negative, min must be smaller than max." << endl; return 0; }
+    
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+    //Define the mass ratio of GNP/nanotubes in the RVE
+    istringstream istr_mass_ratio(Get_Line(infile));
+    istr_mass_ratio >> gnp_geo.mass_ratio;
+    if(gnp_geo.mass_ratio <= 0)
+    { hout << "Error: the GNP/CNT mass ratio must be a value greater than zero." << endl; return 0; }
+    
+
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+    //Define the density of the CNTs (unit: gm/cm3)
+    istringstream istr_density(Get_Line(infile));
+    istr_density >> gnp_geo.density;
+    if (gnp_geo.density <= 0) {
+        hout << "Error: the density has to be a value greater than zero. Input value:" << nanotube_geo.density;
+        hout << "." << endl;
+        return 0;
+    }
+    
+    return 1;
 }
 //---------------------------------------------------------------------------
 //Read the input data in a whole line (to skip over the comment line starting with a '%')

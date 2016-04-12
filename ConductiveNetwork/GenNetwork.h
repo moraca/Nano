@@ -26,6 +26,7 @@
 #include "Gauss.h"
 #include "Hns.h"
 #include "Tecplot_Export.h"
+#include "GCH.h"
 
 using namespace hns;
 
@@ -39,7 +40,7 @@ class GenNetwork
 		GenNetwork(){};
 
 		//Member Functions
-		int Generate_nanotube_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs, vector<Point_3D> &cpoints, vector<double> &cnts_radius, vector<vector<long int> > &cstructures)const;
+		int Generate_nanotube_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct GNP_Geo &gnp_geo, const struct Cutoff_dist &cutoffs, vector<Point_3D> &cpoints, vector<GCH> &hybrid_particles, vector<double> &cnts_radius, vector<vector<long int> > &cstructures)const;
 		//Generate the nodes and tetrahedron elements of nanotubes (No const following this function because a sum operation on two Point_3D points inside)
 		int Generate_cnts_nodes_elements(vector<vector<Node> > &nodes, vector<vector<Element> > &eles, const vector<vector<Point_3D> > &cnts_points, const vector<double> &cnts_radius);
         //Generate the nodes and tetrahedron elements of nanotubes (No const following this function because a sum operation on two Point_3D points inside). This function uses a 1D point vector and a 2D structure vector that references the point vector
@@ -60,6 +61,22 @@ class GenNetwork
         int Get_seed_point_mt(const struct cuboid &cub, Point_3D &point, mt19937 &engine_x, mt19937 &engine_y, mt19937 &engine_z, uniform_real_distribution<double> &dist)const;
         int Get_uniform_direction_mt(const struct Nanotube_Geo &nanotube_geo, double &cnt_sita, double &cnt_pha, mt19937 &engine_sita, mt19937 &engine_pha, uniform_real_distribution<double> &dist)const;
         int Get_normal_direction_mt(const double &omega, double &cnt_sita, double &cnt_pha, mt19937 &engine_sita, mt19937 &engine_pha, uniform_real_distribution<double> &dist)const;
+        //---------------------------------------------------------------------------
+        //---------------------------------------------------------------------------
+        //---------------------------------------------------------------------------
+        // HYBRID PARTICLE
+        int Generate_hybrid_particle_threads_mt(const struct GNP_Geo &gnp_geo, const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs, vector<vector<Point_3D> > &cnts_points,  vector<GCH> &hybrid_praticles, vector<double> &cnts_radius)const;
+        int Generate_gnp(const struct GNP_Geo &gnp_geo, cuboid &gnp, mt19937 &engine_l, mt19937 &engine_t, uniform_real_distribution<double> &dist)const;
+        Point_3D Map_point_to_global_coordinates(const MathMatrix &Matrix, const Point_3D &displacement, const Point_3D &point)const;
+        int Check_penetration_gnp(const vector<GCH> &hybrid_particles, GCH &hybrid, Point_3D &gnp_poi)const;
+        int Handle_gnp_penetrations(const vector<GCH> &hybrid_particles, const vector<double> &cutoff, const vector<double> &distances, const vector<int> &indices, Point_3D &new_location)const;
+        int Generate_cnt_seeds(const struct Nanotube_Geo &nanotube_geo, const cuboid &gnp, vector<Point_3D> &seeds, vector<double> &radii, const double &d_vdw, const int &n_cnts, const double &z_coord, mt19937 &engine_x, mt19937 &engine_y, mt19937 &engine_rand, uniform_real_distribution<double> &dist);
+        int Get_seed_point_2d_mt(const struct cuboid &cub, const double &cnt_rad, Point_3D &point, mt19937 &engine_x, mt19937 &engine_y, uniform_real_distribution<double> &dist)const;
+        int Check_seed_overlapping(const vector<Point_3D> &seeds, const double &cnt_rad, const double &d_vdw, Point_3D &point)const;
+        int Grow_CNTs_on_GNP_surface(const struct Geom_RVE &geom_rve, const struct cuboid &excub, const struct cuboid &gnp, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs, vector<vector<Point_3D> > &cnts_points,  vector<vector<Point_3D> > &particle,  const vector<vector<int> > &global_coordinates, const vector<vector<long int> > &sectioned_domain, vector<double> &cnts_radius, const vector<int> &n_subregions, const MathMatrix &multiplier, const Point_3D &gnp_poi, const double &cnt_rad, const double  &cnt_length, const int &penetrating_model_flag, const int &MAX_ATTEMPTS, const int &ns, int &point_overlap_count, int &point_overlap_count_unique, int &cnt_reject_count, mt19937 &engine_x, mt19937 &engine_y, mt19937 &engine_sita, mt19937 &engine_pha, uniform_real_distribution<double> &dist)const;
+        int Grow_single_CNT_on_GNP(const struct Geom_RVE &geom_rve, const struct cuboid &excub, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs, vector<vector<Point_3D> > &cnts_points,  const vector<vector<int> > &global_coordinates, const vector<vector<long int> > &sectioned_domain, vector<Point_3D> &new_cnt, vector<double> &cnts_radius, const vector<int> &n_subregions, const MathMatrix &seed_multiplier, const double &cnt_rad, const double  &cnt_length, const int &penetrating_model_flag, const int &MAX_ATTEMPTS, int &point_overlap_count, int &point_overlap_count_unique, int &cnt_reject_count, mt19937 &engine_sita, mt19937 &engine_pha, uniform_real_distribution<double> &dist)const;
+        int Add_CNTs_to_global_structure(const  struct Geom_RVE &geom_rve, const vector<vector<Point_3D> > &particle, vector<vector<Point_3D> > &cnts_points, vector<vector<int> > &global_coordinates, vector<vector<long int> > &sectioned_domain, vector<int> &n_subregions, vector<double> &cnts_radius, double &cnt_rad, double &overlap_max_cutoff, int &penetrating_model_flag)const;
+        int Calculate_generated_volume(const struct GNP_Geo &gnp_geo, const struct cuboid &gvcub, const struct cuboid &gnp, const vector<vector<Point_3D> > &particle, const double &step_vol_para, const double &step_wei_para, double &vol_sum, double &wt_sum)const;
         //---------------------------------------------------------------------------
         //---------------------------------------------------------------------------
         //---------------------------------------------------------------------------

@@ -9,16 +9,21 @@
 #include "GenNetwork.h"
 
 //Generate 3D nantube networks with ovelapping
-int GenNetwork::Generate_nanotube_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs, vector<Point_3D> &cpoints, vector<double> &cnts_radius, vector<vector<long int> > &cstructures)const
+int GenNetwork::Generate_nanotube_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct GNP_Geo &gnp_geo, const struct Cutoff_dist &cutoffs, vector<Point_3D> &cpoints, vector<GCH> &hybrid_particles, vector<double> &cnts_radius, vector<vector<long int> > &cstructures)const
 {
     //Define a two-dimensional vector of three-dimensional points for storing the CNT threads
     vector<vector<Point_3D> > cnts_points;
     
-    //Generate a network defined by points and connections
-    //Use rand() for the random number generation
-    //if(Generate_network_threads(geom_rve, clust_geo, nanotube_geo, cutoffs, cnts_points, cnts_radius)==0) return 0;
-    //Use the Mersenne Twister for the random number generation
-    if (Generate_network_threads_mt(geom_rve, clust_geo, nanotube_geo, cutoffs, cnts_points, cnts_radius)==0) return 0;
+    if (geom_rve.particle_type == "CNT_wires") {
+        //Generate a network defined by points and connections
+        //Use rand() for the random number generation
+        //if(Generate_network_threads(geom_rve, clust_geo, nanotube_geo, cutoffs, cnts_points, cnts_radius)==0) return 0;
+        //Use the Mersenne Twister for the random number generation
+        if (Generate_network_threads_mt(geom_rve, clust_geo, nanotube_geo, cutoffs, cnts_points, cnts_radius)==0) return 0;
+    } else if (geom_rve.particle_type == "Hybrid_particles") {
+        //Generate a network defined by points and connections
+        if (Generate_hybrid_particle_threads_mt(gnp_geo, geom_rve, clust_geo, nanotube_geo, cutoffs, cnts_points, hybrid_particles, cnts_radius)==0) return 0;
+    }
     
     //Checking the angle between two segments in one nanotube (if less than PI/2, provide an alarm)
     if(CNTs_quality_testing(cnts_points)==0) return 0;
@@ -45,7 +50,6 @@ int GenNetwork::Generate_nanotube_networks(const struct Geom_RVE &geom_rve, cons
     
     return 1;
 }
-
 //Generate a network defined by points and connections
 //Use rand() for the random number generation
 int GenNetwork::Generate_network_threads(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs,
@@ -637,6 +641,647 @@ int GenNetwork::Generate_network_threads_mt(const struct Geom_RVE &geom_rve, con
     
     hout << "There were " << point_overlap_count_unique << " overlapping points and ";
     hout << point_overlap_count << " overlaps, " << cnt_reject_count << " CNTs were rejected." << endl;
+    
+    return 1;
+}
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+//Generate a network defined by points and connections
+//Use the Mersenne Twister for the random number generation
+int GenNetwork::Generate_hybrid_particle_threads_mt(const struct GNP_Geo &gnp_geo, const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs, vector<vector<Point_3D> > &cnts_points, vector<GCH> &hybrid_praticles, vector<double> &cnts_radius)const
+{
+    //Generate random seed in terms of local time
+    //unsigned int time_seed = 1453384844;
+    //unsigned int time_seed = (unsigned int)time(NULL);
+    //hout << "Time seed "<<time_seed<<endl;
+    //srand(time_seed);
+    //srand((unsigned int)time(NULL));
+    
+    //---------------------------------------------------------------------------
+    //Set up the Mersenne Twisters used for the different variables
+    // Use random_device to generate a seed for Mersenne twister engine.
+    std::random_device rd;
+    // Use Mersenne twister engine to generate pseudo-random numbers.
+    //Generate differnet engines for different variables
+    std::mt19937 engine_x(rd());
+    std::mt19937 engine_y(rd());
+    std::mt19937 engine_z(rd());
+    std::mt19937 engine_pha(rd());
+    std::mt19937 engine_sita(rd());
+    std::mt19937 engine_rand(rd());
+    //---------------------------------------------------------------------------
+    std::mt19937 engine_l(rd());
+    std::mt19937 engine_t(rd());
+    
+    // "Filter" MT's output to generate double values, uniformly distributed on the closed interval [0, 1].
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
+    
+    //---------------------------------------------------------------------------
+    double vol_sum = 0;  //the sum of volume of generated CNTs
+    double wt_sum = 0;   //the sum of weight of generated CNTs
+    int hybrid_count = 0; //to record the number of generated seeds of a CNT (If the growth of a CNT fails, but this seed will be used for the next growth of a CNT)
+    int cnt_reject_count = 0; //to record the number of CNTs that were deleted due to penetration
+    int point_overlap_count = 0; //to record the number of times that a point had to be relocated
+    int point_overlap_count_unique = 0; //to record the number of points that were overlapping other points
+    //---------------------------------------------------------------------------
+    int ns;         //the number of CNTs per side on a GNP
+    
+    //---------------------------------------------------------------------------
+    //Define the variable MAX_ATTEMPTS
+    const int MAX_ATTEMPTS = 5;
+    //Vectors for handling CNT penetration
+    //global_coordinates[i][0] stores the CNT number of global point i
+    //global_coordinates[i][1] stores the local point number of global point i
+    vector<vector<int> > global_coordinates;
+    //sectioned_domain[i] contains all the points in sub-region i.
+    //Sub-region i is an overlapping subregion to check for penetrations
+    vector<vector<long int> > sectioned_domain;
+    //n_subregions[0] is the number of subregions along x
+    //n_subregions[1] is the number of subregions along y
+    //n_subregions[2] is the number of subregions along z
+    vector<int> n_subregions;
+    //Define cutoff for overlapping
+    double overlap_max_cutoff = 2*nanotube_geo.rad_max + cutoffs.van_der_Waals_dist;
+    //Initialize the vector sub-regions
+    Initialize_subregions(geom_rve, n_subregions, sectioned_domain);
+    //This flag will be used to skip overlapping functions
+    //1 = non-penetrating model
+    //0 = penetrating model
+    int penetrating_model_flag = 1;
+    
+    //Generate cuboids that represent the extended domain and the composite domain
+    //To calculate the effective portion (length) which falls into the given region (RVE)
+    struct cuboid gvcub;					//generate a cuboid to represent the composite domain
+    gvcub.poi_min = geom_rve.origin;
+    gvcub.len_x = geom_rve.len_x;
+    gvcub.wid_y = geom_rve.wid_y;
+    gvcub.hei_z = geom_rve.hei_z;
+    gvcub.volume = geom_rve.volume;
+    struct cuboid excub;					//generate a cuboid to represent the extended domain
+    excub.poi_min = geom_rve.ex_origin;
+    excub.len_x = geom_rve.ex_len;
+    excub.wid_y = geom_rve.ey_wid;
+    excub.hei_z = geom_rve.ez_hei;
+    excub.volume = excub.len_x*excub.wid_y*excub.hei_z;
+    
+    
+    //---------------------------------------------------------------------------
+    while((nanotube_geo.criterion == "vol"&&vol_sum < nanotube_geo.real_volume)||
+          (nanotube_geo.criterion == "wt"&&wt_sum < nanotube_geo.real_weight))
+    {
+        //---------------------------------------------------------------------------
+        //Randomly generate a length of a CNT
+        double cnt_length;
+        if(Get_random_value_mt(nanotube_geo.len_distrib_type, engine_rand, dist, nanotube_geo.len_min, nanotube_geo.len_max, cnt_length)==0) return 0;
+        
+        //---------------------------------------------------------------------------
+        //Randomly generate a radius of a CNT
+        double cnt_rad;
+        if(Get_random_value_mt(nanotube_geo.rad_distrib_type, engine_rand, dist, nanotube_geo.rad_min, nanotube_geo.rad_max, cnt_rad)==0) return 0;
+        
+        //---------------------------------------------------------------------------
+        //Define a hybrid particle
+        GCH hybrid;
+        //Randomly assign a geometry to the GNP
+        if (!Generate_gnp(gnp_geo, hybrid.gnp, engine_l, engine_t, dist)) return 0;
+        //Calculate (initial) center point
+        hybrid.center.x = hybrid.gnp.len_x/2;
+        hybrid.center.y = hybrid.gnp.wid_y/2;
+        hybrid.center.z = 0;
+        
+        //---------------------------------------------------------------------------
+        //Randomly generate a direction in the spherical coordinates as the orientation of the GNP
+        double cnt_sita, cnt_pha;
+        if(Get_uniform_direction_mt(nanotube_geo, cnt_sita, cnt_pha, engine_sita, engine_pha, dist)==0) return 0;
+        //Rotation matrix for the top CNTs
+        MathMatrix multiplier(3,3);
+        multiplier = Get_transformation_matrix(cnt_sita, cnt_pha);
+        //Save this rotation as the rotation of the GNP
+        hybrid.rotation = multiplier;
+        //Rotation matrix for the bottom CNTs
+        MathMatrix multiplier_bottom(3,3);
+        //First invert the z-axis
+        cnt_sita = PI;
+        cnt_pha = 0;
+        multiplier_bottom = Get_transformation_matrix(cnt_sita, cnt_pha);
+        //The rotation for the bottom is the same as the top but with the inverted z-axis
+        multiplier_bottom = multiplier*multiplier_bottom;
+        //---------------------------------------------------------------------------
+        //Randomly generate a point inside the sample domain, this will be the displacement applied to the GNP
+        Point_3D gnp_poi;
+        if(Get_seed_point_mt(gvcub, gnp_poi, engine_x, engine_y, engine_z, dist)==0) return 0;
+        
+        //---------------------------------------------------------------------------
+        //A displacement is needed for the bottom surface to be correctly displayed
+        Point_3D gnp_poi_bottom(hybrid.gnp.len_x,0.0,0.0), zero(0.0,0.0,0.0);
+        //Apply rotation to gnp_poi_bottom
+        gnp_poi_bottom = Map_point_to_global_coordinates(multiplier, zero, gnp_poi_bottom);
+        //Add to top gnp_poi
+        gnp_poi_bottom = gnp_poi + gnp_poi_bottom;
+        
+        //---------------------------------------------------------------------------
+        //Rotate and move center point of GNP
+        hybrid.center = Map_point_to_global_coordinates(multiplier, gnp_poi, hybrid.center);
+        
+        
+        //---------------------------------------------------------------------------
+        //Check penetration of GNPs
+        int attempts = 0;
+        while (Check_penetration_gnp(hybrid_praticles, hybrid, gnp_poi)) {
+            //If there is penetration increase the counter of attempts
+            attempts++;
+            //If penetration was not solved within the maximum number of attempts, terminate the generation
+            if (attempts == MAX_ATTEMPTS) {
+                hout << "Too many attempts to resolve penetration of GNPs." << endl;
+                return 0;
+            }
+        }
+        
+        //---------------------------------------------------------------------------
+        //Calculate the number of CNTs per side on the GNP
+        ns = round(gnp_geo.density*hybrid.gnp.volume/(2*nanotube_geo.density*cnt_length*cnt_rad*cnt_rad*PI));
+        hout << "ns = " << ns << endl;
+        
+        //---------------------------------------------------------------------------
+        //The increased volume of each segement (growth step) of nanotube (Here the overlapping volume is ignored)
+        const double step_vol_para = PI*cnt_rad*cnt_rad;
+        //---------------------------------------------------------------------------
+        //The increased weight of each segement (growth step) of nanotube (If the different radii of nanotube are considered, the linear_density may be different in every nanotube)
+        const double step_wei_para = nanotube_geo.linear_density;
+        
+        //Vector to store all CNTs for the current hybrd particle
+        vector<vector<Point_3D> > particle;
+        
+        //Flag to determine if a particle was succesfully created
+        int particle_success = 0;
+        
+        //Grow CNTs in the "top" surface
+        hout << "top start" << endl;
+        if (Grow_CNTs_on_GNP_surface(geom_rve, excub, hybrid.gnp, nanotube_geo, cutoffs, cnts_points, particle,  global_coordinates, sectioned_domain, cnts_radius, n_subregions, multiplier, gnp_poi, cnt_rad, cnt_length, penetrating_model_flag, MAX_ATTEMPTS, ns, point_overlap_count, point_overlap_count_unique, cnt_reject_count, engine_x, engine_y, engine_sita, engine_pha, dist) ) {
+            //Add 1 to the flag to indicate that CNTs were grown successfully
+            particle_success++;
+            
+            //Add the CNT numbers corresponding to the top CNTs
+            int current_size = (int)cnts_points.size();
+            for (int i = 0; i < ns; i++) {
+                hybrid.cnts_top.push_back(current_size + i);
+                hybrid.cnts.push_back(current_size + i);
+            }
+        }
+        hout << "top end " << particle_success << endl;
+        
+        //Grow CNTs in the "bottom" surface
+        //For the CNT to be grown in the bottom, the CNTs in the top have to be grown successfully
+        hout << "bottom start" << endl;
+        if ( (particle_success == 1) && Grow_CNTs_on_GNP_surface(geom_rve, excub, hybrid.gnp, nanotube_geo, cutoffs, cnts_points, particle,  global_coordinates, sectioned_domain, cnts_radius, n_subregions, multiplier_bottom, gnp_poi_bottom, cnt_rad, cnt_length, penetrating_model_flag, MAX_ATTEMPTS, ns, point_overlap_count, point_overlap_count_unique, cnt_reject_count, engine_x, engine_y, engine_sita, engine_pha, dist) ) {
+            //Add 1 to the flag to indicate that CNTs were grown successfully
+            particle_success++;
+            
+            //Add the CNT numbers corresponding to the top CNTs
+            int current_size = (int)cnts_points.size();
+            for (int i = 0; i < ns; i++) {
+                hybrid.cnts_bottom.push_back(current_size + ns + i);
+                hybrid.cnts.push_back(current_size + ns + i);
+            }
+        }
+        hout << "bottom end " << particle_success << endl;
+        
+        //If the CNTs were grown on both sides successfully, then add them to the data structure
+        //and calculate the generated volume fraction
+        if (particle_success == 2) {
+            //Add hybrid particle to global data structure
+            if (Add_CNTs_to_global_structure(geom_rve, particle, cnts_points, global_coordinates, sectioned_domain, n_subregions, cnts_radius, cnt_rad, overlap_max_cutoff, penetrating_model_flag)==0) return 0;
+            
+            //Add generated volume fraction to the cumulative variables
+            if (Calculate_generated_volume(gnp_geo, gvcub, hybrid.gnp, particle, step_vol_para, step_wei_para, vol_sum, wt_sum)==0) return 0;
+            
+            //Add the current particle to the vector of particles
+            hybrid_praticles.push_back(hybrid);
+            
+            //Increase the counter of hybrid particles
+            hybrid_count++;
+            hout << "hybrid_count=" << hybrid_count << endl;
+        }
+        
+        
+        
+    }
+    
+    if(nanotube_geo.criterion == "wt") hout << "    The volume fraction of generated CNTs is about : " << vol_sum/geom_rve.volume << endl;
+    
+    hout << "There were " << point_overlap_count_unique << " overlapping points and ";
+    hout << point_overlap_count << " overlaps, " << cnt_reject_count << " CNTs were rejected." << endl;
+    
+    hout << endl;
+    hout << "There were " << hybrid_count << " hybrid particles." << endl;
+    
+    return 1;
+}
+//This fuction generates a GNP with a square base
+//This fucntion also calculates the volume of the GNP
+int GenNetwork::Generate_gnp(const struct GNP_Geo &gnp_geo, cuboid &gnp, mt19937 &engine_l, mt19937 &engine_t, uniform_real_distribution<double> &dist)const
+{
+    //Define size for the square GNP
+    gnp.len_x = gnp_geo.len_min + (gnp_geo.len_max - gnp_geo.len_min)*dist(engine_l);
+    gnp.wid_y = gnp.len_x;
+    
+    //Thickness
+    gnp.hei_z = gnp_geo.t_min + (gnp_geo.t_max - gnp_geo.t_min)*dist(engine_t);
+    
+    //Calculate volume
+    gnp.volume = gnp.len_x*gnp.hei_z*gnp.wid_y;
+    
+    return 1;
+}
+//This functions applies a rotation and a displacement to a point
+//This is used to generate the seeds of CNTs in 2D and then map them to the random orientation of the GNP
+Point_3D GenNetwork::Map_point_to_global_coordinates(const MathMatrix &Matrix, const Point_3D &displacement, const Point_3D &point)const
+{
+    //new_point = Matrix*point + displacement
+    Point_3D new_point;
+    
+    //x-coordinate
+    new_point.x = Matrix.element[0][0]*point.x + Matrix.element[0][1]*point.y + Matrix.element[0][2]*point.z + displacement.x;
+    
+    //y-coordinate
+    new_point.y = Matrix.element[1][0]*point.x + Matrix.element[1][1]*point.y + Matrix.element[1][2]*point.z + displacement.y;
+    
+    //z-coordinate
+    new_point.z = Matrix.element[2][0]*point.x + Matrix.element[2][1]*point.y + Matrix.element[2][2]*point.z + displacement.z;
+    
+    return new_point;
+}
+//
+int GenNetwork::Check_penetration_gnp(const vector<GCH> &hybrid_particles, GCH &hybrid, Point_3D &gnp_poi)const
+{
+    //Calculate radius of sphere that encloses current hybrid
+    double sum = hybrid.gnp.len_x*hybrid.gnp.len_x + hybrid.gnp.wid_y*hybrid.gnp.wid_y + hybrid.gnp.hei_z*hybrid.gnp.hei_z;
+    double radius = sqrt(sum)/2;
+    
+    //Temporary variables
+    vector<int> indices;
+    double sum2, radius2, separation;
+    //Vectors to store the cutoffs and separations
+    
+    //Loop over other hybrid particles to find "penetrating" GNPs
+    vector<double> cutoff, distances;
+    for (int i = 0; i < (int)hybrid_particles.size(); i++) {
+        //Calculate radius of sphere that encloses hybrid particle i
+        sum2 = hybrid_particles[i].gnp.len_x*hybrid_particles[i].gnp.len_x + hybrid_particles[i].gnp.wid_y*hybrid_particles[i].gnp.wid_y + hybrid_particles[i].gnp.hei_z*hybrid_particles[i].gnp.hei_z;
+        radius2 = sqrt(sum2)/2;
+        
+        //Calculate distance from center to center of GNPs
+        separation = hybrid.center.distance_to(hybrid_particles[i].center);
+        
+        //If the distance between centers is less than the sum of radii, there is penetration of GNPs
+        if (separation < radius + radius2) {
+            cutoff.push_back(radius + radius2);
+            distances.push_back(separation);
+            indices.push_back(i);
+        }
+    }
+    
+    //If the cutoff vector (or distances vector) has a nonzero size, there are penetrating GNPs
+    if (cutoff.size()) {
+        //Point to store the new location of the centerpoint of the GNP
+        Point_3D new_location;
+        //Calculate the new location of the center point of the GNP
+        if (Handle_gnp_penetrations(hybrid_particles, cutoff, distances, indices, new_location)==0) return 0;
+        
+        //Calculate the displacement vector of the GNP
+        Point_3D displacement;
+        displacement = new_location - hybrid.center;
+        
+        //Add the displacement to the gnp_poi
+        gnp_poi = gnp_poi + displacement;
+        
+        //Update center point of GNP
+        hybrid.center = new_location;
+    }
+    
+    return (int)cutoff.size();
+}
+//Handle penetrations of GNPs
+int GenNetwork::Handle_gnp_penetrations(const vector<GCH> &hybrid_particles, const vector<double> &cutoff, const vector<double> &distances, const vector<int> &indices, Point_3D &new_location)const
+{
+    //Some vectors need to be created in order to use the same functions as for CNT penetration
+    
+    //Create an artificial "cnts" vector
+    vector<vector<Point_3D> > cnts;
+    vector<Point_3D> empty_points;
+    
+    //Create artificial "affected_points" vector. This vector references to position in the "cnt" vector
+    vector<vector<int> > affected_points;
+    vector<int> empty_int;
+    
+    //Add elements to artificial vectors
+    for (int i = 0; i < (int)indices.size(); i++) {
+        //Add elements to the "cnt" vector
+        cnts.push_back(empty_points);
+        int j = indices[i];
+        cnts.back().push_back(hybrid_particles[j].center);
+        
+        //Add elements to the "affected_points" vector
+        affected_points.push_back(empty_int);
+        affected_points.back().push_back(i); //First coordinate
+        affected_points.back().push_back(0); //Second coordinate is always 0 as all cnts[i] have one element
+    }
+    
+    //Call the corresponding function depending on the number of overlaps
+    if (indices.size() == 1) {
+        One_overlapping_point(cnts, cutoff, distances, affected_points, new_location);
+    } else if (indices.size() == 2) {
+        Two_overlapping_points(cnts, cutoff, affected_points, new_location);
+    } else {
+        Three_or_more_overlapping_points(cnts, cutoff, distances, affected_points, new_location);
+    }
+    
+    return 1;
+}
+//
+int GenNetwork::Generate_cnt_seeds(const struct Nanotube_Geo &nanotube_geo, const cuboid &gnp, vector<Point_3D> &seeds, vector<double> &radii, const double &d_vdw, const int &n_cnts, const double &z_coord, mt19937 &engine_x, mt19937 &engine_y, mt19937 &engine_rand, uniform_real_distribution<double> &dist)
+{
+    //Initialize a point
+    Point_3D point(0.0,0.0,z_coord);
+    double cnt_rad;
+    
+    //Generate the necessary number of CNT seeds
+    for (int i = 0 ; i < n_cnts; i++) {
+        //Get radius
+        cnt_rad = Get_random_value_mt(nanotube_geo.rad_distrib_type, engine_rand, dist, nanotube_geo.rad_min, nanotube_geo.rad_max, cnt_rad);
+        //In plane points
+        if (Get_seed_point_2d_mt(gnp, cnt_rad, point, engine_x, engine_y, dist)==0) return 0;
+        //Add to the vector of radii
+        radii.push_back(cnt_rad);
+        //Check for overlapping of seeds
+        while (Check_seed_overlapping(seeds, cnt_rad, d_vdw, point)) {
+            if (Get_seed_point_2d_mt(gnp, cnt_rad, point, engine_x, engine_y, dist)==0) return 0;
+        }
+        //Add into the vector of seeds
+        seeds.push_back(point);
+    }
+    
+    return 1;
+}
+//---------------------------------------------------------------------------
+//Randomly generate a CNT seed (intial point of a CNT) in the surface of the GNP
+//Note that the circle with certer at point and radius cnt_rad has to lie inside the surface of the GNP
+int GenNetwork::Get_seed_point_2d_mt(const struct cuboid &cub, const double &cnt_rad, Point_3D &point, mt19937 &engine_x, mt19937 &engine_y, uniform_real_distribution<double> &dist)const
+{
+    //Adding cnt_rad and subtracting 2*cnt_rad to len_x, will make the CNT seed to be entirely inside the GNP surface
+    point.x = cub.poi_min.x + cnt_rad + (cub.len_x - 2*cnt_rad)*dist(engine_x);
+    
+    //Adding cnt_rad and subtracting 2*cnt_rad to wid_y, will make the CNT seed to be entirely inside the GNP surface
+    point.y = cub.poi_min.y + cnt_rad + (cub.wid_y - 2*cnt_rad)*dist(engine_y);
+    
+    point.flag = 0; //0 denotes this point is the initial point of a CNT
+    
+    return 1;
+}
+int GenNetwork::Check_seed_overlapping(const vector<Point_3D> &seeds, const double &cnt_rad, const double &d_vdw, Point_3D &point)const
+{
+    //cutoff_p is used for the cutoff between two points (of different CNTs), distance is the actual distance
+    //between those two points
+    double cutoff_p, distance;
+    
+    //hout << "Check0 " << subregion_vec.size() << ' ';
+    for (int i = 0; i < (int)seeds.size(); i++) {
+        //hout << "Check4 ";
+        cutoff_p = 2*cnt_rad + d_vdw;
+        distance = point.distance_to(seeds[i]);
+        //If the new point is overlapping a seed, then terminate the function and return 1
+        if (distance < cutoff_p) {
+            return 1;
+        }
+        //hout << "Check5 ";
+    }
+    //hout << "Check6 " << endl;
+    return 0;
+}
+//
+int GenNetwork::Grow_CNTs_on_GNP_surface(const struct Geom_RVE &geom_rve, const struct cuboid &excub, const struct cuboid &gnp, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs, vector<vector<Point_3D> > &cnts_points,  vector<vector<Point_3D> > &particle,  const vector<vector<int> > &global_coordinates, const vector<vector<long int> > &sectioned_domain, vector<double> &cnts_radius, const vector<int> &n_subregions, const MathMatrix &multiplier, const Point_3D &gnp_poi, const double &cnt_rad, const double  &cnt_length, const int &penetrating_model_flag, const int &MAX_ATTEMPTS, const int &ns, int &point_overlap_count, int &point_overlap_count_unique, int &cnt_reject_count, mt19937 &engine_x, mt19937 &engine_y, mt19937 &engine_sita, mt19937 &engine_pha, uniform_real_distribution<double> &dist)const
+{
+    //---------------------------------------------------------------------------
+    //Initialize a point to be used in the following
+    Point_3D cnt_poi(0.0,0.0,0.0);
+    
+    //---------------------------------------------------------------------------
+    //Vectors for the CNT seeds, they will help in checking for seed overlapping
+    vector<Point_3D> seeds;
+    //Vector fo the radii of the CNT seeds
+    vector<double> seeds_radius;
+    
+    //Loop over the CNTs per side
+    for (int i = 0; i < ns; i++) {
+        //Vector to generate the current CNT
+        vector<Point_3D> new_cnt;
+        //Count the number of attemts to grow a CNT
+        int attempts = 0;
+        //Flag to determine that a CNT was grown successfully
+        int success = 0;
+        
+        //While the maximum number of attempts has not been reached and CNT has not grown successfully, keep trying
+        while (attempts < MAX_ATTEMPTS && !success) {
+            //Create a CNT seed in the top surface
+            cnt_poi.z = gnp.hei_z/2;
+            if (Get_seed_point_2d_mt(gnp, cnt_rad, cnt_poi, engine_x, engine_y, dist)==0) return 0;
+            
+            //Apply rotation and displacement to the GNP
+            cnt_poi = Map_point_to_global_coordinates(multiplier, gnp_poi, cnt_poi);
+            
+            //Check seed penetration
+            //If seed is penetrating then, generate another seed (that is why the rest of the code is inside the if-statement)
+            hout << "Grow0.0 ";
+            if (!Check_seed_overlapping(seeds, cnt_rad, cutoffs.van_der_Waals_dist, cnt_poi)) {
+                //If not penetrating, then add current seed to the vector of seeds
+                seeds.push_back(cnt_poi);
+                //Store this seed point in the new nanotube vector
+                new_cnt.push_back(cnt_poi);
+                hout << "Grow1.0 ";
+                
+                //Grow CNT
+                if (Grow_single_CNT_on_GNP(geom_rve, excub, nanotube_geo, cutoffs, cnts_points,  global_coordinates, sectioned_domain, new_cnt, cnts_radius, n_subregions, multiplier, cnt_rad, cnt_length, penetrating_model_flag, MAX_ATTEMPTS, point_overlap_count, point_overlap_count_unique, cnt_reject_count, engine_sita, engine_pha, dist)){
+                    //If CNT was grown succesfully, set the flag to 1 to break the while loop
+                    success = 1;
+                    
+                    //Add CNT to the vector of points for the current particle
+                    particle.push_back(new_cnt);
+                    hout << "Grow2.0 ";
+                    
+                } else {
+                    //If the CNT was not grown successfully, then try again
+                    //Increase the number of attempts
+                    attempts++;
+                    
+                    //Remove the last CNT seed
+                    seeds.pop_back();
+                    
+                    //Remove all generated points
+                    new_cnt.clear();
+                    
+                    hout << "Grow3.0 ";
+                }
+                hout << "Grow1.1 ";
+                
+            }
+            hout << "Grow0.2 ";
+            
+        }
+        
+        //If the CNT was not grown succesfully after the maximum number of attempts
+        //then break the loop and create a new hybrid particle
+        if ((attempts == MAX_ATTEMPTS) && !success) {
+            return 0;
+        }
+        
+    }
+    
+    return 1;
+}
+//This function will be used to "grow" the CNTs in the surface of a GNP
+//1: successfully grown CNT
+//0: could not solve penetration of CNT
+int GenNetwork::Grow_single_CNT_on_GNP(const struct Geom_RVE &geom_rve, const struct cuboid &excub, const struct Nanotube_Geo &nanotube_geo, const struct Cutoff_dist &cutoffs, vector<vector<Point_3D> > &cnts_points,  const vector<vector<int> > &global_coordinates, const vector<vector<long int> > &sectioned_domain, vector<Point_3D> &new_cnt, vector<double> &cnts_radius, const vector<int> &n_subregions, const MathMatrix &seed_multiplier, const double &cnt_rad, const double  &cnt_length, const int &penetrating_model_flag, const int &MAX_ATTEMPTS, int &point_overlap_count, int &point_overlap_count_unique, int &cnt_reject_count, mt19937 &engine_sita, mt19937 &engine_pha, uniform_real_distribution<double> &dist)const
+{
+    //Initialize the multiplier matrix with the initial rotation
+    MathMatrix multiplier = seed_multiplier;
+    //CNT seed
+    Point_3D cnt_poi = new_cnt.front();
+    
+    //variables for the angle orientations
+    double cnt_sita, cnt_pha;
+    
+    //---------------------------------------------------------------------------
+    //Calculate the total number of growth step for a CNT
+    int step_num = (int)(cnt_length/nanotube_geo.step_length) + 1;
+    
+    //---------------------------------------------------------------------------
+    for(int i=0; i<step_num; i++)
+    {
+        //Randomly generate a direction in the spherical coordinates
+        //To have the positive Z-axis to be a central axis
+        //Then, the radial angle, sita, obeys a normal distribution (sita \in fabs[(-omega,+omega)]) and the zonal angle, pha, obeys a uniform distribution (pha \in (0,2PI))
+        if(Get_normal_direction_mt(nanotube_geo.angle_max, cnt_sita, cnt_pha, engine_sita, engine_pha, dist)==0) return 0;
+        
+        //To calculate the new multiplier for transformation of coordinates
+        multiplier = multiplier*Get_transformation_matrix(cnt_sita, cnt_pha);
+        
+        //To calculate the coordinates of the new CNT point (transformation of coordinates)
+        cnt_poi = cnt_poi + Get_new_point(multiplier, nanotube_geo.step_length);
+        cnt_poi.flag = 1;							//1 means that point is not the intial point
+        
+        //---------------------------------------------------------------------------
+        //If the new CNT point grows out of the RVE, the intersecting point at the surfaces of RVE will be calculated.
+        //The new segment will be cut and (the outside part will be translated into the RVE for the periodical boundary condition)
+        bool touch_end = false;
+        if(Judge_RVE_including_point(excub, cnt_poi)==0)
+        {
+            //Calculate all intersection points between the new segment and surfaces of RVE
+            //(using a parametric equatio:  the parameter 0<t<1, and sort all intersection points from the smaller t to the greater t)
+            vector<Point_3D> ipoi_vec;  //a vector for intersection points
+            if(Get_intersecting_point_RVE_surface(excub, new_cnt.back(), cnt_poi, ipoi_vec)==0) {
+                hout << "Error in Generate_network_threads"<<endl;
+                return 0;
+            }
+            cnt_poi = ipoi_vec[0];
+            //Break the for-loop
+            touch_end = true;
+        }
+        
+        //---------------------------------------------------------------------------
+        //Check for overlapping
+        //hout << "Check for overlapping ";
+        if (!penetrating_model_flag || Check_penetration(geom_rve, nanotube_geo, cnts_points, global_coordinates, sectioned_domain, cnts_radius, new_cnt, n_subregions, cnt_rad, cutoffs.van_der_Waals_dist, MAX_ATTEMPTS, point_overlap_count, point_overlap_count_unique, cnt_poi)) {
+            
+            //---------------------------------------------------------------------------
+            //If the overlapping model is used or if overlapping was successfully solved, then proceed as usual:
+            //add current point to current CNT
+            //---------------------------------------------------------------------------
+            new_cnt.push_back(cnt_poi);							//store a new point
+        } else {
+            //---------------------------------------------------------------------------
+            //If the overlapping was not solved, then delete the current CNT and generate a new one
+            //---------------------------------------------------------------------------
+            //Clear the new_cnt vector so that it is not added to the rest of CNTs
+            new_cnt.clear();
+            
+            //Increase the count of rejected cnts
+            cnt_reject_count++;
+            
+            //Terminate the function. The 0 indicates the CNT did not grow successfully
+            return 0;
+        }
+        //hout << "done" << endl;
+        if (touch_end) {
+            //When touch_end is true that means a CNT reached the boundaries of the extended volume
+            //Terminate the function and return 1 to indicate the CNT grew succesfully
+            return 1;
+        }
+        
+    }
+    
+    //The CNT grew the whole lenght without errors
+    return 1;
+}
+//This functions adds to the global structure the CNTs generated for a hybrid particle
+int GenNetwork::Add_CNTs_to_global_structure(const struct Geom_RVE &geom_rve, const vector<vector<Point_3D> > &particle, vector<vector<Point_3D> > &cnts_points, vector<vector<int> > &global_coordinates, vector<vector<long int> > &sectioned_domain, vector<int> &n_subregions, vector<double> &cnts_radius, double &cnt_rad, double &overlap_max_cutoff, int &penetrating_model_flag)const
+{
+    //Loop over the generated CNTs, i.e. over particle.size()
+    for (int j = 0; j < (int)particle.size(); j++) {
+        //---------------------------------------------------------------------------
+        //Store the CNT points
+        
+        //Perform these operations when the non-overlapping model is used
+        if (penetrating_model_flag) {
+            //Variables needed for updating global_coordinates
+            vector<int> empty;
+            for(int i=0; i<(int)particle[j].size(); i++) {
+                //Add global coordinate
+                global_coordinates.push_back(empty);
+                global_coordinates.back().push_back((int)cnts_points.size());
+                global_coordinates.back().push_back(i);
+                //Add point to an overlapping region in the vector sectioned_domain
+                Add_to_overlapping_regions(geom_rve, overlap_max_cutoff, particle[j][i], (long int)global_coordinates.size()-1, n_subregions, sectioned_domain);
+                
+            }
+        }
+        
+        //Add the current CNT and CNT radius to the global vectors
+        cnts_points.push_back(particle[j]);     //to store the points of a CNT
+        cnts_radius.push_back(cnt_rad);         //to store the radius of a CNT
+    }
+    
+    return 1;
+}
+//This function calculates the generated volume and adds it to the global variables
+int GenNetwork::Calculate_generated_volume(const struct GNP_Geo &gnp_geo, const struct cuboid &gvcub, const struct cuboid &gnp, const vector<vector<Point_3D> > &particle, const double &step_vol_para, const double &step_wei_para, double &vol_sum, double &wt_sum)const
+{
+    
+    //---------------------------------------------------------------------------
+    //Add the volume and weight corresponding to the CNTs
+    
+    //Variable to store the effective length
+    double temp_length;
+    for (int i = 0; i < (int)particle.size(); i++) {
+        for (int j = 0; j < (int)particle[i].size()-1; j++) {
+            temp_length = Effective_length_given_region(gvcub, particle[i][j],particle[i][j+1]);
+            //double temp_length = new_cnt.back().distance_to(cnt_poi);
+            if (temp_length > 0.0)
+            {
+                vol_sum += temp_length*step_vol_para;		//add accumulation on the volume
+                wt_sum += temp_length*step_wei_para;		//add accumulation on the weight
+            }
+        }
+    }
+    
+    //---------------------------------------------------------------------------
+    //Add the volume and weight corresponding to the GNP
+    double gnp_vol = gnp.len_x*gnp.wid_y*gnp.hei_z;
+    vol_sum += gnp_vol;                     //add accumulation on the volume
+    wt_sum += gnp_vol*gnp_geo.density;		//add accumulation on the weight
+    
     
     return 1;
 }

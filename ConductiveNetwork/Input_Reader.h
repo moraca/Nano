@@ -43,6 +43,7 @@ struct Simu_para{
 struct Geom_RVE{
 			string keywords;
 			bool mark;
+            string particle_type;
 			Point_3D origin;												//Define an origin point for a RVE
 			double len_x, wid_y, hei_z;								//Define length, width and height for an extended RVE for generation with an acurrate control 
 			Point_3D ex_origin;											//Define an origin point for an extended RVE to generate network with an acurrate control  
@@ -61,8 +62,8 @@ struct Nanotube_Geo{
 			bool mark;
 			string criterion;						//Define the volume or weight fraction of nanotubes in the RVE: vol, wt, nwt
 			string dir_distrib_type;			//Define the initial growth direction type (random or specific) in a RVE
-			string len_distrib_type;			//Define the distribution type (uniform or normal) of the length (unit: micromether) of nanotubes
-			string rad_distrib_type;			//Define the distribution type (uniform or normal) of the radius (unit: micromether) of nanotubes
+			string len_distrib_type;			//Define the distribution type (uniform or normal) of the length (unit: micrometer) of nanotubes
+			string rad_distrib_type;			//Define the distribution type (uniform or normal) of the radius (unit: micrometer) of nanotubes
 			double step_length;				//Define the step length (unit: micromether) of nanotube growth
 			double ini_sita, ini_pha;			//Define initial direction for 'specific' type in the spherical coordinates
 			double angle_max;				//Define the angle 'omega' for the normal distribution range [-omega, omega] of the growth direction
@@ -74,8 +75,24 @@ struct Nanotube_Geo{
 			double weight_fraction;			//Define the weight fraction of nanotubes
 			double real_weight;				//Define the real weight of nanotubes
 			double linear_density;			//Define the linear density of nanotubes
+            double density;			//Define the density of nanotubes
 			double matrix_density;			//Define the density of matrix
 		};
+//The nanotube parameters in a network
+struct GNP_Geo{
+        string keywords;
+        bool mark;
+        string size_distrib_type;			//Define the distribution type (uniform or normal) of the length (unit: micrometer) of GNP
+        string thick_distrib_type;			//Define the distribution type (uniform or normal) of the thickness (unit: micrometer) of GNP
+        double len_min, len_max;            //Define the length range (min, max) for the width and length of the GNP surface
+        double t_min, t_max;                //Define the thickness range (min,max) of the GNP
+        double mass_ratio;                  //Define the CNT/GNP mass ratio
+        double volume_fraction;             //Define the volume fraction of GNPs
+        double real_volume;                 //Define the real volume of GNPs
+        double weight_fraction;             //Define the weight fraction of GNPs
+        double real_weight;                 //Define the real weight of GNPs
+        double density;                     //Define the density of GNPs
+};
 //The parameters of nanotube clusters
 struct Cluster_Geo{
 			string keywords;
@@ -118,6 +135,7 @@ class Input
 		struct Cluster_Geo cluster_geo;
 		struct Cutoff_dist cutoff_dist;
 		struct Electric_para electric_para;
+        struct GNP_Geo gnp_geo;
 
 		//Constructor
 		Input(){};  
@@ -135,6 +153,7 @@ private:
 		int Read_cluster_geo_parameters(struct Cluster_Geo &cluster_geo, ifstream &infile);
 		int Read_cutoff_distances(struct Cutoff_dist &cutoff_dist, ifstream &infile);
 		int Read_electrical_paramters(struct Electric_para &electric_para, ifstream &infile);
+        int Read_gnp_geo_paramters(struct GNP_Geo &gnp_geo, ifstream &infile);
 };
 //---------------------------------------------------------------------------
 #endif

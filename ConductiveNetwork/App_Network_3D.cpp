@@ -18,13 +18,15 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
     vector<Point_3D> cnts_point;					//Define the set of cnt point in a 1D vector
     vector<vector<long int> > cnts_structure;		//The global number of points in the cnts
     vector<vector<int> > shells_cnt;                //Shell sub-regions to make the triming faster
+    vector<GCH> hybrid_particles;                   //Define the set of GNP hybrid particles
     
     //-----------------------------------------------------------------------------------------------------------------------------------------
     //Network Generation with overlapping
     hout << "-_- To generate nanotube network......" << endl;
     ct0 = time(NULL);
     GenNetwork *Genet = new GenNetwork;
-    if(Genet->Generate_nanotube_networks(Init->geom_rve, Init->cluster_geo, Init->nanotube_geo, Init->cutoff_dist, cnts_point, cnts_radius, cnts_structure)==0) return 0;
+    //if(Genet->Generate_nanotube_networks(Init->geom_rve, Init->cluster_geo, Init->nanotube_geo, Init->cutoff_dist, cnts_point, cnts_radius, cnts_structure)==0) return 0;
+    if(Genet->Generate_nanotube_networks(Init->geom_rve, Init->cluster_geo, Init->nanotube_geo, Init->gnp_geo, Init->cutoff_dist, cnts_point, hybrid_particles, cnts_radius, cnts_structure)==0) return 0;
     delete Genet;
     ct1 = time(NULL);
     hout << "Nanotube network generation time: " << (int)(ct1-ct0) <<" secs." << endl;
@@ -129,7 +131,7 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
         ct1 = time(NULL);
         hout << "Calculate fractions time: "<<(int)(ct1-ct0)<<" secs."<<endl;
         
-        /*/
+        //
         ct0 = time(NULL);
         if (Export_tecplot_files(i, Init->geom_rve, cnts_point, cnts_radius, cnts_structure, HoKo->isolated, all_dead_indices, all_indices)==0) return 0;
         ct1 = time(NULL);
