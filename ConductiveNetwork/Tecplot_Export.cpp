@@ -14,7 +14,7 @@ int Tecplot_Export::Export_network_threads(const struct cuboid &cub, const vecto
 {
 	ofstream otec("CNT_Wires.dat");
 	otec << "TITLE = CNT_Wires" << endl;
-	otec << "VARIABLES = X, Y, Z" << endl;
+	otec << "VARIABLES = X, Y" << endl;
 
 	//---------------------------------------------------------------------------
 	//Export a 3D cuboid

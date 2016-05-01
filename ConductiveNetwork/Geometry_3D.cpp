@@ -102,7 +102,7 @@ double Point_3D::dot(Point_3D &point)
 }
 
 //===========================================================================
-//The member function for the 3D point class
+//The member function for the 3D line class
 //---------------------------------------------------------------------------
 //Constructor
 Line_3D::Line_3D(Point_3D p0, Point_3D p1)
