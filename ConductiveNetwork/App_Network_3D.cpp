@@ -14,10 +14,10 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
 	//Time markers for total simulation
 	time_t ct0, ct1;
 	
-    vector<double> cnts_radius;						//Define the radius of each nanotube in the network
-    vector<Point_3D> cnts_point;					//Define the set of cnt point in a 1D vector
+    vector<double> cnts_radius;							//Define the radius of each nanotube in the network
+    vector<Point_3D> cnts_point;						//Define the set of cnt point in a 1D vector
     vector<vector<long int> > cnts_structure;		//The global number of points in the cnts
-    vector<vector<int> > shells_cnt;                //Shell sub-regions to make the triming faster
+    vector<vector<int> > shells_cnt;					//Shell sub-regions to make the triming faster
     
     //-----------------------------------------------------------------------------------------------------------------------------------------
     //Network Generation with overlapping
@@ -34,11 +34,9 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
     //-----------------------------------------------------------------------------------------------------------------------------------------
 	ct0 = time(NULL);
     Background_vectors *Bckg = new Background_vectors;
-    Geom_RVE geo = Init->geom_rve;
-    Nanotube_Geo nano = Init->nanotube_geo;
-    if (Bckg->Generate_shells_and_structure(Init->geom_rve, Init->nanotube_geo, cnts_point, shells_cnt)==0) return 0;
+    if(Bckg->Generate_shells_and_structure(Init->geom_rve, Init->nanotube_geo, cnts_point, shells_cnt)==0) return 0;
 	ct1 = time(NULL);
-	hout << "Generate shells and structure time: "<<(int)(ct1-ct0)<<" secs."<<endl;//*/
+	hout << "Generate shells and structure time: "<<(int)(ct1-ct0)<<" secs."<<endl;
     
 	for(int i=0; i<=Init->geom_rve.cut_num; i++)
 	{

@@ -190,17 +190,9 @@ double Backbone_Network::Zero_voltage(const vector<double> &voltages, const vect
     
     //Sort currents
     sort(currents.begin(),currents.end());
-    
-    //The error cutoff seems to work well with a drop in 10 orders of magnitude of the current. So that is how the cutoff is set.
-    //This isea comes from Li and Chou's paper of the DEA in which using a voltage of 1V, a drop in 9 orders of magnitude
-    //in the current gave good results.
-    zero_cutoff = currents.back()*1e-9;
-    
-    //This code below was an attempt between the overall drop in magnitude of the current and the gap Li and Chou found.
-    //However it did not worked.
     //Print1DVec(currents, "currents.txt");
     //vector<double> cutoffs;
-    /*/Find the cutoff.
+    //Find the cutoff. 
     for(int i = (int) currents.size()-1; i >= 0 ; i--){
         //Temporarily store the drop in current in the variable zero_cutoff
         zero_cutoff = currents[i-1]/currents[i];
@@ -223,7 +215,7 @@ double Backbone_Network::Zero_voltage(const vector<double> &voltages, const vect
                 break;
             }
         }
-    }//*/
+    }
     Printer *P = new Printer;
     P->Print_1d_vec(currents, "currents.txt");
     //P->Print_1d_vec(cutoffs, "cutoffs.txt");

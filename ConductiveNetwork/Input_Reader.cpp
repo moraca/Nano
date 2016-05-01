@@ -245,7 +245,7 @@ int Input::Read_rve_geometry(struct Geom_RVE &geom_rve, ifstream &infile)
 	istr3 >> geom_rve.win_min_x >> geom_rve.win_min_y >> geom_rve.win_min_z;
 
 	if(geom_rve.win_max_x<=0.0||geom_rve.win_max_y<=0.0||geom_rve.win_max_z<=0.0||
-	   geom_rve.win_max_x>geom_rve.len_x||geom_rve.win_max_y>geom_rve.wid_y||geom_rve.win_max_y>geom_rve.hei_z)
+	   geom_rve.win_max_x>geom_rve.len_x||geom_rve.win_max_y>geom_rve.wid_y||geom_rve.win_max_z>geom_rve.hei_z)
 	{
 		cout << "Error: the win_max in each direction of RVE should be positive and must be smaller than the size of RVE." << endl;
 		hout << "Error: the win_max in each direction of RVE should be positive and must be smaller than the size of RVE." << endl;

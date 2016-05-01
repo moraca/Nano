@@ -32,7 +32,7 @@
  
  */
 
-int Background_vectors::Generate_shells_and_structure(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const vector<Point_3D> &points_in, vector<vector<int> > &shells_cnt)
+int Background_vectors::Generate_shells_and_structure(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const vector<Point_3D> &points_in, vector<vector<int> > &shells_cnt)const
 {
     //Initialize the shells_cnt vector
     //Empty vector to initialize the shells_cnt vector
@@ -59,7 +59,7 @@ int Background_vectors::Generate_shells_and_structure(const struct Geom_RVE &sam
 
 //This function finds the corresponding shell sub-region where the point is located. Then it adds the CNT number to the
 //corresponding vector in the 2D vector shells_cnt
-int Background_vectors::Add_to_shell(const struct Geom_RVE &sample, const Point_3D &point, vector<vector<int> > &shells_cnt)
+int Background_vectors::Add_to_shell(const struct Geom_RVE &sample, const Point_3D &point, vector<vector<int> > &shells_cnt)const
 {
     //Find the shell based on the x coordinate
     //hout << "x_in=";
@@ -92,7 +92,7 @@ int Background_vectors::Add_to_shell(const struct Geom_RVE &sample, const Point_
 }
 
 //This function finds the shell to which one coordinate belongs to
-int Background_vectors::Find_shell(double x_in, double x_0, double len_x, double dx, double win_min_x, double win_max_x, vector<vector<int> > &shells_cnt)
+int Background_vectors::Find_shell(const double &x_in, const double &x_0, const double &len_x, const double &dx, const double &win_min_x, const double &win_max_x, vector<vector<int> > &shells_cnt)const
 {
     //Calculate the middle point of the sample
     double x_m = x_0 + len_x/2;
@@ -104,7 +104,7 @@ int Background_vectors::Find_shell(double x_in, double x_0, double len_x, double
     //any point above this coordinate is inside the core shell
     double x_core = x_0 + (len_x - win_min_x)/2;
     //An observation window grows a total of dx. However, as it is centered, it gros dx/2 on each direction
-    dx = dx/2;
+    double hfdx = dx/2;
     
     //Effective coordinate
     double x;
@@ -127,7 +127,7 @@ int Background_vectors::Find_shell(double x_in, double x_0, double len_x, double
     } else {
         //I need the integer part of (x - x_min)/dx + 1
         //The Zero is for foating point errors
-        int shell = (int) ((x - x_layer + Zero)/dx) + 1;
+        int shell = (int) ((x - x_layer + Zero)/hfdx) + 1;
         //hout<<"=f("<<((x - x_layer + Zero)/dx)+1<<")="<<shell<<endl;
         return shell;
     }
