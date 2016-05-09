@@ -32,7 +32,8 @@ public:
     //Member Functions
     int Generate_shells_and_structure(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const vector<Point_3D> &points_out, vector<vector<int> > &shells_cnt)const;
     int Add_to_shell(const struct Geom_RVE &sample, const Point_3D &point, vector<vector<int> > &shells_cnt)const;
-    int Find_shell(const double &x_in, const double &x_0, const double &len_x, const double &dx, const double &win_min_x, const double &win_max_x, vector<vector<int> > &shells_cnt)const;
+    int Find_minimum_shell(const struct Geom_RVE &sample, const Point_3D &point, const int &num_shells)const;
+    int Find_shell(const double &x_in, const double &x_0, const double &len_x, const double &dx, const double &win_min_x, const double &win_max_x, const int &num_shells)const;
     
 private:
     

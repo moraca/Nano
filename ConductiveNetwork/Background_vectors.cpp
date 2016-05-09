@@ -61,15 +61,34 @@ int Background_vectors::Generate_shells_and_structure(const struct Geom_RVE &sam
 //corresponding vector in the 2D vector shells_cnt
 int Background_vectors::Add_to_shell(const struct Geom_RVE &sample, const Point_3D &point, vector<vector<int> > &shells_cnt)const
 {
+    //Number of shells
+    int num_shells = (int)shells_cnt.size();
+    
+    //Find the shell that corresponds to the point
+    int shell = Find_minimum_shell(sample, point, num_shells);
+    
+    //Finally add the CNT on the corresponding sectioned domain
+    //hout << "shell="<<shell<<endl;
+    //Add the CNT number to the shell sub-region, only if it is empty or if the last CNT is not the current CNT
+    if ( (!shells_cnt[shell].size()) || (shells_cnt[shell].back() != point.flag) ){
+        	shells_cnt[shell].push_back(point.flag);
+    }
+    
+    return 1;
+}
+//This function finds the shell to which one point belongs to
+//So it uses three times the function that finds the shell to which one coordinate belongs to
+int Background_vectors::Find_minimum_shell(const struct Geom_RVE &sample, const Point_3D &point, const int &num_shells)const
+{
     //Find the shell based on the x coordinate
     //hout << "x_in=";
-    int shell_x = Find_shell(point.x, sample.origin.x, sample.len_x, sample.win_delt_x, sample.win_min_x, sample.win_max_x, shells_cnt);
+    int shell_x = Find_shell(point.x, sample.origin.x, sample.len_x, sample.win_delt_x, sample.win_min_x, sample.win_max_x, num_shells);
     //Find the shell based on the y coordinate
     //hout << "y_in=";
-    int shell_y = Find_shell(point.y, sample.origin.y, sample.wid_y, sample.win_delt_y, sample.win_min_y, sample.win_max_y, shells_cnt);
+    int shell_y = Find_shell(point.y, sample.origin.y, sample.wid_y, sample.win_delt_y, sample.win_min_y, sample.win_max_y, num_shells);
     //Find the shell based on the z coordinate
     //hout << "z_in=";
-    int shell_z = Find_shell(point.z, sample.origin.z, sample.hei_z, sample.win_delt_z, sample.win_min_z, sample.win_max_z, shells_cnt);
+    int shell_z = Find_shell(point.z, sample.origin.z, sample.hei_z, sample.win_delt_z, sample.win_min_z, sample.win_max_z, num_shells);
     
     //The shell to which the CNT of point is the outer-most shell from the three coordinates, that is, the minimum shell number overall
     int shell = shell_x;
@@ -80,19 +99,12 @@ int Background_vectors::Add_to_shell(const struct Geom_RVE &sample, const Point_
     //And this is the smallest shell value
     if (shell_z < shell)
         shell = shell_z;
-            
-    //Finally add the CNT on the corresponding sectioned domain
-    //hout << "shell="<<shell<<endl;
-    //Add the CNT number to the shell sub-region, only if it is empty or if the last CNT is not the current CNT
-    if ( (!shells_cnt[shell].size()) || (shells_cnt[shell].back() != point.flag) ){
-        	shells_cnt[shell].push_back(point.flag);
-    }
     
-    return 1;
+    return shell;
 }
 
 //This function finds the shell to which one coordinate belongs to
-int Background_vectors::Find_shell(const double &x_in, const double &x_0, const double &len_x, const double &dx, const double &win_min_x, const double &win_max_x, vector<vector<int> > &shells_cnt)const
+int Background_vectors::Find_shell(const double &x_in, const double &x_0, const double &len_x, const double &dx, const double &win_min_x, const double &win_max_x, const int &num_shells)const
 {
     //Calculate the middle point of the sample
     double x_m = x_0 + len_x/2;
@@ -123,7 +135,7 @@ int Background_vectors::Find_shell(const double &x_in, const double &x_0, const 
     } else if( x > x_core ) {
         //Check if x is in the inner shell
         //hout<<"M="<<shells_cnt.size()-1<<endl;
-        return (int)shells_cnt.size()-1;
+        return num_shells-1;
     } else {
         //I need the integer part of (x - x_min)/dx + 1
         //The Zero is for foating point errors

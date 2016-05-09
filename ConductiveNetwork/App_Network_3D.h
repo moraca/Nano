@@ -39,7 +39,9 @@ public:
     //Member Functions
     int Create_conductive_network_3D(Input *Init)const;
     int Export_tecplot_files(const int &iter, const struct Geom_RVE &sample, const vector<Point_3D> &points_in, const vector<double> &radii, const vector<vector<long int> > &structure, const vector<vector<int> > &isolated, vector<vector<long int> > &all_dead_indices, const vector<vector<long int> > &all_indices)const;
+    int Export_tecplot_files_for_clusters(const string &type, const int &iter, const struct Geom_RVE &sample, const vector<Point_3D> &points_in, const vector<double> &radii, const vector<vector<long int> > &structure, const vector<vector<int> > &clusters_cnt, const vector<vector<int> > &isolated)const;
     int Convert_index_to_structure(const vector<long int> &indices, vector<vector<long int> > &structure)const;
+    int Convert_cluster_to_structure(const vector<int> &cluster, const vector<vector<long int> > &structure_in, vector<vector<long int> > &structure_out)const;
 };
 //---------------------------------------------------------------------------
 #endif
