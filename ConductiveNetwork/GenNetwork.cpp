@@ -28,20 +28,20 @@ int GenNetwork::Generate_nanotube_networks(const struct Geom_RVE &geom_rve, cons
     if(Transform_cnts_points(cnts_points, cpoints, cstructures)==0) return 0;
     
     //-----------------------------------------------------------------------------------------------------------------------------------------
-    /*/A new class of Tecplot_Export
-     Tecplot_Export *Tecexpt = new Tecplot_Export;
-     
-     struct cuboid cub;														//Generate a cuboid for RVE
-     cub.poi_min = geom_rve.ex_origin;
-     cub.len_x = geom_rve.ex_len;
-     cub.wid_y = geom_rve.ey_wid;
-     cub.hei_z = geom_rve.ez_hei;
-     
-     //The geometric structure of CNT network (by threads in Tecplot)
-     if(Tecexpt->Export_network_threads(cub, cnts_points)==0) return 0;
-     
-     //The geometric structure of CNT network (by tetrahedron meshes in Tecplot) //Attention: little parts of nanotube volumes out of the cuboid
-     if(Tecexpt->Export_cnt_network_meshes(cub, cnts_points, cnts_radius)==0) return 0;//*/
+    ////A new class of Tecplot_Export
+    //Tecplot_Export *Tecexpt = new Tecplot_Export;
+    // 
+    //struct cuboid cub;														//Generate a cuboid for RVE
+    //cub.poi_min = geom_rve.ex_origin;
+    //cub.len_x = geom_rve.ex_len;
+    //cub.wid_y = geom_rve.ey_wid;
+    //cub.hei_z = geom_rve.ez_hei;
+    // 
+    ////The geometric structure of CNT network (by threads in Tecplot)
+    //if(Tecexpt->Export_network_threads(cub, cnts_points)==0) return 0;
+    // 
+    ////The geometric structure of CNT network (by tetrahedron meshes in Tecplot) //Attention: little parts of nanotube volumes out of the cuboid
+    //if(Tecexpt->Export_cnt_network_meshes(cub, cnts_points, cnts_radius)==0) return 0;
     
     return 1;
 }

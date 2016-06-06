@@ -48,7 +48,7 @@ int Background_vectors::Generate_shells_and_structure(const struct Geom_RVE &sam
     for (long int i = 0; i < (long int)points_in.size(); i++) {
         //Add to the corresponding shell
         if (!Add_to_shell(sample, points_in[i], shells_cnt)) {
-            hout << "Error in Fill_structure_and_shell"<< endl;
+            hout << "Error in Fill_structure_and_shell" << endl;
             return 0;
         }
     }
@@ -147,3 +147,4 @@ int Background_vectors::Find_shell(const double &x_in, const double &x_0, const 
     hout << "Should not reach this part" << endl;
     return 0;
 }
+//===========================================================================

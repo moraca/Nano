@@ -64,7 +64,6 @@ int Cutoff_Wins::Extract_observation_window(struct Geom_RVE sample, struct Nanot
     //Vector check for debugging. Comment or delete after debugging
     //vector<vector<long int> > structure_check(structure);
     
-    //hout << "5 ";
     //Scan every Nanotube that is the boundary region. Delete and trim CNTs when needed.
     if (!Trim_boundary_cnts(shells_cnt, window, sample, points_in, structure, radii)){
         hout << "Error in Locate_and_trim_boundary_cnts (initial)" << endl;
@@ -75,7 +74,6 @@ int Cutoff_Wins::Extract_observation_window(struct Geom_RVE sample, struct Nanot
     //Printer *P = new Printer;
     //P->Print_1d_vec(points_in, "cnts_point_IT.txt");
     
-    //hout << "6 ";
     //Fill the vector cnts_inside
     int flag = 0;
     for (int i = 0; i < (int)structure.size(); i++) {
@@ -100,7 +98,6 @@ int Cutoff_Wins::Extract_observation_window(struct Geom_RVE sample, struct Nanot
         return 0;
     }
     
-    //hout << "9 ";
 	return 1;
 }
 
@@ -289,40 +286,34 @@ int Cutoff_Wins::First_index(vector<Point_3D> &points_in, vector<long int> &stru
 
 int Cutoff_Wins::Second_index(vector<Point_3D> &points_in, vector<long int> &structure_CNT, int &new_CNT, int &index2)
 {
-    //Check if the second index is the last point of the CNT
-    if (index2 == (int)structure_CNT.size()-1) {
-        //If it is the last point, just check if it is a boundary point and add it to the boundary vectors
-        long int P = structure_CNT.back();
-        if ( Where_is(points_in[P]) == "boundary") {
-            Add_to_boundary_vectors(points_in[P], P, new_CNT);
-        }
-    } else {
-        //If the second index is not the last point of the CNT, then I need to add a boundary point
-        
-        //The second index can be either inside or outside, so first I need to find out where it is and proceed accordingly
-        if (Where_is(points_in[ structure_CNT[index2] ]) == "outside"){
-            //If the second index is onutside, then for sure I need to add a boundary point
-            long int global_o = structure_CNT[index2];
-            long int global_i = global_o-1;
+	//Check if the second index is the last point of the CNT
+	//If it is the last point, just check if it is a boundary point and add it to the boundary vectors
+	long int P = structure_CNT.back();
+	if ( Where_is(points_in[P]) == "boundary") Add_to_boundary_vectors(points_in[P], P, new_CNT);
+	else if (Where_is(points_in[ structure_CNT[index2] ]) == "outside")  //The second index can be either inside or outside, so first I need to find out where it is and proceed accordingly
+	{
+		//If the second index is onutside, then for sure I need to add a boundary point
+		long int global_o = structure_CNT[index2];
+		long int global_i = global_o-1;
             
-            //Check if what is supposed to be the inside point is actually in the boundary.
-            //If it hapens that the inside point is actually at the boundary, then this point has to be index2
-            //and that's all, nothing more to do
-            if ( Where_is(points_in[global_i]) == "boundary") {
-                index2--;
-            } else{
-                //Since the index2 point is outside, then the previous point is inside.
-                //We then we proceed to calculate the projection to the boundary
-                if (!Substitute_boundary_point(points_in, global_i, global_o)){
-                    hout << "Error in Second_index. global_i="<<global_i<<" global_o="<<global_o<<" structure_CNT.size()="<<structure_CNT.size();
-                    hout <<" index2="<<index2<<endl;
-                    hout <<"\tP_i=("<<points_in[global_i].x<<", "<<points_in[global_i].y<<", "<<points_in[global_i].z<<") P_o=(";
-                    hout <<points_in[global_o].x<<", "<<points_in[global_o].y<<", "<<points_in[global_o].z<<")"<<endl;
-                    return 0;
-                }
-                //Now, the outside point, i.e. index2, has the coordinates of the boundary point so I need to kep it unchanged
-                Add_to_boundary_vectors(points_in[global_o], global_o, new_CNT);
-            }
+		//Check if what is supposed to be the inside point is actually in the boundary.
+		//If it hapens that the inside point is actually at the boundary, then this point has to be index2
+		//and that's all, nothing more to do
+		if ( Where_is(points_in[global_i]) == "boundary") index2--;
+		else
+		{
+			//Since the index2 point is outside, then the previous point is inside.
+			//We then we proceed to calculate the projection to the boundary
+			if (!Substitute_boundary_point(points_in, global_i, global_o))
+			{
+				hout << "Error in Second_index. global_i="<<global_i<<" global_o="<<global_o<<" structure_CNT.size()="<<structure_CNT.size();
+				hout <<" index2="<<index2<<endl;
+				hout <<"\tP_i=("<<points_in[global_i].x<<", "<<points_in[global_i].y<<", "<<points_in[global_i].z<<") P_o=(";
+				hout <<points_in[global_o].x<<", "<<points_in[global_o].y<<", "<<points_in[global_o].z<<")"<<endl;
+				return 0;
+			}
+			//Now, the outside point, i.e. index2, has the coordinates of the boundary point so I need to kep it unchanged
+			Add_to_boundary_vectors(points_in[global_o], global_o, new_CNT);
         }
     }
     return 1;
@@ -346,7 +337,7 @@ string Cutoff_Wins::Where_is(Point_3D point)
         return "boundary";
     //If the point is not outside the observation window nor at the boundary, then it's inside
     else
-        return "inside";//*/
+        return "inside";
 }
 
 //When two consecutive points are found to be one outside and one inside, this function substitutes the outside point by the intersection
@@ -475,3 +466,4 @@ void Cutoff_Wins::Add_CNT_to_boundary(vector<int> &boundary, int CNT, long int p
     boundary_flags[point].push_back(flag1);
     boundary_flags[point].push_back(flag2);
 }
+//===========================================================================
