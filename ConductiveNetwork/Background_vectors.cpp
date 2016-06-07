@@ -121,12 +121,8 @@ int Background_vectors::Find_shell(const double &x_in, const double &x_0, const 
     //Effective coordinate
     double x;
     //If the point is greater than the middle point, map it to the mirrored range
-    if (x_in > x_m) {
-        double m = (x_m - x_0)/(x_m - (x_0 + len_x)); //x_0 + len_x = maximum coordinate of the sample
-        x = m*(x_in - x_m) + x_m;
-    } else {
-        x = x_in;
-    }
+    if (x_in > x_m) x = 2*x_m - x_in ;
+	else x = x_in;
     //Check if x is in the outer shell (it is in the outer shell when the point is below the x_min)
     //hout<<x_in<<" x="<<x<<" shell";
     if (x < x_layer) {
