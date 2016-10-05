@@ -91,7 +91,7 @@ void Printer::Print_2d_vec(const vector<vector<int> > &num_mat, const string &fi
     ofstream otec(filename.c_str());
     hout << "Saving file: " << filename << "\n";
     for (long int i=0; i < (long int)num_mat.size(); i++) {
-        for (long int j = 0; j < num_mat[i].size(); j++) {
+        for (long int j = 0; j < (long int)num_mat[i].size(); j++) {
             otec << num_mat[i][j] << '\t' ;
         }
         otec << '\n' ;
@@ -105,7 +105,7 @@ void Printer::Print_2d_vec(const vector<vector<long int> > &num_mat, const strin
     ofstream otec(filename.c_str());
     hout << "Saving file: " << filename << "\n";
     for (long int i=0; i < (long int)num_mat.size(); i++) {
-        for (long int j = 0; j < num_mat[i].size(); j++) {
+        for (long int j = 0; j < (long int)num_mat[i].size(); j++) {
             otec << num_mat[i][j] << '\t' ;
         }
         otec << '\n' ;
@@ -120,7 +120,7 @@ void Printer::Print_2d_vec(const vector<vector<double> > &num_mat, const string 
     otec.precision(15);
     hout << "Saving file: " << filename << "\n";
     for (long int i=0; i < (long int)num_mat.size(); i++) {
-        for (long int j = 0; j < num_mat[i].size(); j++) {
+        for (long int j = 0; j < (long int)num_mat[i].size(); j++) {
             otec << num_mat[i][j] << '\t' ;
         }
         otec << '\n' ;

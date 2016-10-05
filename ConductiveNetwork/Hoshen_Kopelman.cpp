@@ -40,45 +40,27 @@
  It also creates a connectivity vector of the points in contact. This connectivity vector is used to define the elements used in the direct electrifying algorithm.
  */
 
-//To determinate nanotube clusters using Hoshen Kopelman Algorithm
-int Hoshen_Kopelman::Determine_nanotube_clusters(const struct Cutoff_dist &cutoffs, const vector<int> &cnts_inside, const vector<vector<long int> > &sectioned_domain, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<double> &radii)
+//To determinate hybrid particle clusters using Hoshen Kopelman Algorithm
+int Hoshen_Kopelman::Determine_nanotube_clusters(const struct Cutoff_dist &cutoffs, const vector<int> &cnts_inside, const vector<GCH> &hybrid_particles, const vector<vector<long int> > &sectioned_domain, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<double> &radii)
 {
     //Label the CNTs and make the data structures for the direct electrifying algorithm
-   if (!Scan_sub_regions(points_in, radii, cutoffs.tunneling_dist, sectioned_domain)){
+    if (!Scan_sub_regions(points_in, hybrid_particles, radii, cutoffs.tunneling_dist, sectioned_domain, structure)){
         hout << "Error in Determinate_nanotube_clusters." <<endl;
         return 0;
     }
     
     //Make the clusters
-    if (!Make_CNT_clusters(structure, points_in, cnts_inside)){
+    if (!Make_CNT_clusters(structure, points_in, cnts_inside, hybrid_particles)){
         hout << "Error in Determinate_nanotube_clusters." <<endl;
         return 0;
     }
     
-    /*/
-    Printer *P = new Printer;
-    P->Print_2d_vec(isolated, "isolated_IT.txt");
-    P->Print_2d_vec(clusters_cnt, "clusters_cnt_IT.txt");
-    //
-    P->Print_1d_vec(label_map, "label_map.txt");
-    P->Print_1d_vec(labels_labels, "labels_labels.txt");
-    P->Print_1d_vec(labels, "labels.txt");
-    hout << "delete from hk76"<<endl;
-    for (int i = 0; i < (int)isolated.size(); i++) {
-        hout << "isolated["<<i<<"].size()="<<isolated[i].size()<<endl;
-    }
-    for (int i = 0; i < (int)clusters_cnt.size(); i++) {
-        hout << "clusters_cnt["<<i<<"].size()="<<clusters_cnt[i].size()<<endl;
-    }
-    hout << "delete from hk76"<<endl;
-    
-    //*/
     return 1;
 }
 
 //This function scans all the subregions to look for points close enough for tunneling to happen, i.e. points that are in contact.
 //When points are in contact use the Hoshen-Kopelman algorithm
-int Hoshen_Kopelman::Scan_sub_regions(const vector<Point_3D> &points_in, const vector<double> &radii, const double &tunnel, const vector<vector<long int> > &sectioned_domain)
+int Hoshen_Kopelman::Scan_sub_regions(const vector<Point_3D> &points_in, const vector<GCH> &hybrid_particles, const vector<double> &radii, const double &tunnel, const vector<vector<long int> > &sectioned_domain, const vector<vector<long int> > &structure)
 {
     //These ints are just to store the global point number and the CNTs they belong to.
     //They are just intermediate variables and I only use them to make the code more readable
@@ -104,7 +86,15 @@ int Hoshen_Kopelman::Scan_sub_regions(const vector<Point_3D> &points_in, const v
     //new_label will take the value of the newest cluster
     int new_label = 0;
     
-    for (long int i = 0; i < sectioned_domain.size(); i++) {
+    //Hybrid particle pre-processing
+    int hybrids_flag = (int)hybrid_particles.size();
+    //If there are hybrid particles  the pre-processing functon is called
+    if (hybrids_flag) {
+        if(!Group_cnts_in_gnp(hybrid_particles)) return 0;
+        new_label = (int)hybrid_particles.size();
+    }
+    
+    for (long int i = 0; i < (long int)sectioned_domain.size(); i++) {
         inner = sectioned_domain[i].size();
         for (long int j = 0; j < inner-1; j++) {
             P1 = sectioned_domain[i][j];
@@ -121,7 +111,10 @@ int Hoshen_Kopelman::Scan_sub_regions(const vector<Point_3D> &points_in, const v
                 //First check if the CNTs are different. Only when the CNTs are different the distance between points is calculated
                 //In this way calculation of all distances is avoided
                 if ((CNT1!=CNT2)&&(points_in[P1].distance_to(points_in[P2]) <= cutoff_t)) {
-                    if (!Check_repeated(contacts_point[P1], P2)) {
+                    //If there are hybrid particles and both points are CNT seed points, ignore the contact
+                    int ignore_flag = hybrids_flag && (structure[CNT1][0] == P1) && (structure[CNT2][0] == P2);
+                    //Check if the contact has already been added
+                    if (!ignore_flag && !Check_repeated(contacts_point[P1], P2)) {
                         //Fill the vector of contacts contacts_point
                         contacts_point[P2].push_back(P1);
                         contacts_point[P1].push_back(P2);
@@ -140,10 +133,42 @@ int Hoshen_Kopelman::Scan_sub_regions(const vector<Point_3D> &points_in, const v
     
     return 1;
 }
+//This function does the pre-processing of the hybrid particles
+//A label is assigned to each CNT that belongs to a GNP
+//Thus, there will be as many labels as hybrid particles. Then the HK76 will only solve label conflicts
+int Hoshen_Kopelman::Group_cnts_in_gnp(const vector<GCH> &hybrid_particles)
+{
+    //Loop through all the hybrid particles and then though all CNTs inside that particle and assign them the same label
+    for (int i = 0; i < (int)hybrid_particles.size(); i++) {
+        //CNTs at the top surface
+        int cnts_top = (int)hybrid_particles[i].cnts_top.size();
+        
+        for (int j = 0; j < cnts_top; j++) {
+            int CNT = hybrid_particles[i].cnts_top[j];
+            //The label to be assign is the iterator "i"
+            labels[CNT] = i;
+        }
+        
+        //CNTs at the bottom surface
+        int cnts_bottom = (int)hybrid_particles[i].cnts_bottom.size();
+        
+        for (int j = 0; j < cnts_bottom; j++) {
+            int CNT = hybrid_particles[i].cnts_bottom[j];
+            //The label to be assign is the iterator "i"
+            labels[CNT] = i;
+        }
+        
+        //Update the labels_labels vector with the number of CNTs with label "i"
+        labels_labels.push_back(cnts_top+cnts_bottom);
+    }
+    
+    return 1;
+}
+
 //This function checks if the point Point is in the vector region
 int Hoshen_Kopelman::Check_repeated(const vector<long int> &region, long int Point)
 {
-    for (long int i = 0; i < region.size(); i++) {
+    for (int i = 0; i < (int)region.size(); i++) {
         if (Point == region[i]) {
             return 1;
         }
@@ -179,7 +204,7 @@ int Hoshen_Kopelman::Scan_sub_regions_then_delete(const vector<Point_3D> &points
     //new_label will take the value of the newest cluster
     int new_label = 0;
     
-    for (long int i = 0; i < sectioned_domain.size(); i++) {
+    for (long int i = 0; i < (long int)sectioned_domain.size(); i++) {
         inner = sectioned_domain[i].size();
         for (long int j = 0; j < inner-1; j++) {
             P1 = sectioned_domain[i][j];
@@ -307,8 +332,8 @@ void Hoshen_Kopelman::Delete_repeated_contacts()
 //This Functions deletes the repeated items in the vector vec
 void Hoshen_Kopelman::Discard_repeated(vector<long int> &vec)
 {
-    for (long int i = 0; i <  vec.size()-1; i++) {
-        for (long int k = i+1; k < vec.size(); k++) {
+    for (int i = 0; i < (int)vec.size()-1; i++) {
+        for (int k = i+1; k < (int)vec.size(); k++) {
             if (vec[i] == vec[k]){
                 vec.erase(vec.begin() + k);
                 k--;
@@ -318,7 +343,7 @@ void Hoshen_Kopelman::Discard_repeated(vector<long int> &vec)
 }
 
 //In this function the clusters are made using the labels from the HK76
-int Hoshen_Kopelman::Make_CNT_clusters(const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<int> &cnts_inside)
+int Hoshen_Kopelman::Make_CNT_clusters(const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<int> &cnts_inside, const vector<GCH> &hybrid_particles)
 {
     //This vector has a map of labels in order to know which ones are proper labels
     label_map.assign(labels_labels.size(),-1);
@@ -367,6 +392,27 @@ int Hoshen_Kopelman::Make_CNT_clusters(const vector<vector<long int> > &structur
         } else {
             isolated.push_back(empty);
             isolated.back().push_back(CNT);
+        }
+    }
+    
+    //Initialize the clusters_gch vector with the same size as clusters_cnt
+    //If there are no hybrid particles, then keep the vector clusters_gch with empty vectors
+    //This will eliminate issues in the functions that make a call to any cluster_gch[i]
+    clusters_gch.assign(counter, empty);
+    
+    //Make the GCH clusters (if there are hybrid particles)
+    if (hybrid_particles.size()) {
+        
+        //Initially every hybrid particle is a cluster, thus hybrid i has label i
+        //Then I can group the hybrids by finding the root labels
+        for (int i = 0; i < (int)hybrid_particles.size(); i++) {
+            //Find root for label i
+            root = Find_root(i);
+            //Find the cluster number for root
+            n_cluster = label_map[root];
+            
+            //Add hybrid to corresponding cluster
+            clusters_gch[n_cluster].push_back(i);
         }
     }
     

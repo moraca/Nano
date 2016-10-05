@@ -1,6 +1,6 @@
 //====================================================================================
 //SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
-//CODE FILE:	Direct_Eletrifying.h
+//CODE FILE:	Direct_Eletrifying.cpp
 //OBJECTIVE:	The direct eletrifying algorithm (C.Y. Li and T.W. Chou, Int. J. Mod Phys C, 20, 2009, 423-33.)
 //AUTHOR:		Fei Han; Angel Mora
 //E-MAIL:			fei.han@kaust.edu.sa	;	angel.mora@kaust.edu.sa
@@ -35,7 +35,7 @@
  */
 
 //Calculate the voltage values at contact points and endpoints
-int Direct_Electrifying::Calculate_voltage_field(const vector<vector<long int> > &structure, vector<vector<long int> > &contacts_point, const vector<vector<short int> > &boundary_flags, const vector<int> &cluster, const vector<double> &radii, int family, const struct Electric_para &electric_param)
+int Direct_Electrifying::Calculate_voltage_field(const int &family, const int &R_flag, const vector<vector<long int> > &structure, vector<vector<long int> > &contacts_point, const vector<vector<short int> > &boundary_flags, const vector<Point_3D> &point_list, const vector<int> &cluster, const vector<int> &cluster_gch, const vector<double> &radii, const struct Electric_para &electric_param, const struct Cutoff_dist &cutoffs, vector<GCH> &hybrid_particles)
 {
     //First we need to prepare the matrices that the direct electrifying needs
     //The first matrix will be the local mapping (LM) matrix. This matrix maps from point number in the structure
@@ -45,6 +45,7 @@ int Direct_Electrifying::Calculate_voltage_field(const vector<vector<long int> >
     //This variable is used to assing node numbers and after calling Get_LM_matrix, it will contain the number of nodes in the network
     int global_nodes = reserved_nodes;
     //Initialize the size of the LM matrix to be equal to the number of points
+    //In the case of hybrid particles, there are two more nodes per hybrid particle in the cluster--each new node corresponds to a center of a GNP surface
     LM_matrix.assign(contacts_point.size(), -1);
     
     //hout << "LM_matrix.size()="<<LM_matrix.size()<<" cluster.size()="<<cluster.size()<<endl;
@@ -60,7 +61,7 @@ int Direct_Electrifying::Calculate_voltage_field(const vector<vector<long int> >
     vector<long int> empty;
     elements.assign(structure.size(), empty);
     if(!Get_LM_matrix(structure, contacts_point, boundary_flags,cluster, family , global_nodes, LM_matrix, elements)){
-        hout << "Error in Calculate_voltage_field" << endl;
+        hout << "Error in Calculate_voltage_field when calling Get_LM_matrix" << endl;
         return 0;
     }
     
@@ -70,16 +71,20 @@ int Direct_Electrifying::Calculate_voltage_field(const vector<vector<long int> >
     vector<double> values, diagonal, R;
     vector<vector<double> > KEFT;
     //With the LM matrix, now fill the sparse stiffness matrix
-    Fill_sparse_stiffness_matrix(structure, contacts_point, cluster, global_nodes, LM_matrix, elements, KEFT, col_ind, row_ptr, values, diagonal);
+    if (!Fill_sparse_stiffness_matrix(R_flag, structure, contacts_point, point_list, radii, cluster_gch, cluster, global_nodes, cutoffs.van_der_Waals_dist, LM_matrix, elements, hybrid_particles, KEFT, col_ind, row_ptr, values, diagonal, electric_param)){
+        hout << "Error in Calculate_voltage_field when calling Fill_sparse_stiffness_matrix" << endl;
+        return 0;
+    }
     
     //hout << "Solve_DEA_equations_CG_SSS"<<endl;
     //This is where the actual direct electrifying algorithm (DEA) takes place
-    Solve_DEA_equations_CG_SSS(global_nodes, col_ind, row_ptr, values, diagonal, electric_param, KEFT);
-    //hout << "end"<<endl;
+    if (!Solve_DEA_equations_CG_SSS(R_flag, global_nodes, col_ind, row_ptr, values, diagonal, electric_param, KEFT)) {
+        hout << "Error in Calculate_voltage_field when calling Solve_DEA_equations_CG_SSS" << endl;
+        return 0;
+    }
     
-	return 1;
+    return 1;
 }
-
 //This function initializes the vector boundary_node_map. This can be initialized in the h-file using Xcode.
 //Using the make file I get an error because it cannot be initialized in the h-file (for what I could understand)
 //So instead of using an array, I use a vector and create this function to add the values
@@ -150,11 +155,10 @@ void Direct_Electrifying::Initialize_boundary_node_map(){
         }
     }//*/
 }
-
 //Build the LM matrix and the elements matrix
 //By building the elements matrix in this step, I avoid to use the contacts_cnt_point vector that I used in previous versions
 //Also, by building it at this stage I have the nodes in order
-int Direct_Electrifying::Get_LM_matrix(const vector<vector<long int> > &structure, const vector<vector<long int> > &contacts_point, const vector<vector<short int> > &boundary_flags, const vector<int> &cluster, int family, int &global_nodes, vector<int> &LM_matrix, vector<vector<long int> > &elements)
+int Direct_Electrifying::Get_LM_matrix(const vector<vector<long int> > &structure, const vector<vector<long int> > &contacts_point, const vector<vector<short int> > &boundary_flags, const vector<int> &cluster, const int &family, int &global_nodes, vector<int> &LM_matrix, vector<vector<long int> > &elements)
 {
     //Variables
     int CNT;
@@ -192,14 +196,15 @@ int Direct_Electrifying::Get_LM_matrix(const vector<vector<long int> > &structur
             hout << "Error in Get_LM_matrix. The vector elements["<<CNT<<"] has size "<< elements[CNT].size();
             hout << " but it has to have at least two elements." << endl;
             hout << "\tCNT has "<<structure[CNT].size()<<" points"<<endl;
+            return 0;
         }
         //hout<<endl;
     }
     
     return 1;
 }
-
-int Direct_Electrifying::Get_global_nodes(int family)
+//
+int Direct_Electrifying::Get_global_nodes(const int &family)
 {
     if (family == 6) {
         //If family is 6, then a cluster percolates in the three directions. Hence we need 6 voltages: 0 to 5. 6 is the first available node
@@ -212,7 +217,7 @@ int Direct_Electrifying::Get_global_nodes(int family)
         return 2;
     }
 }
-
+//
 void Direct_Electrifying::Add_point_to_LM_matrix(long int P, int family, const vector<vector<short int> > &boundary_flags, int &global_nodes, vector<int> &LM_matrix)
 {
     //check if the point is in a relevant boudary
@@ -227,7 +232,6 @@ void Direct_Electrifying::Add_point_to_LM_matrix(long int P, int family, const v
     }
     
 }
-
 //This function determines the boundary node number based on the family of the cluster and the location of the point
 int Direct_Electrifying::Get_boundary_node(const vector<short int> &boundary_flag, const int &family)
 {
@@ -246,7 +250,6 @@ int Direct_Electrifying::Get_boundary_node(const vector<short int> &boundary_fla
     }
 
 }
-
 //This function checks if a boundary point is in a relevant boundary depending on the family the cluster belongs to.
 int Direct_Electrifying::Is_in_relevant_boundary(int family, short int boundary_node)
 {
@@ -259,10 +262,9 @@ int Direct_Electrifying::Is_in_relevant_boundary(int family, short int boundary_
     else
         return 0;
 }
-
 //This function creates the sparse stifness matrix that will be used to solve the sytem of equations
 //The sparse version is more efficient computationally speaking
-void Direct_Electrifying::Fill_sparse_stiffness_matrix(const vector<vector<long int> > &structure, vector<vector<long int> > &contacts_point, const vector<int> &cluster, int nodes, const vector<int> &LM_matrix, const vector<vector<long int> > &elements, vector<vector<double> > &KEFT, vector<long int> &col_ind, vector<long int> &row_ptr, vector<double> &values, vector<double> &diagonal)
+int Direct_Electrifying::Fill_sparse_stiffness_matrix(const int &R_flag, const vector<vector<long int> > &structure, vector<vector<long int> > &contacts_point, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<int> &cluster_gch, const vector<int> &cluster, const int &nodes, const double &d_vdw, const vector<int> &LM_matrix, const vector<vector<long int> > &elements, vector<GCH> &hybrid_particles, vector<vector<double> > &KEFT, vector<long int> &col_ind, vector<long int> &row_ptr, vector<double> &values, vector<double> &diagonal, const struct Electric_para &electric_param)
 {
     //------------------------------------------------------------------------
     //Start with the 2D vectors
@@ -278,12 +280,115 @@ void Direct_Electrifying::Fill_sparse_stiffness_matrix(const vector<vector<long 
     diagonal.clear();
     diagonal.assign(nodes, 0);
     
+    //vector<vector<long int> > contacts_point_tmp = contacts_point;
     
-    //hout << "Fill_2d_matrices"<<endl;
-    //Fill the 2D matrices
-    Fill_2d_matrices(elements, cluster, LM_matrix, col_ind_2d, values_2d, diagonal, contacts_point);
+    //Check the R_flag
+    if (R_flag == 1) {
+        //If R_flag == 1, then calculate actual resistances
+        
+        //Printer *P = new Printer;
+        //hout << "Fill_2d_matrices"<<endl;
+        //Fill the 2D matrices with the contributions of the CNTs
+        if (!Fill_2d_matrices(elements, point_list, radii, cluster, LM_matrix, electric_param, d_vdw, col_ind_2d, values_2d, diagonal, contacts_point)){
+            hout << "Error in Fill_sparse_stiffness_matrix when calling Fill_2d_matrices" << endl;
+            return 0;
+        }
+        /*/------------------------------------------------------------------------
+        //------------------------------------------------------------------------
+        //CHECK
+        P->Print_2d_vec(col_ind_2d, "col_ind_2d_R_preT.txt");
+        hout << "=========================================================================================" << endl;
+        hout << "=========================================================================================" << endl;
+        hout << "Check_repeated_col_ind_2d" << endl;
+        if (!Check_repeated_col_ind_2d(structure, contacts_point_tmp, point_list, LM_matrix, col_ind_2d, nodes)) {
+            hout << "Error in Fill_sparse_stiffness_matrix when calling Check_repeated_col_ind_2d " << R_flag << endl;
+            return 0;
+        }
+        hout << "=========================================================================================" << endl;
+        hout << "=========================================================================================" << endl;
+        //CHECK
+        //------------------------------------------------------------------------
+        //------------------------------------------------------------------------
+        //*/
+        
+        //hout << "Fill_2d_matrices_gch"<<endl;
+        //Fill the 2D matrices with the contributions of the GNPs
+        if (!Fill_2d_matrices_gch(structure, point_list, radii, cluster_gch, LM_matrix, electric_param, hybrid_particles, col_ind_2d, values_2d, diagonal)) {
+            hout << "Error in Fill_sparse_stiffness_matrix when calling Fill_2d_matrices_gch" << endl;
+            return 0;
+        }
+
+        //Sort resistances
+        sort(resistances.begin(),resistances.end());
+        //P->Print_1d_vec(resistances, "resistances_DEA_Re.txt");
+        //P->Print_2d_vec(col_ind_2d, "col_ind_2d_R.txt");
+        //P->Print_1d_vec(diagonal, "diagonal_R.txt");
+        //P->Print_2d_vec(values_2d, "values_2d_R.txt");
+        //delete P;
+        
+    } else if (R_flag == 0) {
+        //If R_flag == 0, then calculate unit resistances
+        
+        //Printer *P = new Printer;
+        //hout << "Fill_2d_matrices_unit_resistors"<<endl;
+        //Fill the 2D matrices with the contributions of the CNTs
+        if (!Fill_2d_matrices_unit_resistors(elements, point_list, cluster, LM_matrix, col_ind_2d, values_2d, diagonal, contacts_point)){
+            hout << "Error in Fill_sparse_stiffness_matrix when calling Fill_2d_matrices" << endl;
+            return 0;
+        }
+        /*/------------------------------------------------------------------------
+        //------------------------------------------------------------------------
+        //CHECK
+        P->Print_2d_vec(col_ind_2d, "col_ind_2d_unit_preT.txt");
+        P->Print_2d_vec(contacts_point_tmp, "contacts_point_tmp.txt");
+        P->Print_2d_vec(elements, "elements.txt");
+        P->Print_2d_vec(structure, "structure.txt");
+        hout << "*****************************************************************************************" << endl;
+        hout << "*****************************************************************************************" << endl;
+        hout << "Check_repeated_col_ind_2d" << endl;
+        if (!Check_repeated_col_ind_2d(structure, contacts_point_tmp, point_list, LM_matrix, col_ind_2d, nodes)) {
+            hout << "Error in Fill_sparse_stiffness_matrix when calling Check_repeated_col_ind_2d " << R_flag << endl;
+            return 0;
+        }
+        hout << "*****************************************************************************************" << endl;
+        hout << "*****************************************************************************************" << endl;
+        //CHECK
+        //------------------------------------------------------------------------
+        //------------------------------------------------------------------------
+        //*/
+
+        //hout << "Fill_2d_matrices_gch_unit_resistors"<<endl;
+        //Fill the 2D matrices with the contributions of the GNPs
+        if (!Fill_2d_matrices_gch_unit_resistors(structure, point_list, cluster_gch, LM_matrix, hybrid_particles, col_ind_2d, values_2d, diagonal)) {
+            hout << "Error in Fill_sparse_stiffness_matrix when calling Fill_2d_matrices_gch_unit_resistors" << endl;
+            return 0;
+        }
+        //P->Print_2d_vec(col_ind_2d, "col_ind_2d_unit.txt");
+        //P->Print_1d_vec(diagonal, "diagonal_unit.txt");
+        ////P->Print_2d_vec(values_2d, "values_2d_unit.txt");
+        //P->Print_2d_vec(elements_tunnel, "elements_tunnel.txt");
+        //delete P;
+        
+    } else {
+        hout << "Error in Fill_sparse_stiffness_matrix. R_flag can only be 1 or 0. Actual value is " << R_flag << endl;
+        return 0;
+    }
     
+    /*/------------------------------------------------------------------------
+    //------------------------------------------------------------------------
+    //CHECK
+    hout << "Check_repeated_col_ind_2d" << endl;
+    if (!Check_repeated_col_ind_2d(structure, contacts_point_tmp, point_list, LM_matrix, col_ind_2d, nodes)) {
+        hout << "Error in Fill_sparse_stiffness_matrix when calling Check_repeated_col_ind_2d " << R_flag << endl;
+        return 0;
+    }
+    contacts_point_tmp.clear();
+    //CHECK
+    //------------------------------------------------------------------------
+    //------------------------------------------------------------------------
+    //*/
     
+    //------------------------------------------------------------------------
     //------------------------------------------------------------------------
     //Convert from 2D vectors to 1D vectors
     
@@ -291,8 +396,7 @@ void Direct_Electrifying::Fill_sparse_stiffness_matrix(const vector<vector<long 
     values.clear();
     col_ind.clear();
     row_ptr.clear();
-    //The two first elements of row_ptr are zero
-    //row_ptr.push_back(0);
+    //The first element of row_ptr is zero
     row_ptr.push_back(0);
     //empty_double.push_back(0);
     KEFT.clear();
@@ -301,11 +405,12 @@ void Direct_Electrifying::Fill_sparse_stiffness_matrix(const vector<vector<long 
     
     //hout << "From_2d_to_1d_vectors"<<endl;
     From_2d_to_1d_vectors(col_ind_2d, values_2d, KEFT, col_ind, row_ptr, values, diagonal);
+    //hout << "From_2d_to_1d_vectors done"<<endl;
     
-    
+    return 1;    
 }
-
-void Direct_Electrifying::Fill_2d_matrices(const vector<vector<long int> > &elements, const vector<int> &cluster, const vector<int> &LM_matrix, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal, vector<vector<long int> > &contacts_point)
+//This function adds the contributions of the CNT and junction resistors to the stiffness matrix
+int Direct_Electrifying::Fill_2d_matrices(const vector<vector<long int> > &elements, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<int> &cluster, const vector<int> &LM_matrix, const struct Electric_para &electric_param, const double &d_vdw, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal, vector<vector<long int> > &contacts_point)
 {
     //Variables
     int CNT;
@@ -324,62 +429,375 @@ void Direct_Electrifying::Fill_2d_matrices(const vector<vector<long int> > &elem
             //Add the elements to the sparse vectors
             //hout << "P1=" << P1 <<" LM_matrix[P1]="<<LM_matrix[P1]<< " P2=" << P2<<" LM_matrix[P2]="<<LM_matrix[P2] << endl;
             //hout << "Add_elements_to_sparse_stiffness "<<j<<" node1="<<node1<<" node2="<<node2<<endl;
-            Add_elements_to_sparse_stiffness(node1, node2, col_ind_2d, values_2d, diagonal);
+            double Re = Calculate_resistance_cnt(point_list, P1, P2, radii[CNT], electric_param.resistivity_CF);
+            resistances.push_back(Re);
+            Add_elements_to_sparse_stiffness(node1, node2, Re, col_ind_2d, values_2d, diagonal);
             
             //Check if the current node1 has any contacts and add the corresponding contributions to the
             //stiffness matrix
             //hout << "Check_for_other_elements nested loop "<<j<<endl;
-            Check_for_other_elements(LM_matrix, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
+            Check_for_other_elements(point_list, radii, LM_matrix, electric_param, d_vdw, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
+        }
+        //Check if the last node has any contacts and add the corresponding contributions to the
+        //stiffness matrix
+        P1 = elements[CNT].back();
+        node1 = LM_matrix[P1];
+        Check_for_other_elements(point_list, radii, LM_matrix, electric_param, d_vdw, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
+        //hout << "Check_for_other_elements "<<endl;
+    }
+    
+    return 1;
+}
+//Add contributions from the resistors formed by the triangulation on the GNP
+int Direct_Electrifying::Fill_2d_matrices_gch(const vector<vector<long int> > &structure, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<int> &cluster_gch, const vector<int> &LM_matrix, const struct Electric_para &electric_param, vector<GCH> &hybrid_particles, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal)
+{
+    //Variables
+    long int P1, P2, node1, node2;
+    double Re, W;
+    
+    //Triangulation object
+    Triangulation *delaunay = new Triangulation;
+    
+    //Scan every hybrid particle, perform the triangulations and add the elements to the stiffness matrix
+    for (long int i = 0; i < (long int)cluster_gch.size(); i++) {
+        //current hybrid particle
+        int hyb = cluster_gch[i];
+        
+        //Perform triangulations
+        if (!delaunay->Generate_3d_trangulation(point_list, structure, hybrid_particles[hyb])) {
+            hout << "Error in Fill_2d_matrices_gch" << endl;
+            return 0;
+        }
+        //hout << "Triangulation " << i << endl;
+        
+        //Vector to store elements from the triangulation that need to be deleted
+        vector<int> to_delete;
+        
+        //Add elements from the top triangulation
+        for (int j = 0; j < (int)hybrid_particles[hyb].triangulation_top.size(); j++) {
+            P1 = hybrid_particles[hyb].triangulation_top[j][0];
+            node1 = LM_matrix[P1];
+            P2 = hybrid_particles[hyb].triangulation_top[j][1];
+            node2 = LM_matrix[P2];
+            //Sometimes a CNT seed is also a boundary point, in that case the triangulation will result
+            //in having repeated elements in the stiffness matrix, since there is no tunneling on a bonudary point
+            //Thus ignore elements that have a boundary node
+            //Equivalently only add elements when both nodes are non-boundary nodes
+            if (node1 >= (long int)reserved_nodes && node2 >= (long int)reserved_nodes) {
+                //The width of the conduction band will be given by the minimum of the CNT radii and the GNP thickness
+                W = min(radii[point_list[P1].flag], min(radii[point_list[P2].flag], hybrid_particles[hyb].gnp.hei_z));
+                Re = Calculate_resistance_gnp(point_list[P1], point_list[P2], W, electric_param.sheet_resitance_GNP);
+                resistances.push_back(Re);
+                Add_elements_to_sparse_stiffness(node1, node2, Re, col_ind_2d, values_2d, diagonal);
+            } else {
+                //If one node is a boundary node this element needs to be deleted from the triangulation
+                to_delete.push_back(j);
+            }
+        }
+        
+        //Delete the elements that have boundary nodes
+        for (int k = (int)to_delete.size()-1; k >= 0; k--) {
+            to_delete.erase(to_delete.begin()+k);
+        }
+    }
+    
+    //hout << "Triangulation done" << endl;
+    //Delete triangulation object
+    delete delaunay;
+    //hout << "Triangulation object deleted" << endl;
+    
+    return 1;
+}
+//This function adds the contributions of the CNT and junction resistors to the stiffness matrix
+//Unit resistors are used
+int Direct_Electrifying::Fill_2d_matrices_unit_resistors(const vector<vector<long int> > &elements, const vector<Point_3D> &point_list, const vector<int> &cluster, const vector<int> &LM_matrix, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal, vector<vector<long int> > &contacts_point)
+{
+    //Variables
+    int CNT;
+    long int P1, P2, node1, node2;
+    
+    //Scan every CNT in the cluster
+    for (long int i = 0; i < (long int)cluster.size(); i++) {
+        CNT = cluster[i];
+        //hout << "CNT="<<CNT<<" elements[CNT].size()="<<elements[CNT].size()<<endl;
+        for (long int j = 0; j < (long int)elements[CNT].size()-1; j++) {
+            //Find node numbers of the first two elements
+            P1 = elements[CNT][j];
+            node1 = LM_matrix[P1];
+            P2 = elements[CNT][j+1];
+            node2 = LM_matrix[P2];
+            //Add the elements to the sparse vectors
+            //hout << "P1=" << P1 <<" LM_matrix[P1]="<<LM_matrix[P1]<< " P2=" << P2<<" LM_matrix[P2]="<<LM_matrix[P2] << endl;
+            //hout << "Add_elements_to_sparse_stiffness "<<j<<" node1="<<node1<<" node2="<<node2<<endl;
+            Add_elements_to_sparse_stiffness(node1, node2, 1, col_ind_2d, values_2d, diagonal);
+            
+            //Check if the current node1 has any contacts and add the corresponding contributions to the
+            //stiffness matrix
+            //hout << "Check_for_other_elements nested loop "<<j<<endl;
+            Check_for_other_unit_elements(point_list, LM_matrix, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
         }
         //Check if the last node has any contacts and add the corresponding contributions to the
         //stiffness matrix
         //hout << "Check_for_other_elements "<<endl;
         P1 = elements[CNT].back();
         node1 = LM_matrix[P1];
-        Check_for_other_elements(LM_matrix, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
+        Check_for_other_unit_elements(point_list, LM_matrix, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
     }
+    
+    return 1;
 }
-
-//Check if the current node1 has any contacts and add the corresponding contributions to the
-//stiffness matrix
-void Direct_Electrifying::Check_for_other_elements(const vector<int> &LM_matrix, long int P1, long int node1, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal, vector<vector<long int> > &contacts_point)
+//Add contributions from the resistors formed by the triangulation on the GNP
+//Unit resistors are used
+int Direct_Electrifying::Fill_2d_matrices_gch_unit_resistors(const vector<vector<long int> > &structure, const vector<Point_3D> &point_list, const vector<int> &cluster_gch, const vector<int> &LM_matrix, vector<GCH> &hybrid_particles, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal)
+{
+    //Variables
+    long int P1, P2, node1, node2;
+    
+    //Triangulation object
+    Triangulation *delaunay = new Triangulation;
+    
+    //Scan every hybrid particle, perform the triangulations and add the elements to the stiffness matrix
+    for (long int i = 0; i < (long int)cluster_gch.size(); i++) {
+        //current hybrid particle
+        int hyb = cluster_gch[i];
+        
+        //Perform triangulations
+        if (!delaunay->Generate_3d_trangulation(point_list, structure, hybrid_particles[hyb])) {
+            hout << "Error in Fill_2d_matrices_gch" << endl;
+            return 0;
+        }
+        
+        //Add elements from the top triangulation
+        for (int j = 0; j < (int)hybrid_particles[hyb].triangulation_top.size(); j++) {
+            P1 = hybrid_particles[hyb].triangulation_top[j][0];
+            node1 = LM_matrix[P1];
+            P2 = hybrid_particles[hyb].triangulation_top[j][1];
+            node2 = LM_matrix[P2];
+            //Sometimes a CNT seed is also a boundary point, in that case the triangulation will result
+            //in having repeated elements in the stiffness matrix, since there is no tunneling on a bonudary point
+            //Thus ignore elements that have a boundary node
+            //Equivalently only add elements when both nodes are non-boundary nodes
+            if (node1 >= (long int)reserved_nodes && node2 >= (long int)reserved_nodes) {
+                Add_elements_to_sparse_stiffness(node1, node2, 1, col_ind_2d, values_2d, diagonal);
+            }
+        }
+    }
+    
+    //Delete triangulation object
+    delete delaunay;
+    
+    return 1;
+}
+//Check if the current node1 has any contacts and add the corresponding contributions to the stiffness matrix
+void Direct_Electrifying::Check_for_other_elements(const vector<Point_3D> &point_list, const vector<double> &radii, const vector<int> &LM_matrix, const struct Electric_para &electric_param, const double d_vdw, const long int &P1, const long int &node1, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal, vector<vector<long int> > &contacts_point)
 {
     if (contacts_point[P1].size()) {
         for (long int k = 0; k < (long int)contacts_point[P1].size(); k++) {
             long int P2 = contacts_point[P1][k];
             //hout <<" contact P2="<<P2;
             long int node2 = LM_matrix[P2];
-            //Add the elements to the sparse vectors
-            Add_elements_to_sparse_stiffness(node1, node2, col_ind_2d, values_2d, diagonal);
-            //Remove the contac tha was used so it is not used again in the future
-            Remove_from_vector(P1, contacts_point[P2]);
-            //hout << "Removed ";
+            //When using the actual resistances, there are two cases when a tunnel resistor should be ignored:
+            //Case 1:
+            //This fuction applies the DEA on the backbone, thus some CNTs will be deleted and so their contacts
+            //Instead of updating the vector of contacts, ignore the deleted contacts
+            //The deleted contacts will have a node2 of -1
+            //
+            //Case 2 (same as in unit resistors):
+            //Sometimes there is tunneling between a boundary point and a non-boundary point
+            //If the CNT that contains the non-boundary point happens to be in contact with the
+            //boundary (this is actually likely to happen), then there will be two resistors connecting
+            //the same nodes: a CNT resistor and a tunner resistor
+            //A tunnel from a boundary to a CNT that is already in contact with the boundary does not
+            //seem to be physically correct, so the tunnels between the boundary and a CNT are avoided
+            //Boundary nodes have a node number below the variable reserved_nodes, so to include a tunnel
+            //resistors, both of its nodes should not be reserved nodes
+            //
+            //Note that case 1 is solved with the condition of case 2, since -1 is less than the reserved nodes
+            //so I use the same if-statement as with unit resistors
+            if (node1 >= (long int)reserved_nodes && node2 >= (long int)reserved_nodes) {
+                //Calculate tunnel resistance
+                double Re = Calculate_resistance_tunnel(radii, electric_param, point_list[P1], point_list[P2], d_vdw);
+                resistances.push_back(Re);
+                //Add the elements to the sparse vectors
+                Add_elements_to_sparse_stiffness(node1, node2, Re, col_ind_2d, values_2d, diagonal);
+                //Remove the contac tha was used so it is not used again in the future
+                Remove_from_vector(P1, contacts_point[P2]);
+                //hout << "Removed ";
+                //Add tunnel element
+                vector<long int> empty;
+                elements_tunnel.push_back(empty);
+                elements_tunnel.back().push_back(P1);
+                elements_tunnel.back().push_back(P2);
+            }
         }
         //Remove all contacts of P1
         contacts_point[P1].clear();
     }
-    
 }
-
-void Direct_Electrifying::Add_elements_to_sparse_stiffness(long int node1, long int node2, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal)
+//Check if the current node1 has any contacts and add the corresponding contributions to the stiffness matrix
+//This function considers all resistances to have value 1
+void Direct_Electrifying::Check_for_other_unit_elements(const vector<Point_3D> &point_list, const vector<int> &LM_matrix, const long int &P1, const long int &node1, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal, vector<vector<long int> > &contacts_point)
 {
+    if (contacts_point[P1].size()) {
+        for (long int k = 0; k < (long int)contacts_point[P1].size(); k++) {
+            long int P2 = contacts_point[P1][k];
+            //hout <<" contact P2="<<P2;
+            long int node2 = LM_matrix[P2];
+            //Sometimes there is tunneling between a boundary point and a non-boundary point
+            //If the CNT that contains the non-boundary point happens to be in contact with the
+            //boundary (this is actually likely to happen), then there will be two resistors connecting
+            //the same nodes: a CNT resistor and a tunner resistor
+            //A tunnel from a boundary to a CNT that is already in contact with the boundary does not
+            //seem to be physically correct, so the tunnels between the boundary and a CNT are avoided
+            //Boundary nodes have a node number below the variable reserved_nodes, so to include a tunnel
+            //resistors, both of its nodes should not be reserved nodes
+            if (node1 >= (long int)reserved_nodes && node2 >= (long int)reserved_nodes) {
+                //Add the elements to the sparse vectors
+                Add_elements_to_sparse_stiffness(node1, node2, 1, col_ind_2d, values_2d, diagonal);
+                //Remove the contac tha was used so it is not used again in the future
+                Remove_from_vector(P1, contacts_point[P2]);
+                //hout << "Removed ";
+                //Add tunnel element
+                vector<long int> empty;
+                elements_tunnel.push_back(empty);
+                elements_tunnel.back().push_back(P1);
+                elements_tunnel.back().push_back(P2);
+            }
+        }
+        //Remove all contacts of P1
+        contacts_point[P1].clear();
+    }
+}
+//
+void Direct_Electrifying::Add_elements_to_sparse_stiffness(const long int &node1, const long int &node2, const double &Re, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal)
+{
+    double Re_inv = 1/Re;
     //Add the diagonal elements of the stiffness matrix
-    diagonal[node1] += 1;
-    diagonal[node2] += 1;
+    diagonal[node1] += Re_inv;
+    diagonal[node2] += Re_inv;
     
     //Add the off diagonal elements of the stiffness matrix
     if (node1 > node2) {
         col_ind_2d[node1].push_back(node2);
         //This is the resistance between the two nodes
-        values_2d[node1].push_back(-1);
+        values_2d[node1].push_back(-Re_inv);
     } else {
         col_ind_2d[node2].push_back(node1);
         //This is the resistance between the two nodes
-        values_2d[node2].push_back(-1);
+        values_2d[node2].push_back(-Re_inv);
     }
     //hout << "Added ";
 }
-
+//This function calculates the length of a CNT segment that corresponds to one element (resistor)
+//Using the resisitivity as input parameter the resistance of the CNT segment is calculated
+double Direct_Electrifying::Calculate_resistance_cnt(const vector<Point_3D> &point_list, const long int &P1, const long int &P2, const double &radius, const double &resistivity)
+{
+    //Variable to store the CNT length
+    double length = 0;
+    //Calculate the length of each CNT segment
+    for (long int i = P1; i < P2; i++) {
+        //Calculate the distance from point i to i+1 and add it to the total length
+        length = length + point_list[i].distance_to(point_list[i+1]);
+    }
+    
+    //Calculate resistance as R = rho*l/A; A = PI*r*r
+    return resistivity*length/(PI*radius*radius);
+}
+/*/This function calculates the electrical resistance due to tunneling using Li et al. approach
+double Direct_Electrifying::Calculate_resistance_tunnel(const vector<double> &radii, const struct Electric_para &electric_param, const Point_3D &P1, const Point_3D &P2, const double &d_vdw)
+{
+    //Calculate the distance between the points in contact
+    double distance = P1.distance_to(P2);
+    
+    //Calculate the minimum possible distance between points (r1 + r2 + d_vdw)
+    int CNT1 = P1.flag, CNT2 = P2.flag;
+    double min_dist = radii[CNT1] + radii[CNT2] + d_vdw;
+    //Check if the distance between points is below the sum of radii plus van der Waals distance
+    //This happens when the penetrating model is used
+    if (distance < min_dist)
+        //If the distance between the points is below min_dist, then set this distance equal to min_dist
+        distance = min_dist;
+    
+    //Calculate the thickness of the film = distance - r1 - r2 - 2*d_vdw = distance - min_dist - d_vdw
+    double film = distance - min_dist - d_vdw;
+    //Check if it is a negative value then the film thickness is zero so the resistance due to tunnel is zero
+    //this might happen due to using the penetrating model or numerical error
+    if (film < Zero)
+        return 0;
+    
+    //Approximate cross section of the tunnel as a rectangle formed by the CNTs
+    double Ac = radii[CNT1]*radii[CNT2];
+    
+    //Approximate the voltage across the film, U
+    double U = electric_param.e_charge*film/(Ac*electric_param.K_polymer*electric_param.e0_vacuum);
+    
+    //Calculate t1, t2, Dt
+    double t1 = 6/(electric_param.K_polymer*electric_param.CNT_work_function);
+    double Dt = film*(1 - 46/(3*electric_param.CNT_work_function*electric_param.K_polymer*film + 20 - 2*U*electric_param.K_polymer*film) );
+    double t2 = Dt + t1;
+    
+    //Calculate phi
+    double phi = electric_param.CNT_work_function - U*(t1+t2)/(2*film);
+    double tmp = t2*(film-t1)/(t1*(film-t2));
+    phi = phi - 5.75*log(tmp)/(electric_param.K_polymer*Dt);
+    
+    //Calculate the current density, J
+    double J = phi*exp(-1.025*Dt*sqrt(phi)) - (phi+U)*exp(-1.025*Dt*sqrt(phi+U));
+    J = 6.2e10*J/(Dt*Dt);
+    
+    //Calculate tunnel resistance
+    return U/(Ac*J);
+}//*/
+//This function calculates the electrical resistance due to tunneling using Hu et al. approach
+double Direct_Electrifying::Calculate_resistance_tunnel(const vector<double> &radii, const struct Electric_para &electric_param, const Point_3D &P1, const Point_3D &P2, const double &d_vdw)
+{
+    //Variable to store the separation between CNTs
+    double separation;
+    
+    //Calculate the distance between the points in contact
+    double distance = P1.distance_to(P2);
+    
+    //Calculate the minimum possible distance between points (r1 + r2 + d_vdw)
+    double min_dist = radii[P1.flag] + radii[P2.flag] + d_vdw;
+    //Check if the distance between points is below the sum of radii plus van der Waals distance
+    //This happens when the penetrating model is used
+    if (distance < min_dist)
+        //If the distance between the points is below min_dist, then set the separation equal to the van der Waals distance
+        separation = d_vdw;
+    else
+        //If the distance between the points is above min_dist, then calculate the separation between CNTs
+        separation = distance - min_dist;
+    
+    //==============================================================================
+    //==============================================================================
+    //Input parameters are scaled to avoid numerical errors when reading, therefore the following steps are taken
+    
+    //Calculate quantity associted with a squared root
+    double sqrt_tmp = sqrt(2*electric_param.e_mass*electric_param.lambda_barrier*electric_param.e_charge);
+    
+    //Calculate the exponential term
+    double exp_tmp = exp(4000*PI*separation*sqrt_tmp/electric_param.h_plank);
+    
+    //Calculate term that multiplies the exponential
+    double denominator_tmp = radii[P1.flag]*radii[P2.flag]*electric_param.e_charge*electric_param.e_charge*sqrt_tmp;
+    double mult_tmp = 10*electric_param.h_plank*electric_param.h_plank*separation/denominator_tmp;
+    
+    //Calculate tunnel resistance
+    return mult_tmp*exp_tmp;
+}
+//This function calculates the resistance that comes from the triangulation on the GNPs
+//Using the sheet resistance Rs, the resistance is calculated as
+//R = Rs*L/W
+//L is the length
+//W the width, which will be the smallest CNT diameter (or GNP thickness if the CNT diameter is larger than the thickness)
+double Direct_Electrifying::Calculate_resistance_gnp(const Point_3D &P1, const Point_3D &P2, const double &width, const double &sheet_resistance)
+{
+    //Calculate the distance between the points in contact
+    double L = P1.distance_to(P2);
+    
+    //Calculate resistance
+    return L*sheet_resistance/width;
+}
 //This function deletes an specified number from a vector
 //If the number is not there, nothing happens
 void Direct_Electrifying::Remove_from_vector(long int num, vector<long int> &vec)
@@ -390,7 +808,74 @@ void Direct_Electrifying::Remove_from_vector(long int num, vector<long int> &vec
             break;
         }
 }
-
+//Test function to find repeated elements in the vector col_ind_2d
+int Direct_Electrifying::Check_repeated_col_ind_2d(const vector<vector<long int> > &structure, vector<vector<long int> > &contacts_point, const vector<Point_3D> &point_list, const vector<int> &LM_matrix, const vector<vector<long int> > &col_ind_2d, const int &nodes)
+{
+    //Create inverse mapping for the LM_matrix, i.e., from node number to point number
+    //Initialize the LM_inverse with the number of nodes
+    vector<long int> LM_inverse(nodes, -1);
+    
+    //Fill the LM_inverse matrix
+    for (long int i = 0; i < (long int)LM_matrix.size(); i++) {
+        int current_node = LM_matrix[i];
+        if (current_node != -1) {
+            LM_inverse[current_node] = i;
+        }
+    }
+    
+    for (int i = 0; i < (int)col_ind_2d.size(); i++) {
+        //Find repeated elements in the vector col_ind_2d[i]
+        vector<long int> repeated_elements;
+        Find_repeated_elements(col_ind_2d[i], repeated_elements);
+        //If there are repeated elements print them in the output file
+        if (repeated_elements.size()) {
+            hout << "Repeated elements in col_ind_2d[" << i << "] (";
+            hout <<"point="<<LM_inverse[i]<<" CNT="<<point_list[LM_inverse[i]].flag;
+            hout <<" CNT[0]="<<structure[point_list[LM_inverse[i]].flag].front();
+            hout <<" CNT[last]="<<structure[point_list[LM_inverse[i]].flag].back()<<")";
+            hout << endl;
+            hout <<"("<<point_list[LM_inverse[i]].x<<", "<<point_list[LM_inverse[i]].y<<", ";
+            hout <<point_list[LM_inverse[i]].z<<')'<<endl;
+            hout << "Total contacts: "<<contacts_point[LM_inverse[i]].size()<<endl;
+            for (int k = 0; k < (int)contacts_point[LM_inverse[i]].size(); k++) {
+                long int contact_tmp = contacts_point[LM_inverse[i]][k];
+                int CNT_tmp = point_list[contact_tmp].flag;
+                hout << "Contact "<<k<<": P="<<contact_tmp<<" node2="<<LM_matrix[contact_tmp]<<" CNT="<<CNT_tmp;
+                hout << " CNT[0]="<<structure[CNT_tmp].front()<<endl;
+                hout <<"("<<point_list[contact_tmp].x<<", "<<point_list[contact_tmp].y<<", ";
+                hout <<point_list[contact_tmp].z<<')'<<endl;
+            }
+            for (int j = 0; j < (int)repeated_elements.size(); j++) {
+                long int P = LM_inverse[repeated_elements[j]];
+                int CNT = point_list[P].flag;
+                hout <<"node="<<repeated_elements[j]<<" point="<<P<<" CNT="<<CNT;
+                hout <<" CNT[0]="<<structure[CNT].front()<<" CNT[last]="<<structure[CNT].back()<<" d="<<point_list[P].distance_to(point_list[LM_inverse[i]]);
+                hout << endl;
+                hout <<"("<<point_list[P].x<<", "<<point_list[P].y<<", ";
+                hout <<point_list[P].z<<')'<<endl;                //Print out the contacts of repeated element
+                hout << "Total contacts: "<<contacts_point[P].size()<<endl;
+                for (int k = 0; k < (int)contacts_point[P].size(); k++) {
+                    long int contact_tmp = contacts_point[P][k];
+                    int CNT_tmp = point_list[contact_tmp].flag;
+                    hout << "Contact "<<k<<": P="<<contact_tmp<<" CNT="<<CNT_tmp;
+                    hout << " CNT[0]="<<structure[CNT_tmp].front()<<endl;
+                }
+            }
+        }
+    }
+    return 1;
+}
+void Direct_Electrifying::Find_repeated_elements(const vector<long int> &vector_in, vector<long int> &elements)
+{
+    for (int i = 0; i < (int)vector_in.size()-1; i++) {
+        for (int j = i+1; j < (int)vector_in.size(); j++) {
+            if (vector_in[i] == vector_in[j]) {
+                elements.push_back(vector_in[j]);
+            }
+        }
+    }
+    
+}
 //This function transforms the 2D vectors that contain the stiffness matrix into 1D vectors so they can be in the SSS format and
 //make the matrix-vector multiplications faster
 //For reference, the 2D stiffness matrix has this form:
@@ -409,7 +894,7 @@ void Direct_Electrifying::From_2d_to_1d_vectors(const vector<vector<long int> > 
         for (long int j = 0; j < (long int)col_ind_2d[i].size(); j++) {
             //hout << "for(j)="<<j<<' ';
             if (col_ind_2d[i][j] >= reserved_nodes) {
-                //hout << "if1 ";
+                //hout << "if1 col_ind_2d["<<i<<"]["<<j<<"]="<<col_ind_2d[i][j]<<' ';
                 //When the colum index is greater or equal to reserved_nodes, then it belogs to the lower-righ
                 values.push_back(values_2d[i][j]);
                 //The column numbers that I need are the numbers in the full matrix-reserved_nodes
@@ -433,9 +918,8 @@ void Direct_Electrifying::From_2d_to_1d_vectors(const vector<vector<long int> > 
         diagonal.erase(diagonal.begin());
     }
 }
-
 //This function solves the equation of the electric circuit as done in the Direct Electrifing Algorithm (DEA)
-void Direct_Electrifying::Solve_DEA_equations_CG_SSS(long int nodes, const vector<long int> &col_ind, const vector<long int> &row_ptr, const vector<double> &values, const vector<double> &diagonal, const struct Electric_para &electric_param, vector<vector<double> > &KEFT)
+int Direct_Electrifying::Solve_DEA_equations_CG_SSS(const int &R_flag, long int nodes, const vector<long int> &col_ind, const vector<long int> &row_ptr, const vector<double> &values, const vector<double> &diagonal, const struct Electric_para &electric_param, vector<vector<double> > &KEFT)
 {
     
     //=========================================
@@ -444,7 +928,17 @@ void Direct_Electrifying::Solve_DEA_equations_CG_SSS(long int nodes, const vecto
     //Voltage applied to the sample
     vector<double> VEF;
     //Initializa the prescribed voltage boundary conditions
-    Get_voltage_vector(nodes, VEF);
+    //The magnitude of the voltage depends on the R_flag
+    if (R_flag == 1) {
+        //If R_falg is 1, then use real voltage (from the input parameters)
+        Get_voltage_vector(electric_param.applied_voltage, VEF);
+    } else if (!R_flag) {
+        //If R_falg is 0, then use the number of nodes as the magnitude for the voltage
+        Get_voltage_vector((double)nodes, VEF);
+    } else {
+        hout << "Error in Solve_DEA_equations_CG_SSS. The R_flag has an invalid value: " << R_flag << endl;
+        return 0;
+    }
     hout << setwp(1,20) << "Maximum and minimum voltages = " << VEF.front() << ", " << VEF.back() << endl;
     
     //P is the search direction
@@ -477,20 +971,24 @@ void Direct_Electrifying::Solve_DEA_equations_CG_SSS(long int nodes, const vecto
     
     //Print the voltages
     Printer *Pr = new Printer;
-    Pr->Print_1d_vec(voltages, "voltages.txt");
+    if (R_flag) {
+        Pr->Print_1d_vec(voltages, "voltages_R.txt");
+    } else {
+        Pr->Print_1d_vec(voltages, "voltages_unit.txt");
+    }
     delete Pr;
+    
+    return 1;
 }
-
 //This function creates a voltage vector depending on the number of prescribed boundary conditios
-void Direct_Electrifying::Get_voltage_vector(const long int &nodes, vector<double> &voltages)
+void Direct_Electrifying::Get_voltage_vector(const double &nodes, vector<double> &voltages)
 {
     //Clear the vector of voltages
     voltages.clear();
     for (int i = 0; i < reserved_nodes; i++) {
-        voltages.push_back( ((double)nodes)*((double)i) );
+        voltages.push_back( nodes*((double)i) );
     }
 }
-
 //This function solves the system of equations using the CG gradient
 void Direct_Electrifying::Conjugate_gradient(long int nodes, const vector<long int> &col_ind, const vector<long int> &row_ptr, const vector<double> &values, const vector<double> &diagonal, vector<double> &R, vector<double> &P)
 {
@@ -502,16 +1000,17 @@ void Direct_Electrifying::Conjugate_gradient(long int nodes, const vector<long i
     voltages.assign(nodes-reserved_nodes, 0);
     
     //Maximum number of iterations for the CG
-    long int max_iter = 10*nodes;
+    long int max_iter = 100*nodes;
     //Iteration variable
     long int k;
     //Variable to check the status of the CG
-    int test = 500, test_inc = 250;
+    int test = 5000, test_inc = 5000;
     
     //Initial residual
     double R0 = 1.0E-12*sqrt(V_dot_v(R, R));
-    //double R0 = Zero*sqrt(fabs(V_dot_v(R, R)));
+    //double R0 = Zero*sqrt(V_dot_v(R, R));
     //double R0 = 1.0E-10;
+    //hout << "R0 = " << R0 << endl;
     
     for (k = 1; k <= max_iter; k++) {
         //Calculate Ap
@@ -546,10 +1045,10 @@ void Direct_Electrifying::Conjugate_gradient(long int nodes, const vector<long i
     if (k >= max_iter)
         hout << "CG reached maximum number of iterations" << endl;
     hout << "CG iterations: " << k << endl;
+    //hout << "RR = " << sqrt(rr) << endl;
 }
-
 //This function calculates the dot product of two vectors
-double Direct_Electrifying::V_dot_v(vector<double> A, vector<double> B)
+double Direct_Electrifying::V_dot_v(const vector<double> &A, const vector<double> &B)
 {
     if (A.size() != B.size()){
         hout << "Vectors must have the same length. A.size()="<< A.size() << " B.size()=" << B.size() << endl;
@@ -566,9 +1065,8 @@ double Direct_Electrifying::V_dot_v(vector<double> A, vector<double> B)
     
     return dot_product;
 }
-
 //This function performs a sparse-matrix-vector multiplication using the Symmetric Sparse Skyline (SSS) format
-void Direct_Electrifying::spM_V_SSS(vector<double> V, vector<long int> rowptr, vector<long int> colind, vector<double> diagonal, vector<double> values, vector<double> &R)
+void Direct_Electrifying::spM_V_SSS(const vector<double> &V, const vector<long int> &rowptr, const vector<long int> &colind, const vector<double> &diagonal, const vector<double> &values, vector<double> &R)
 {
     //Size of the system
     long int N = V.size();
@@ -586,19 +1084,17 @@ void Direct_Electrifying::spM_V_SSS(vector<double> V, vector<long int> rowptr, v
         }
     }
 }
-
 //This function solves the following operation: V = V + a*W
 //where V and W are vectors and a is a scalar
-void Direct_Electrifying::V_plus_aW(vector<double> W, double a, vector<double> &V)
+void Direct_Electrifying::V_plus_aW(const vector<double> &W, const double &a, vector<double> &V)
 {
     for (int i = 0; i < (int)V.size(); i++) {
         V[i] = V[i] + a*W[i];
     }
 }
-
 //This function solves the following operation: V = W + a*V
 //where V and W are vectors and a is a scalar
-void Direct_Electrifying::W_plus_aV(vector<double> W, double a, vector<double> &V)
+void Direct_Electrifying::W_plus_aV(const vector<double> &W, const double &a, vector<double> &V)
 {
     for (int i = 0; i < (int)V.size(); i++) {
         V[i] = W[i] + a*V[i];

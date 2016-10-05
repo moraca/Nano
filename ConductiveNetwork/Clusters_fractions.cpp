@@ -1,6 +1,6 @@
 //====================================================================================
 //SOFTWARE:	Network of Eelectrically Conductive Nanocomposites (NECN)
-//CODE FILE:	Clusters_fractions.h
+//CODE FILE:	Clusters_fractions.cpp
 //OBJECTIVE:
 //AUTHOR:		Fei Han; Angel Mora
 //E-MAIL:			fei.han@kaust.edu.sa	;	angel.mora@kaust.edu.sa
@@ -99,7 +99,7 @@ void Clusters_fractions::Append_1d_vector_to_file(const vector<double> &list, co
 {
     ofstream otec(filename.c_str(), std::ios_base::app);
     hout << "Appending to file: " << filename << endl;
-    for (long int i=0; i < list.size(); i++) {
+    for (long int i=0; i < (long int)list.size(); i++) {
         //otec << i << "\t" << list[i] << "\n";
         otec << list[i] << "\t";
     }

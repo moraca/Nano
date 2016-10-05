@@ -50,6 +50,7 @@ public:
 	int RowN(void);														//to calculate the number of row in a matrix
 	int CalN(void);															//to calculate the number of column in a matrix
 	int Symmetry(void);													//to judge if a matrix is symmetric
+    double determinant(void);
 	//-----------------------------------------------------------------------------
 	MathMatrix GetCol(int cn);										//to covert a column of matrix in a new matrix
 

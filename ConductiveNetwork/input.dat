@@ -29,20 +29,23 @@ Create_Network
 %Define the geometric and related parameters of RVE
 RVE_Geometry
 %--------------------------------To start
+%Define the type of particles inside the RVE: CNT_wires for CNTs or Hybrid_particles for GNP-CNT hybrid particles
+Hybrid_particles
+%CNT_wires
 %Define the domain of RVE: the lower-left corner point of RVE and the length, width and height of RVE
-0 0 0 1.000000 1.000000 1.000000
+0 0 0 2.000000 2.000000 2.000000
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
-%Define the size range of the observation window and descrement by every step in x, y and z directions: 
+%Define the size range of the observation window and decrement by every step in x, y and z directions: 
 %Max_length, Max_width, Max_height (this value could be less than the size of RVE)
 %delta_length, delta_width, delta_height
 %Min_length, Min_width, Min_height
 %The cutoff widows have the same centers of RVE
-1.000000 1.000000 1.000000
+2.00000 2.00000 2.00000
 0.250000 0.250000 0.250000
-1.000000 1.000000 1.000000
+2.000000 2.000000 2.000000
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
 %Define minimum size for background grids (looking for contact points)
-0.250000 0.250000 0.250000
+0.05000 0.05000 0.05000
 %--------------------------------To end
 %
 %
@@ -61,17 +64,17 @@ random
 %Define the normal distribution range [-omega, omega] of the growth direction
 %PI/2=1.5707963267948966; PI/4=0.7853981633974483; PI/6=0.5235987755982989; PI/12=0.2617993877991494; PI/36=0.087266462599716479; PI/60=0.05235987755982981
 %Please input the angle omega
-%0.087266462599716479
+%0
 1.5707963267948966
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
-%Define the step length (unit: micromether) of nanotube growth
+%Define the step length (unit: micrometer) of nanotube growth
 0.01
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
-%Define the distribution type (uniform or normal) of the length (unit: micromether) of nanotubes and the length range (min, max) of nanotubes in a RVE
+%Define the distribution type (uniform or normal) of the length (unit: micrometer) of nanotubes and the length range (min, max) of nanotubes in a RVE
 %If you input "uniform", that means it satisfies the uniform distribution, or if you input "normal", that means it satisfies the normal distribution
 uniform 1.000000 1.000000
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
-%Define the distribution type (uniform or normal) of the radius (unit: micromether) of nanotubes and the radius range (min, max) of nanotubes in a RVE
+%Define the distribution type (uniform or normal) of the radius (unit: micrometer) of nanotubes and the radius range (min, max) of nanotubes in a RVE
 %If you input "uniform", that means it satisfies the uniform distribution, or if you input "normal", that means it satisfies the normal distribution
 uniform 0.005000 0.005000
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -80,24 +83,26 @@ uniform 0.005000 0.005000
 %or if you input "wt", the weight fraction is the criterion and the mode of accumulation and the linear density (1E-12g/'nu'm) of CNT and the density (1E-12g/'nu'm^3)of polymer are needed.
 %the mode of accumulation: 0 means every sample uses the same fraction; 1 or 2 mean every sample uses the accumulated fraction by different ways
 %wt 0.005 0 5.8E-5 1.06
-vol 0.0005000 0
+vol 0.001000 0
+%Define the density of the CNTs (unit: gm/cm3)
+1.78
 %--------------------------------To end
 %
 %
 %
 %========================================================================================================
 %Define the geometric parameters of ellipsoid cluster of CNTs
-Cluster_Geometry
+%Cluster_Geometry
 %--------------------------------To start
 %Please input the volume fraction of ellipsoid, the length of axes of ellipsoids and the growth probability of a cnt in the cluster, and the volume fraction of cnt in the cluster and the print key: 
 % v amin amax bmin cmin p vc key, such as 0.05 0.1 0.1 0 0 1 0.4774648 2
-%where the long axis a of ellipsoid obays the uniform distribution among (amin, amax), the middle axis b obays the uniform distribution among (bmin, a),
-%and the short axis c obays the uniform distribution among (cmin, b);
+%where the long axis a of ellipsoid obeys the uniform distribution among (amin, amax), the middle axis b obeys the uniform distribution among (bmin, a),
+%and the short axis c obeys the uniform distribution among (cmin, b);
 %if bmin=cmin=0, then the spheres will be produced with radii among (amin, amax)
 %the growth probability p of a cnt in a cluster: 0 <= p <= 1
 %the volume fraction of cnt in the cluster, it usually bigger than the volume fraction in the RVE
-%the print key: 0 denotes "no print"; 1 denotes "only print the nanotubes in the ellipsoids"; 2 denotes "print the nanotubes in the ellipsolds and the surfaces of all ellipsoids"
-0.00418879 0.1 0.1 0 0 1 0.4774648 2
+%the print key: 0 denotes "no print"; 1 denotes "only print the nanotubes in the ellipsoids"; 2 denotes "print the nanotubes in the ellipsoids and the surfaces of all ellipsoids"
+%0.00418879 0.1 0.1 0 0 1 0.4774648 2
 %0
 %--------------------------------To end
 %
@@ -105,7 +110,28 @@ Cluster_Geometry
 %
 %========================================================================================================
 %-------------------------------- AMC
-%Define the cutoff distances
+%Define the geometric parameters of the GNPs
+GNP_Geometry
+%--------------------------------To start
+%Define if the generation of the CNTs on the GNP surface should be parallel or independent
+independent
+%Define the distribution type (uniform or normal) of the length and width (unit: micrometer) of GNPs and the range (min, max) of GNPs in a RVE
+%If you input "uniform", that means it satisfies the uniform distribution, or if you input "normal", that means it satisfies the normal distribution
+uniform 4.000000 4.000000
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%Define the distribution type (uniform or normal) of the thickness (unit: micrometer) of GNPs and the thickness range (min, max) of GNPs in a RVE
+%If you input "uniform", that means it satisfies the uniform distribution, or if you input "normal", that means it satisfies the normal distribution
+uniform 0.03 0.03
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%Define the mass ratio of GNP/nanotubes in the RVE
+1.0
+%Define the density of the GNPs (unit: gm/cm3)
+2.25
+%-------------------------------- To end
+%
+%========================================================================================================
+%-------------------------------- AMC
+%Define the geometry of the GNP
 Cutoff_Distances
 %--------------------------------To start
 %Define van der Waals distance
@@ -125,6 +151,16 @@ Electrical_Parameters
 %Provide the magnitude of the applied voltage
 1
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
-%Provide the value of resistivity of the carbon fiber
-0.001
+%Provide the value of resistivity of the carbon fiber (Ohm.micron)
+20
+%Provide the value of sheet resistance (Ohm/square) and resistivities (thickness, surface; in Ohm.micron) of the GNP
+10 1e-2 1e-7
+%Provide the value of resistivity of the polymer matrix (Ohm.micron)
+1.03e20
+%Li et al approach
+%Electrical constants: electron charge (C), permitivity of vaccum (F/m), CNT work function (V), dielectric constant of polymer 
+%1.60217662e-19 8.85e-12 5.0 3.98
+%Hu et al approach
+%Electrical constants:Planck’s constant (e-34 m2kg/s), electron charge (e-19 C), electron mass (e-31 Kg), height barrier (eV)
+6.62606957 1.60217662 9.10938291 2.0
 %-------------------------------- To end

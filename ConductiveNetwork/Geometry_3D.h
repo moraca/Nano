@@ -33,19 +33,30 @@ class Point_3D
     
 		//Member Functions
 		Point_3D operator+( Point_3D &pt );
+        Point_3D operator+( Point_3D &pt )const;
 		Point_3D operator+( const Point_3D &pt );
-		Point_3D operator+( double d );
-		Point_3D operator-( double d );
+        Point_3D operator+( const Point_3D &pt )const;
+        Point_3D operator+( double d );
+        Point_3D operator+( double d )const;
+        Point_3D operator-( double d );
+        Point_3D operator-( double d )const;
 		Point_3D operator-( Point_3D &pt );
+        Point_3D operator-( Point_3D &pt )const;
 		Point_3D operator-( const Point_3D &pt );
+        Point_3D operator-( const Point_3D &pt )const;
 		Point_3D operator*( double d );
+        Point_3D operator*( double d )const;
 		Point_3D operator/( double d );
+        Point_3D operator/( double d )const;
 		bool operator==( Point_3D &pt );
 		bool operator!=( Point_3D &pt );
 		double distance_to(const Point_3D &pt)const;
 		double distance_to(const double &px, const double &py,  const double &pz)const;
-		Point_3D cross(Point_3D &point);
+        double squared_distance_to(const Point_3D &pt)const;
+        double squared_distance_to(const double &px, const double &py,  const double &pz)const;
+        Point_3D cross(Point_3D &point);
 		double dot(Point_3D &point);
+        Point_3D rotation(const MathMatrix &Matrix, const Point_3D &displacement);
 };
 //---------------------------------------------------------------------------
 //The definition for lines (segements) in 3D
@@ -84,6 +95,7 @@ class Plane_3D
 		//Constructor
 		Plane_3D(){};
 		Plane_3D(double para[]);
+        Plane_3D(double a, double b, double c, double d);
 		
 		//Member Functions
 		int contain(const Point_3D &point_temp)const;										//to judge if a point is contained in this plane
@@ -106,6 +118,26 @@ struct cuboid
 	Point_3D poi_min;					//Define an origin point for a cubid
 	double len_x, wid_y, hei_z;		//Define length, width and height for a cuboid
 	double volume;							//Define the volume of a cuboid
+};
+//---------------------------------------------------------------------------
+//The definition for GNP-CNT hybrid particles
+class GCH
+{
+public:
+    //Data Member
+    cuboid gnp;
+    Point_3D center;
+    MathMatrix rotation;
+    vector<int> cnts_top, cnts_bottom;
+    vector<vector<long int> > triangulation_top, triangulation_bottom;
+    int flag;
+    
+    //Constructor
+    GCH(){};
+    GCH(double len_x, double wid_y, double thick_z);
+    
+    //Member Functions
+    
 };
 #endif
 //===========================================================================

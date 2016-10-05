@@ -9,14 +9,14 @@
 #include "Percolation.h"
 
 
-int Percolation::Determine_percolating_clusters(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated, const int &window)
+int Percolation::Determine_percolating_clusters(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated, vector<vector<int> > &clusters_gch, vector<int> &isolated_gch, const int &window)
 {
     //time_t ct0, ct1;
     //---------------------------------------------------------------------------------------------------------------------------
     //Check if the clusters of CNTs percolate
     //hout << "Cluster percolation ";
     //ct0 = time(NULL);
-    if (!Cluster_CNT_percolation(boundary_cnt, labels, labels_labels, label_map, clusters_cnt, isolated)) {
+    if (!Cluster_CNT_percolation(boundary_cnt, labels, labels_labels, label_map, clusters_cnt, isolated, clusters_gch, isolated_gch)) {
         hout << "Error in Determine_percolating_clusters" << endl;
         return 0;
     }
@@ -53,7 +53,7 @@ int Percolation::Determine_percolating_clusters(const struct Geom_RVE &sample, c
 }
 
 //This function determines if the clusters in the clusters_cnt variable actually percolate
-int Percolation::Cluster_CNT_percolation(const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated)
+int Percolation::Cluster_CNT_percolation(const vector<vector<int> > &boundary_cnt, const vector<int> &labels, const vector<int>  &labels_labels, const vector<int>  &label_map, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated, vector<vector<int> > &clusters_gch, vector<int> &isolated_gch)
 {
     //Check if there is any cluster at all. If the size of clusters_cnt is non-zero, then there are clusters
     if (clusters_cnt.size()) {
@@ -66,7 +66,8 @@ int Percolation::Cluster_CNT_percolation(const vector<vector<int> > &boundary_cn
         //hout << "1 ";
         
         //Move all non-percolating clusters to the corresponding vector<vector>
-        if (!Check_percolation_all_clusters(boundary_cnt, perc_flag, clusters_cnt, isolated)) {
+        //if (!Check_percolation_all_clusters(boundary_cnt, perc_flag, clusters_cnt, isolated)) {
+        if (!Check_percolation_all_clusters(boundary_cnt, perc_flag, clusters_cnt, isolated, clusters_gch, isolated_gch)) {
             hout << "Error in Determine_percolating_clusters >> Check_percolation_all_clusters" << endl;
             return 0;
         }
@@ -132,7 +133,8 @@ int Percolation::Find_root(int L, const vector<int> &labels_labels)
     return L;
 }
 
-int Percolation::Check_percolation_all_clusters(const vector<vector<int> > &boundary_cnt, vector<vector<short int> > &perc_flag, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated)
+//Scan cluster by cluster and check whether it percolates or not
+int Percolation::Check_percolation_all_clusters(const vector<vector<int> > &boundary_cnt, vector<vector<short int> > &perc_flag, vector<vector<int> > &clusters_cnt, vector<vector<int> > &isolated, vector<vector<int> > &clusters_gch, vector<int> &isolated_gch)
 {
     //Move all non-percolating clusters to the corresponding vector<vector>
     //I start from the end of the vector to avoid issues with the index when removing an element
@@ -146,10 +148,18 @@ int Percolation::Check_percolation_all_clusters(const vector<vector<int> > &boun
             family.insert(family.begin(), fam);
         } else {
             //percolation_flags and clusters_cnt have the same size
-            //hout << "NO\n";
+            
+            //copy the non-percolated cluster to the vector of isolated clusters
             isolated.push_back(clusters_cnt[i]);
             //remove the non-percolating cluster
             clusters_cnt.erase(clusters_cnt.begin()+i);
+            
+            //copy the non-percolated cluster to the vector of isolated clusters
+            for (int j = 0; j < (int)clusters_gch[i].size(); j++) {
+                isolated_gch.push_back(clusters_gch[i][j]);
+            }
+            //remove the non-percolated cluster of hybrid particles
+            clusters_gch.erase(clusters_gch.begin()+i);
         }
     }
     return 1;

@@ -46,7 +46,117 @@
 
 //This function removes the points that are outside the observation window.
 //The vector cnts_inside is created so only the CNTs inside the obseration window are considered in other functions
-int Cutoff_Wins::Extract_observation_window(struct Geom_RVE sample, struct Nanotube_Geo cnts, vector<vector<long int> > &structure, vector<double> &radii, vector<Point_3D> &points_in, vector<vector<int> > &shells_cnt, int window)
+int Cutoff_Wins::Extract_observation_window(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, vector<vector<long int> > &structure, vector<double> &radii, vector<Point_3D> &points_in, vector<vector<int> > &shells_cnt, const int &window)
+{
+    if (!Set_global_variables_for_geometry(sample, window)) {
+        hout << "Error in Extract_observation_window when calling Set_global_variables_for_geometry" << endl;
+        return 0;
+    }
+    //Output the current window geometry
+    hout<<"Observation window geometry:"<<endl;
+    hout<<"xmin="<<xmin<<" ymin="<<ymin<<" zmin="<<zmin<<endl;
+    hout<<"w_x="<<w_x<<" w_y="<<w_y<<" w_z="<<w_z<<endl;
+    
+    //Vector check for debugging. Comment or delete after debugging
+    //vector<vector<long int> > structure_check(structure);
+    
+    //Scan every Nanotube that is the boundary region. Delete and trim CNTs when needed.
+    if (!Trim_boundary_cnts(shells_cnt, window, sample, points_in, structure, radii)){
+        hout << "Error in Extract_observation_window when calling Trim_boundary_cnts" << endl;
+        return 0;
+    }
+    
+    //Print the points
+    //Printer *P = new Printer;
+    //P->Print_1d_vec(points_in, "cnts_point_IT.txt");
+    
+    //Fill the vector cnts_inside
+    int flag = 0;
+    for (int i = 0; i < (int)structure.size(); i++) {
+        //A CNT needs at least two points
+        if (structure[i].size() > 1) {
+            cnts_inside.push_back(i);
+        } else if (structure[i].size() == 1) {
+            hout << "Error in Extract_observation_window. A CNT ("<<i<<") has only one point. A CNT must have at least 2 points."<<endl;
+            long int P = structure[i][0];
+            hout << "\tP=("<<points_in[P].x<<", "<<points_in[P].y<<", "<<points_in[P].z<<")"<<endl;
+            //hout << "\tThere were "<< structure_check.size()<<" CNTs before trimming. ";
+            //hout << "CNT "<<i<<" had "<<structure_check[i].size()<<" points before trimming"<<endl;
+            flag = 1;
+        }
+    }
+    
+    //Export tecplot files of the observation window
+    //P->Print_CNTs_in_window(sample, points_in, cnts_inside, structure, window);
+    
+    //If the flag was set, then there were CNTs with one point
+    //The function is not terminated at the first CNTs with one point found so that all these CNTs can be displayed in the output file
+    if (flag) {
+        return 0;
+    }
+    
+	return 1;
+}
+//This function removes the points that are outside the observation window.
+//The vector cnts_inside is created so only the CNTs inside the obseration window are considered in other functions
+int Cutoff_Wins::Extract_observation_window(const struct Geom_RVE &sample, const struct Nanotube_Geo &cnts, vector<GCH> &hybrid_particles, vector<vector<long int> > &structure, vector<double> &radii, vector<Point_3D> &points_in, vector<vector<int> > &shells_cnt, const int &window)
+{
+    if (!Set_global_variables_for_geometry(sample, window)) {
+        hout << "Error in Extract_observation_window when calling Set_global_variables_for_geometry" << endl;
+        return 0;
+    }
+    //Output the current window geometry
+    hout<<"Observation window geometry:"<<endl;
+    hout<<"xmin="<<xmin<<" ymin="<<ymin<<" zmin="<<zmin<<endl;
+    hout<<"w_x="<<w_x<<" w_y="<<w_y<<" w_z="<<w_z<<endl;
+    
+    //Save the initial points of the CNTs that are attached to the GNP
+    vector<long int> seeds;
+    if (!Save_seeds(hybrid_particles, structure, seeds)) {
+        hout << "Error in Extract_observation_window when calling Save_seeds" << endl;
+        return 0;
+    }
+    
+    //Vector check for debugging. Comment or delete after debugging
+    //vector<vector<long int> > structure_check(structure);
+    
+    //Scan every Nanotube that is the boundary region. Delete and trim CNTs when needed.
+    if (!Trim_boundary_cnts(shells_cnt, window, sample, points_in, structure, radii)){
+        hout << "Error in Extract_observation_window when calling Trim_boundary_cnts" << endl;
+        return 0;
+    }
+    
+    //Fill the vector cnts_inside
+    int flag = 0;
+    for (int i = 0; i < (int)structure.size(); i++) {
+        //A CNT needs at least two points
+        if (structure[i].size() > 1) {
+            cnts_inside.push_back(i);
+        } else if (structure[i].size() == 1) {
+            hout<<"Error in Extract_observation_window. A CNT ("<<i<<") has only one point. A CNT must have at least 2 points."<<endl;
+            long int P = structure[i][0];
+            hout << "\tP=("<<points_in[P].x<<", "<<points_in[P].y<<", "<<points_in[P].z<<")"<<endl;
+            //hout << "\tThere were "<< structure_check.size()<<" CNTs before trimming. ";
+            //hout << "CNT "<<i<<" had "<<structure_check[i].size()<<" points before trimming"<<endl;
+            flag = 1;
+        }
+    }
+    
+    if (flag) {
+        return 0;
+    }
+    
+    //Compare the initial points of the CNTs attached to the GNPs
+    //If they are different, that means that the CNT is not attached to the GNP anymore
+    if (!Compare_seeds(hybrid_particles, structure, seeds)) {
+        hout << "Error in Extract_observation_window when calling Compare_seeds" << endl;
+        return 0;
+    }
+    
+    return 1;
+}
+//This function sets global variables
+int Cutoff_Wins::Set_global_variables_for_geometry(const struct Geom_RVE &sample, const int &window)
 {
     //These are variables for the geometry of the observation window
     //Dimensions of the current observation window
@@ -57,56 +167,82 @@ int Cutoff_Wins::Extract_observation_window(struct Geom_RVE sample, struct Nanot
     xmin = sample.origin.x + (sample.len_x - w_x)/2;
     ymin = sample.origin.y + (sample.wid_y - w_y)/2;
     zmin = sample.origin.z + (sample.hei_z - w_z)/2;
-    hout<<"Observation window geometry:"<<endl;
-    hout<<"xmin="<<xmin<<" ymin="<<ymin<<" zmin="<<zmin<<endl;
-    hout<<"w_x="<<w_x<<" w_y="<<w_y<<" w_z="<<w_z<<endl;
     
-    //Vector check for debugging. Comment or delete after debugging
-    //vector<vector<long int> > structure_check(structure);
+    return 1;
+}
+
+//This function scans all hybrid particles and saves the intial points of its CNTs
+int Cutoff_Wins::Save_seeds(const vector<GCH> &hybrid_particles, const vector<vector<long int> > &structure, vector<long int> &seeds)
+{
+    //Initialize the seeds vector with the same size as structure
+    seeds.clear();
+    seeds.assign(structure.size(), -1);
     
-    //hout << "5 ";
-    //Scan every Nanotube that is the boundary region. Delete and trim CNTs when needed.
-    if (!Trim_boundary_cnts(shells_cnt, window, sample, points_in, structure, radii)){
-        hout << "Error in Locate_and_trim_boundary_cnts (initial)" << endl;
-        return 0;
-    }
-    
-    //Print the points
-    //Printer *P = new Printer;
-    //P->Print_1d_vec(points_in, "cnts_point_IT.txt");
-    
-    //hout << "6 ";
-    //Fill the vector cnts_inside
-    int flag = 0;
-    for (int i = 0; i < (int)structure.size(); i++) {
-        if (structure[i].size()) {
-            if (structure[i].size() == 1) {
-                hout << "Error in Extract_observation_window. A CNT ("<<i<<") has only one point. A CNT must have at least 2 points."<<endl;
-                long int P = structure[i][0];
-                hout << "\tP=("<<points_in[P].x<<", "<<points_in[P].y<<", "<<points_in[P].z<<")"<<endl;
-                //hout << "\tThere were "<< structure_check.size()<<" CNTs before trimming. ";
-                //hout << "CNT "<<i<<" had "<<structure_check[i].size()<<" points before trimming"<<endl;
-                flag = 1;
-            } else {
-                cnts_inside.push_back(i);
-            }
+    //Loop over the hybrid particles
+    for (int i = 0; i < (int)hybrid_particles.size(); i++) {
+        //variable to store the CNT number
+        int CNT;
+        
+        //Scan top CNTs
+        for (int j = 0; j < (int)hybrid_particles[i].cnts_top.size(); j++) {
+            CNT = hybrid_particles[i].cnts_top[j];
+            seeds[CNT] = structure[CNT].front();
+        }
+        
+        //Scan bottom CNTs
+        for (int j = 0; j < (int)hybrid_particles[i].cnts_bottom.size(); j++) {
+            CNT = hybrid_particles[i].cnts_bottom[j];
+            seeds[CNT] = structure[CNT].front();
         }
     }
     
-    //Export tecplot files of the observation window
-    //P->Print_CNTs_in_window(sample, points_in, cnts_inside, structure, window);
-    
-    if (flag) {
-        return 0;
+    return 1;
+}
+//This function scans all hybrid particles and saves the intial points of its CNTs
+//If no CNTs have their initial point on the GNP, then it is removed (as this means the GNP has no CNTS attached)
+int Cutoff_Wins::Compare_seeds(vector<GCH> &hybrid_particles, const vector<vector<long int> > &structure, const vector<long int> &seeds)
+{
+    //Loop over the hybrid particles
+    for (int i = (int)hybrid_particles.size()-1; i >= 0; i--) {
+        //variable to store the CNT number
+        int CNT;
+        
+        //Temporary variables
+        vector<int> top_tmp, bottom_tmp;
+        //Scan top CNTs
+        for (int j = 0; j < (int)hybrid_particles[i].cnts_top.size(); j++) {
+            CNT = hybrid_particles[i].cnts_top[j];
+            //Check if seeds are still the same. If so, save the CNT number in the temporary variable
+            if (structure[CNT].size() && seeds[CNT] == structure[CNT].front()) {
+                top_tmp.push_back(CNT);
+            }
+        }
+        //Update the vector of CNTs at the top surface of the GNP
+        hybrid_particles[i].cnts_top = top_tmp;
+        
+        //Scan bottom CNTs
+        for (int j = 0; j < (int)hybrid_particles[i].cnts_bottom.size(); j++) {
+            CNT = hybrid_particles[i].cnts_bottom[j];
+            //Check if seeds are still the same. If so, save the CNT number in the temporary variable
+            if (structure[CNT].size() && seeds[CNT] == structure[CNT].front()) {
+                bottom_tmp.push_back(CNT);
+            }
+        }
+        //Update the vector of CNTs at the bottom surface of the GNP
+        hybrid_particles[i].cnts_bottom = bottom_tmp;
+        
+        //If the particle has no attached CNTs, then delete it
+        if (!hybrid_particles[i].cnts_bottom.size() && !hybrid_particles[i].cnts_top.size()) {
+            hybrid_particles.erase(hybrid_particles.begin()+i);
+        }
     }
     
-    //hout << "9 ";
-	return 1;
+    return 1;
 }
 
 int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, int window, struct Geom_RVE sample, vector<Point_3D> &points_in, vector<vector<long int> > &structure, vector<double> &radii)
 {
-    //These variables will help me locate the point with respect with the box
+    //These variables will help me find the point location with respect to the box
     string currentPoint;
     //Variables for current and next points and current CNT
     long int P1;
@@ -141,12 +277,17 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, int window
                 //   Thus, add the local point number. In the following iterations, if the points are still inside,
                 //   no point will be added since now the size of the vector is odd, i.e. 1
                 //2) It is not empty and its size was made even by entering the "outside case", then it went back to the
-                //   "inside" case. Hence, a new segment needs to be added. In the following iterations, if the points are still inside,
+                //   "inside" case. Hence, a new segment needs to be added by adding the local point number.
+                //   In the following iterations, if the points are still inside,
                 //   no point will be added since now the size of the vector is odd.
                 if (branches_indices_CNT.size()%2 == 0) {
                     branches_indices_CNT.push_back(j);
                 }
             } else {
+                //If a point is not "inside", save the local point number only if the current size of branches_indices[CNT] is odd
+                //When branches_indices[CNT].size() is odd, there was a change from an inside point to a non-inside point
+                //Thus, add the local point number. In the following iterations, if the points are still not inside,
+                //no point will be added since now the size of the vector is even
                 if (branches_indices_CNT.size()%2 == 1) {
                     branches_indices_CNT.push_back(j);
                 }
@@ -289,42 +430,40 @@ int Cutoff_Wins::First_index(vector<Point_3D> &points_in, vector<long int> &stru
 
 int Cutoff_Wins::Second_index(vector<Point_3D> &points_in, vector<long int> &structure_CNT, int &new_CNT, int &index2)
 {
-    //Check if the second index is the last point of the CNT
-    if (index2 == (int)structure_CNT.size()-1) {
-        //If it is the last point, just check if it is a boundary point and add it to the boundary vectors
-        long int P = structure_CNT.back();
-        if ( Where_is(points_in[P]) == "boundary") {
-            Add_to_boundary_vectors(points_in[P], P, new_CNT);
-        }
-    } else {
-        //If the second index is not the last point of the CNT, then I need to add a boundary point
+    //String to store the location of index2 (this location is used more than once so this avoids calling Where_is multiple times)
+    string index2_location = Where_is(points_in[ structure_CNT[index2] ]);
+    
+    //Find out where the second index is and proceed accordingly
+    if (index2_location == "outside"){
+        //If the second index is onutside, then for sure I need to add a boundary point
+        long int global_o = structure_CNT[index2];
+        long int global_i = global_o-1;
         
-        //The second index can be either inside or outside, so first I need to find out where it is and proceed accordingly
-        if (Where_is(points_in[ structure_CNT[index2] ]) == "outside"){
-            //If the second index is onutside, then for sure I need to add a boundary point
-            long int global_o = structure_CNT[index2];
-            long int global_i = global_o-1;
-            
-            //Check if what is supposed to be the inside point is actually in the boundary.
-            //If it hapens that the inside point is actually at the boundary, then this point has to be index2
-            //and that's all, nothing more to do
-            if ( Where_is(points_in[global_i]) == "boundary") {
-                index2--;
-            } else{
-                //Since the index2 point is outside, then the previous point is inside.
-                //We then we proceed to calculate the projection to the boundary
-                if (!Substitute_boundary_point(points_in, global_i, global_o)){
-                    hout << "Error in Second_index. global_i="<<global_i<<" global_o="<<global_o<<" structure_CNT.size()="<<structure_CNT.size();
-                    hout <<" index2="<<index2<<endl;
-                    hout <<"\tP_i=("<<points_in[global_i].x<<", "<<points_in[global_i].y<<", "<<points_in[global_i].z<<") P_o=(";
-                    hout <<points_in[global_o].x<<", "<<points_in[global_o].y<<", "<<points_in[global_o].z<<")"<<endl;
-                    return 0;
-                }
-                //Now, the outside point, i.e. index2, has the coordinates of the boundary point so I need to kep it unchanged
-                Add_to_boundary_vectors(points_in[global_o], global_o, new_CNT);
+        //Check if what is supposed to be the inside point is actually in the boundary.
+        //If it hapens that the inside point is actually at the boundary, then this point has to be index2
+        //and that's all, nothing more to do
+        if ( Where_is(points_in[global_i]) == "boundary") {
+            index2--;
+        } else{
+            //In this case, since the index2 point is outside and the previous point is inside,
+            //we then calculate the projection to the boundary
+            if (!Substitute_boundary_point(points_in, global_i, global_o)){
+                hout << "Error in Second_index. global_i="<<global_i<<" global_o="<<global_o<<" structure_CNT.size()="<<structure_CNT.size();
+                hout <<" index2="<<index2<<endl;
+                hout <<"\tP_i=("<<points_in[global_i].x<<", "<<points_in[global_i].y<<", "<<points_in[global_i].z<<") P_o=(";
+                hout <<points_in[global_o].x<<", "<<points_in[global_o].y<<", "<<points_in[global_o].z<<")"<<endl;
+                return 0;
             }
+            //Now, the outside point, i.e. index2, has the coordinates of the boundary point so I need to kep it unchanged
+            Add_to_boundary_vectors(points_in[global_o], global_o, new_CNT);
         }
+    } else if (index2_location == "boundary") {
+        //If second index is at a boundary, just add it to the boundary vectors;
+        //there is no need to find a projection with the boundary
+        long int P = structure_CNT[index2];
+        Add_to_boundary_vectors(points_in[P], P, new_CNT);
     }
+    
     return 1;
 }
 
@@ -346,7 +485,7 @@ string Cutoff_Wins::Where_is(Point_3D point)
         return "boundary";
     //If the point is not outside the observation window nor at the boundary, then it's inside
     else
-        return "inside";//*/
+        return "inside";
 }
 
 //When two consecutive points are found to be one outside and one inside, this function substitutes the outside point by the intersection
@@ -462,16 +601,29 @@ void Cutoff_Wins::Add_to_boundary_vectors(Point_3D point3d, long int point, int 
 }
 
 //This function adds a CNT to the corresponding boundary vector.
-//The falgs are used in the direct electrifying algorithm:
+//The flags are used in the direct electrifying algorithm:
 //flag1: indicates the direction 0 is x, 1 is y, 2 is z
 //flag2: indicates which boundary 0 is for x0, y0 or z0; 1 is for x1, y1 or z1
 void Cutoff_Wins::Add_CNT_to_boundary(vector<int> &boundary, int CNT, long int point, short int flag1, short int flag2)
 {
     if (!boundary.size()) {
+        //If the boundary vector is empty, then just add the CNT
         boundary.push_back(CNT);
     } else if(boundary.back() != CNT){
+        //If the boundary vector is not empty, add the CNT only if it has not been added
         boundary.push_back(CNT);
     }
-    boundary_flags[point].push_back(flag1);
-    boundary_flags[point].push_back(flag2);
+    //If only one point of the CNT is outside, but this point is not one of the end points,
+    //then we have two CNTs that will share a boundary point
+    //This will cause the vector boundary_flags[point] to have 4 elements, which causes problems
+    //when assigning node numbers in the LM matrix
+    //So if the flags are only added when vector boundary_flags[point] is empty
+    //The repetition of the point can be safely ignored since the two CNTs will be at the same boundary
+    //Thus element boundary_flags[point][0] will be the same as boundary_flags[point][2]
+    //and boundary_flags[point][1] will be the same as boundary_flags[point][3]
+    if (!boundary_flags[point].size()) {
+        boundary_flags[point].push_back(flag1);
+        boundary_flags[point].push_back(flag2);
+
+    }
 }

@@ -374,4 +374,48 @@ int MathMatrix::CalN(void)
 {
 	return int(element[0].size());
 }
+//---------------------------------------------------------------------------
+//It is assumed
+double MathMatrix::determinant()
+{
+    if (element.size() != element.front().size()) {
+        return NAN;
+    }
+    //Base case
+    if (element.size() == 2) {
+        //Determinant of a 2x2 matrix
+        return element[0][0]*element[1][1] - element[1][0]*element[0][1];
+    } else {
+        //Initial size of squared matrix
+        int n = (int)element.size();
+        //Create a reduced (i.e. smaller) matrix for the recursion
+        MathMatrix reduced(n-1,n-1);
+        //Initialize value of determinant
+        double det=0;
+        //Variable to change the signs
+        double sign = 1;
+        //For each element construct the reduced matrix
+        for(int p = 0; p < n; p++) {
+            //Start at the second row
+            for(int i = 1; i < n; i++) {
+                //Scan all columns
+                int k = 0;
+                for(int j = 0; j < n; j++) {
+                    //if the column number j is the same as the column for the top row element i, then skip this value
+                    if(j!=p) {
+                        //Row numbers in the reduced matrix are the same as in the original matrix minus one
+                        reduced.element[i-1][k] = element[i][j];
+                        k++;
+                    }
+                }
+            }
+            //Add the product of the current top row element with the reduced matrix
+            det=det+element[0][p]*sign*reduced.determinant();
+            //Change sign for the next iteration
+            sign = -sign;
+        }
+        return det;
+    }
+    
+}
 //============================================================================
