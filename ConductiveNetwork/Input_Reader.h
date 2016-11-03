@@ -23,6 +23,7 @@ using namespace hns;
 #include "Geometry_3D.h"
 
 const double PI = 3.1415926535897932384626433832795;
+const int MAX_ATTEMPTS = 5;
 
 //---------------------------------------------------------------------------
 //Name of application case
@@ -60,7 +61,7 @@ struct Geom_RVE{
 struct Nanotube_Geo{
 			string keywords;
 			bool mark;
-			string criterion;						//Define the volume or weight fraction of nanotubes in the RVE: vol, wt, nwt
+			string criterion;					//Define the volume or weight fraction of nanotubes in the RVE: vol, wt
 			string dir_distrib_type;			//Define the initial growth direction type (random or specific) in a RVE
 			string len_distrib_type;			//Define the distribution type (uniform or normal) of the length (unit: micrometer) of nanotubes
 			string rad_distrib_type;			//Define the distribution type (uniform or normal) of the radius (unit: micrometer) of nanotubes
@@ -82,8 +83,13 @@ struct Nanotube_Geo{
 struct GNP_Geo{
         string keywords;
         bool mark;
+        string criterion;					//Define the volume or weight fraction of GNPs in the RVE: vol, wt
+        string growth_type;                 //Define if the generation of the CNTs on the GNP surface should be parallel or independent
+        string orient_distrib_type;			//Define the GNP orientation type (random or specific) in a RVE
         string size_distrib_type;			//Define the distribution type (uniform or normal) of the length (unit: micrometer) of GNP
         string thick_distrib_type;			//Define the distribution type (uniform or normal) of the thickness (unit: micrometer) of GNP
+        double discr_step_length;                 //Define the step length (unit: micromether) for discretization of the GNP
+        double ini_sita, ini_pha;			//Define initial GNP orientation for 'specific' type the spherical coordinates
         double len_min, len_max;            //Define the length range (min, max) for the width and length of the GNP surface
         double t_min, t_max;                //Define the thickness range (min,max) of the GNP
         double mass_ratio;                  //Define the CNT/GNP mass ratio
@@ -121,6 +127,18 @@ struct Electric_para{
 			bool mark;
 			double applied_voltage;			//Define the magnitude of the applied voltage
 			double resistivity_CF;			//Define the resistivity value of the carbon fiber
+            double sheet_resitance_GNP, resistivity_GNP_t, resistivity_GNP_surf; //Define the resistivity value of the GNP along the thicknes direction and along the surface
+            double resistivity_matrix;      //Define the resistivity of the polymer matrix
+            //Constants for tunneling
+            double e_charge;
+            //Constants using Li et al approach
+            double e0_vacuum;
+            double CNT_work_function;
+            double K_polymer;
+            //Constants using Hu et al approach
+            double h_plank;
+            double e_mass;
+            double lambda_barrier;
 		};
 
 //---------------------------------------------------------------------------

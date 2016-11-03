@@ -13,14 +13,23 @@
 //The vector dead_indices can only have sizes 0, 2 or 4 in case the whole CNT conducts, or it has one dead branch or it has two dead branches
 //respectively
 //The vector percolated_indices can only have sizes 0 or 2 in case the CNT does not conduct or it has a conducting segment, respectively
-int Backbone_Network::Determine_backbone_network(const int &family, const vector<int> &cluster, const vector<double> &voltages, const vector<int> &LM_matrix, const vector<vector<long int> > &elements, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, vector<double> &families_lengths, vector<double> &branches_lengths, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices)
+int Backbone_Network::Determine_backbone_network(const int &family, const int &R_flag, const int &tecplot_flag, Direct_Electrifying *DEA, const Electric_para &electric_param, const vector<GCH> &hybrid_particles, const vector<int> &cluster,const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<double> &radii, vector<int> &cluster_gch, vector<double> &families_lengths, vector<double> &branches_lengths, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices, vector<vector<int> > &gnp_dead_indices, vector<vector<int> > &gnp_indices)
 {
     //First check if the percolated cluster has only one CNT, in that case there are no dead branches
     //If the size of the cluster is greater than one, then probably there are branches that need to be removed
     if (cluster.size() > 1) {
+        //Define the 'Zero-cutoff' of the system
+        double zero_cutoff = Zero_current(R_flag, DEA, electric_param, cluster, points_in, radii, hybrid_particles, cluster_gch);
+        
         //Find the dead branches of each CNT in the cluster. Save the information on the vectors dead_indices and percolated_indices
-        if (!Find_dead_branches(voltages, cluster, LM_matrix, elements, structure)) {
-            hout << "Error in Determine_backbone_network" << endl;
+        if (!Find_dead_branches_simplified(DEA->elements, cluster, zero_cutoff)) {
+            hout << "Error in Determine_backbone_network when calling Find_dead_branches" << endl;
+            return 0;
+        }
+        
+        //Find the dead GNPs
+        if (!Find_dead_gnps_simplified(zero_cutoff, cluster_gch, gnp_dead_indices[family], gnp_indices[family])) {
+            hout << "Error in Determine_backbone_network when calling Find_dead_gnps" << endl;
             return 0;
         }
         
@@ -36,11 +45,10 @@ int Backbone_Network::Determine_backbone_network(const int &family, const vector
         //Initialize dead_indices as it needs to have the same size as percolated_indices
         dead_indices.push_back(empty);
     }
-    //hout << "Indices" << endl;
     
     //Use the dead_indices and percolated_indices to calculate the fraction of CNTs that belong to each family
     if (!Calculate_lengths(family, points_in, families_lengths, branches_lengths)) {
-        hout << "Error in Determine_backbone_network" << endl;
+        hout << "Error in Determine_backbone_network when calling Calculate_lengths" << endl;
         return 0;
     }
     //hout << "Calculate_lengths "<<endl;
@@ -51,13 +59,137 @@ int Backbone_Network::Determine_backbone_network(const int &family, const vector
     
     return 1;
 }
-
-
-int Backbone_Network::Find_dead_branches(const vector<double> &voltages, const vector<int> &cluster, const vector<int> &LM_matrix, const vector<vector<long int> > &elements, const vector<vector<long int> > &structure)
+//This function determines the cutoff for "zero current"
+//This step is necessary due to floating point errors
+double Backbone_Network::Zero_current(const int &R_flag, Direct_Electrifying *DEA, const struct Electric_para &electric_param, const vector<int> &cluster, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<GCH> &hybrid_particles, const vector<int> &cluster_gch)
 {
-    //Define the 'Zero-cutoff' of the system
-    double zero_cutoff = Zero_voltage(voltages, cluster, LM_matrix, elements);
+    //Variables used to calculate the current
+    double I, Re;
+    //Variable to store the cutoff for zero voltage
+    double zero_cutoff;
+    //Variables
+    int CNT;
+    long int P1, P2;
+    //Vector to store all the currents
+    vector<double> currents;
+    //Initialize the vectors of element currents and resistances for the CNTs
+    vector<double> empty_double;
+    current_e.assign(cluster.size(), empty_double);
+    resistance_r.assign(cluster.size(), empty_double);
     
+    //Calculate all currents from CNTs
+    for (long int i = 0; i < (long int)cluster.size(); i++) {
+        CNT = cluster[i];
+        for (long int j = 0; j < (long int)DEA->elements[CNT].size()-1; j++) {
+            P1 = DEA->elements[CNT][j];
+            P2 = DEA->elements[CNT][j+1];
+            //Calculate the voltage difference
+            //Temporarily the voltage difference will be the current value, unless the element resistance is not 1
+            I = abs(Voltage_difference(P1, P2, DEA->LM_matrix, DEA->voltages));
+            //Check the resistance flag to use the appropiate resistance
+            //If R_flag is 0, the voltage difference is the current, so I remains the same
+            if (R_flag) {
+                //If R_flag is 1, then use the actual resistance
+                
+                //Calculate the Resistance of the CNT segment
+                Re = DEA->Calculate_resistance_cnt(point_list, P1, P2, radii[CNT], electric_param.resistivity_CF);
+                //Calculate current
+                I = I/Re;
+                //Add resistance to the vector of element resistances
+                resistance_r[i].push_back(Re);
+            }
+            //Add current to vector of all currents
+            currents.push_back(I);
+            //Add current to the vector of element currents
+            current_e[i].push_back(I);
+        }
+    }
+    
+    //Calculate all currents from tunnels
+    for (int i = 0; i < (int)DEA->elements_tunnel.size(); i++) {
+        //Tunnel elements have only two elements per vector
+        P1 = DEA->elements_tunnel[i][0];
+        P2 = DEA->elements_tunnel[i][1];
+        //Calculate the voltage difference
+        //Temporarily the voltage difference will be the current value, unless the element resistance is not 1
+        I = abs(Voltage_difference(P1, P2, DEA->LM_matrix, DEA->voltages));
+        //Check the resistance flag to use the appropiate resistance
+        //If R_flag is 0, the voltage difference is the current, so I remains the same
+        if (R_flag) {
+            //If R_flag is 1, then use the actual resistance
+            
+            //Calculate the Resistance of the tunnel
+            Re = DEA->Calculate_resistance_tunnel(radii, electric_param, point_list[P1], point_list[P2], 0.34);
+            //Calculate current
+            I = I/Re;
+        }
+        //Add current to vector of all currents
+        currents.push_back(I);
+    }
+    
+    //Initialize the vectors of element currents and resistances for the GNPs
+    current_gnp.assign(cluster_gch.size(), empty_double);
+    resistance_gnp.assign(cluster_gch.size(), empty_double);
+    
+    //Calculate currents from GNPs
+    for (int i = 0; i < (int)cluster_gch.size(); i++) {
+        int hyb = cluster_gch[i];
+        //Scan all edges of the triangulation
+        for (int j = 0; j < (int)hybrid_particles[hyb].triangulation.size(); j++) {
+            //Calculate the voltage difference
+            P1 = hybrid_particles[hyb].triangulation[j][0];
+            P2 = hybrid_particles[hyb].triangulation[j][1];
+            //Temporarily the voltage difference will be the current value, unless the element resistance is not 1
+            I = abs(Voltage_difference(P1, P2, DEA->LM_matrix, DEA->voltages));
+            //Check the resistance flag to use the appropiate resistance
+            //If R_flag is 0, the voltage difference is the current, so I remains the same
+            if (R_flag) {
+                //If R_flag is 1, then use the actual resistance
+                
+                //Calculate resistance of the triangulatin edge
+                Re = DEA->Calculate_resistance_gnp(point_list[P1], point_list[P2], radii[point_list[P1].flag], radii[point_list[P2].flag], hybrid_particles[hyb], electric_param);
+                //Calculate current
+                I = I/Re;
+                //Add resistance to the vector of element resistances
+                resistance_gnp[i].push_back(Re);
+            } 
+            //Add current to vector of all currents
+            currents.push_back(I);
+            //Add current to the vector of element currents
+            current_gnp[i].push_back(I);
+        }
+    }
+    
+    //Sort currents
+    sort(currents.begin(),currents.end());
+    
+    //The error cutoff seems to work well with a drop in 9 orders of magnitude of the current. So that is how the cutoff is set.
+    //This idea comes from Li and Chou's paper of the DEA in which using a voltage of 1V, a drop in 9 orders of magnitude
+    //in the current gave good results.
+    zero_cutoff = currents.back()*1e-9;
+    
+    Printer *P = new Printer;
+    if (R_flag) {
+        P->Print_1d_vec(currents, "currents_R.txt");
+    } else {
+        P->Print_1d_vec(currents, "currents.txt");
+    }
+    delete P;
+    
+    return zero_cutoff;
+}
+//This function calculates the voltage difference between two nodes
+double Backbone_Network::Voltage_difference(const long int &P1, const long int &P2, const vector<int> &LM_matrix, const vector<double> &voltages)
+{
+    //Get the node numbers
+    int node1 = LM_matrix[P1];
+    int node2 = LM_matrix[P2];
+    //Calculate the voltage difference
+    return voltages[node2] - voltages[node1];
+}
+//This function scans all CNTs and calculates the currents again, then it decides which CNTs are part of the backbone and which CNTs are not percolated
+int Backbone_Network::Find_dead_branches_simplified(vector<vector<long int> > &elements, const vector<int> &cluster, const double &zero_cutoff)
+{
     //This varibale is used to initialize the vectors below
     vector<long int> empty;
     //This variable will store the begining and end point of the non-conducting branches of each CNT in the cluster
@@ -69,70 +201,69 @@ int Backbone_Network::Find_dead_branches(const vector<double> &voltages, const v
     
     //Variables
     int CNT;
-    long int P1, node1, P2, node2;
-    //Variable for the current
+    //Variables used to calculate the current
     double I;
     
     //Scan all the CNTs that belong to the current cluster
     for (long int i = 0; i < (long int)cluster.size(); i++) {
         CNT = cluster[i];
         //The dead branches are in th extremes of a CNT, they cannot be in the middle.
-        //Hence I just need to check the current of the first and last elements of the CNT
         
-        //Check all elements from the begining until one that carries current is found (if any)
-        for (long int j = 0; j < (long int)elements[CNT].size()-1; j++) {
-            P1 = elements[CNT][j];
-            node1 = LM_matrix[P1];
-            P2 = elements[CNT][j+1];
-            node2 = LM_matrix[P2];
-            I = abs(voltages[node2] - voltages[node1]);
-            //hout << "CNT="<<CNT<<" P1="<<P1<<" node1="<<node1<<" P2="<<P2<<" node2="<<node2<<" I="<<I<<endl;
-            if (I < zero_cutoff){
-                if ( !dead_indices[i].size() ){
-                    //If the vector dead_indices[i] is empty, then push P1 as the first index
-                    dead_indices[i].push_back(P1);
-                    if (percolated_indices[i].size() == 1) {
-                        //if the vector percolated_indices[i] has one element
-                        //then the conducting segment ends and the non-conducting segment starts
-                        //Hence, the conductive segment has last index P1
-                        percolated_indices[i].push_back(P1);
-                        //Also, the rest of the CNT is not-conducting so break the loop
-                        break;
-                    }
-                } else if (dead_indices[i].size() == 2) {
-                    //If the dead_indices[i] vector has size two, it means that there is a middle conducting segment and 2
-                    //non-conducting segments on both ends of the CNT. The only way for dead_indices[i] to have size two is
-                    //that it had size one and a conducting segment was found
-                    //P1 will be the first index of the second segment
-                    dead_indices[i].push_back(P1);
-                    //P1 will be the second index of the conducting segement
-                    percolated_indices[i].push_back(P1);
-                    //If it reaches this part, then there is no point in checking the rest of the CNT, as for sure
-                    //the rest of the CNT is not conducting. Hence, break the loop
-                    break;
-                }
-            } else{
-                if (dead_indices[i].size() == 1){
-                    //If the current is greater than the cutoff and the dead_indices[i] has only one element,
-                    //the non-conducting segment ends and the conducting segment starts
-                    //Hence, the non-conductive segment at the front has as last index P1
-                    dead_indices[i].push_back(P1);
-                }
-                //If the percolated_indices[i] is empty, then P1 is the first index
-                if (!percolated_indices[i].size()) {
-                    percolated_indices[i].push_back(P1);
-                }
+        //Vector to store the elements that have a current above the cutoff
+        vector<double> element_index;
+        //vectors cluster and current_e have the same size
+        for (int j = 0; j < (int)current_e[i].size(); j++) {
+            //Get the element current
+            I = current_e[i][j];
+            if (I > zero_cutoff) {
+                //If the current is above the zero cutoff, add the current j-index to the vector of element_index
+                element_index.push_back(j);
             }
         }
         
-        //Take care of the last point of the CNT
-        P2 = elements[CNT].back();
-        //The last point of the CNT is the second index of the non-conducting segment only if I < zero_cutoff
-        //otherwise it is the second index of the conducting segment
-        if (I < zero_cutoff) {
-            dead_indices[i].push_back(P2);
+        //Variable for the j-index
+        int jj;
+        //----------- Check for a conducting segment -----------
+        if (element_index.size()) {
+            //----------- Add conducting segment -----------
+            //The first point of the conducting segment is given by the first j-index in element_index
+            jj = element_index.front();
+            percolated_indices[i].push_back(elements[CNT][jj]);
+            //The second point of the conducting segment is given by the last j-index in element_index
+            jj = element_index.back();
+            //An element has two indices, and for the conducting segment, I need the second index of the last conducting element
+            //Thus in this case I use jj+1
+            percolated_indices[i].push_back(elements[CNT][jj+1]);
+            
+            //----------- Check for a dead branch on the front -----------
+            //If the first j-index in element_index is NOT 0, then there is a dead brach at the front of the CNT
+            if (element_index.front() != 0) {
+                //The first index of the dead branch is the front of the CNT
+                dead_indices[i].push_back(elements[CNT].front());
+                //The second index is given by the first j-index in element_index
+                jj = element_index.front();
+                dead_indices[i].push_back(elements[CNT][jj]);
+            }
+            
+            //----------- Check for a dead branch on the back -----------
+            //If the last j-index in element_index is NOT current_e[i].size()-1, then there is a dead brach at the back of the CNT
+            if (element_index.back() != (current_e[i].size()-1) ) {
+                //The first index of the dead branch is given by the last j-index in element_index
+                jj = element_index.back();
+                //The last j-index is the first index of the last conducting element
+                //An element has two indices, and for the dead branch, I need the second index of the last conducting element
+                //Thus in this case I use jj+1
+                dead_indices[i].push_back(elements[CNT][jj+1]);
+                //The last index of the dead branch is the back of the CNT
+                dead_indices[i].push_back(elements[CNT].back());
+            }
+            
         } else {
-            percolated_indices[i].push_back(P2);
+            //----------- Whole CNT is a dead branch -----------
+            //If there is no conducting segment, the whole CNT is a dead brach
+            //Thus, add the first and last points of the CNT to the dead indices
+            dead_indices[i].push_back(elements[CNT].front());
+            dead_indices[i].push_back(elements[CNT].back());
         }
         
         //Check that the vectors have the correct size. percolated_indices can only have size 0 or 2
@@ -145,7 +276,7 @@ int Backbone_Network::Find_dead_branches(const vector<double> &voltages, const v
             hout << "\tLast calculated current: "<<I<<", zero cutoff: "<<zero_cutoff<<endl;
             return 0;
         }
-        //Check that the vectors have the corrent size. dead_indices can only have size 0, 2 or 4
+        //Check that the vectors have the correct size. dead_indices can only have size 0, 2 or 4
         if ( (dead_indices[i].size() != 4) && (dead_indices[i].size() != 2) && (dead_indices[i].size() != 0) ) {
             hout << "Error in Find_dead_branches. The vector dead_indices["<<i<<"] has size " << dead_indices[i].size();
             hout << " but it can only have size 0, 2 or 4." <<endl;
@@ -155,82 +286,62 @@ int Backbone_Network::Find_dead_branches(const vector<double> &voltages, const v
             hout << "\tLast calculated current: "<<I<<", zero cutoff: "<<zero_cutoff<<endl;
             return 0;
         }
-
+        
     }
+    
+    //Printer *P = new Printer;
+    //P->Print_2d_vec(percolated_indices, "percolated_indices_simplified.txt");
+    //P->Print_2d_vec(dead_indices, "dead_indices_simplified.txt");
+    //delete P;
     
     return 1;
 }
-
-//This function determines the cutoff for "zero current"
-//This step is necessary due to floating point errors
-double Backbone_Network::Zero_voltage(const vector<double> &voltages, const vector<int> &cluster, const vector<int> &LM_matrix, const vector<vector<long int> > &elements)
+//
+int Backbone_Network::Find_dead_gnps_simplified(const double &zero_cutoff, vector<int> &cluster_gch, vector<int> &gnp_dead_indices, vector<int> &gnp_indices)
 {
-    //Variable for the current
-    double I;
-    //Variable to store the cutoff for zero voltage
-    double zero_cutoff;
     //Variables
-    int CNT;
-    long int P1, node1, P2, node2;
-    //Vector to store the currents
-    vector<double> currents;
+    int hyb;
     
-    //First calculate all currents
-    for (long int i = 0; i < (long int)cluster.size(); i++) {
-        CNT = cluster[i];
-        for (long int j = 0; j < (long int)elements[CNT].size()-1; j++) {
-            P1 = elements[CNT][j];
-            node1 = LM_matrix[P1];
-            P2 = elements[CNT][j+1];
-            node2 = LM_matrix[P2];
-            I = abs(voltages[node2] - voltages[node1]);
-            currents.push_back(I);
-        }
-    }
-    
-    //Sort currents
-    sort(currents.begin(),currents.end());
-    
-    //The error cutoff seems to work well with a drop in 10 orders of magnitude of the current. So that is how the cutoff is set.
-    //This isea comes from Li and Chou's paper of the DEA in which using a voltage of 1V, a drop in 9 orders of magnitude
-    //in the current gave good results.
-    zero_cutoff = currents.back()*1e-9;
-    
-    //This code below was an attempt between the overall drop in magnitude of the current and the gap Li and Chou found.
-    //However it did not worked.
-    //Print1DVec(currents, "currents.txt");
-    //vector<double> cutoffs;
-    /*/Find the cutoff.
-    for(int i = (int) currents.size()-1; i >= 0 ; i--){
-        //Temporarily store the drop in current in the variable zero_cutoff
-        zero_cutoff = currents[i-1]/currents[i];
-        //zero_cutoff = currents[i]/currents.back();
-        //cutoffs.push_back(zero_cutoff);
-        //hout << currents[i-1] << ' ' << currents[i] << ' ' << zero_cutoff << endl;
-        //When there is a jump in the order of magnitude then that is the cutoff for zero current
-        if (zero_cutoff < 1E-4){
-            if (zero_cutoff < 1E-15){
-                //In case the gap is from 1e-X to 0, where is 15 or more, then probably the zero current
-                //should be a drop of ten orders of magnitude as it was before, otherwise, use the
-                //gap to determine the zero cutoff
-                zero_cutoff = currents.front()*1e-10;
-                hout << "Gap in current = ("<<currents[i]<< ", "<<currents[i-1] << "), zero_cutoff = " << zero_cutoff << endl;
-                break;
-            } else {
-                //A large enough drop in the order of magnitude of the current is taken to be the cutoff for "zero current"
-                zero_cutoff = currents[i-1]*10;
-                hout << "Gap in current = ("<<currents[i]<< ", "<<currents[i-1] << "), zero_cutoff = " << zero_cutoff << endl;
+    //Scan every GNP in the cluster
+    //Scan backwards to avoid conflicts with the indices when deleting an element
+    for (int i = 0; i < (int)cluster_gch.size() ; i++) {
+        //Flag to determine if the GNP is part of the backbone or not
+        int percolated = 0;
+        
+        //Current hybrid particle
+        hyb = cluster_gch[i];
+        
+        //hout << "Top triangulation " << i << endl;
+        //Scan every current in the resistors coming from the triangulation
+        //current_gnp and cluster_gch have the same size
+        for (int j = 0; j < (int)current_gnp[i].size(); j++) {
+            //If at least one current (current_gnp[i][j]) is above the cutoff then the GNP is part of the backbone
+            if (current_gnp[i][j] > zero_cutoff) {
+                //Set the percolated flag to 1
+                percolated = 1;
+                
+                //Add the GNP to the vector gnp_indices
+                gnp_indices.push_back(hyb);
+                //Add the GNP to the local vector of percolated GNPs
+                percolated_gnps.push_back(hyb);
+                //There is no need to calculate more currents so break the loop
                 break;
             }
         }
-    }//*/
-    Printer *P = new Printer;
-    P->Print_1d_vec(currents, "currents.txt");
-    //P->Print_1d_vec(cutoffs, "cutoffs.txt");
-    delete P;
-    return zero_cutoff;
+        
+        //Check if the percolated flag was set to 1
+        if (!percolated) {
+            //If not set to one, then add the GNP to the cluster of dead GNPs.
+            gnp_dead_indices.push_back(hyb);            
+        }
+    }
+    
+    //Printer *P = new Printer;
+    //P->Print_1d_vec(percolated_gnps, "percolated_gnps_simplified.txt");
+    //delete P;
+    
+    return 1;
 }
-
 //This vector calculates the lengths of the CNTs that form part of the backbone and the dead branches
 //It is assumed that the vectors are initialized and the quantities calculated for the current cluster are added
 //To the corresponding element of the vector

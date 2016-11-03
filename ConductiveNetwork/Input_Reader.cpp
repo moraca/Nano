@@ -67,12 +67,8 @@ int Input::Read_Infile(ifstream &infile)
 	if(!nanotube_geo.mark) {	cout << "Attention: \"Nanotube_Geometry\" will use default parameters!" << endl; hout << "Attention: \"Nanotube_Geometry\" will use default parameters!" << endl; }
 	if(!cluster_geo.mark) { cout << "Attention: \"Cluster_Geometry\" will use default parameters!" << endl; hout << "Attention: \"Cluster_Geometry\" will use default parameters!" << endl; }
 	if(!cutoff_dist.mark) {	cout << "Attention: \"Cutoff_Distances\" will use default parameters!" << endl; hout << "Attention: \"Cutoff_Distances\" will use default parameters!" << endl; }
-	if(!electric_para.mark) {	cout << "Attention: \"Electrical_Parameters\" will use default parameters!" << endl; hout << "Attention: \"Electrical_Parameters\" will use default parameters!" << endl; }
-    //---------------------------------------------------------------------------------------
-    //-------- AMC
     if(!gnp_geo.mark) {	cout << "Attention: \"GNP_Geometry\" will use default parameters!" << endl; hout << "Attention: \"GNP_Geometry\" will use default parameters!" << endl; }
-    //-------- AMC
-    //---------------------------------------------------------------------------------------
+	if(!electric_para.mark) {	cout << "Attention: \"Electrical_Parameters\" will use default parameters!" << endl; hout << "Attention: \"Electrical_Parameters\" will use default parameters!" << endl; }
 
 	return 1;
 }
@@ -237,9 +233,9 @@ int Input::Read_rve_geometry(struct Geom_RVE &geom_rve, ifstream &infile)
     //Define the type of particles inside the RVE: CNT_wires for CNTs or Hybrid_particles for GNP-CNT hybrid particles
     istringstream istr_perticle_type(Get_Line(infile));
     istr_perticle_type >> geom_rve.particle_type;
-    if (geom_rve.particle_type != "CNT_wires" && geom_rve.particle_type != "Hybrid_particles") {
-        cout << "Error: the type of particles shoud be either CNT_wires or Hybrid_particles." << endl;
-        hout << "Error: the type of particles shoud be either CNT_wires or Hybrid_particles." << endl;
+    if (geom_rve.particle_type != "CNT_wires" && geom_rve.particle_type != "GNP_cuboids" && geom_rve.particle_type != "Hybrid_particles" && geom_rve.particle_type != "GNP_CNT_mix") {
+        cout << "Error: the type of particles shoud be one of the following: CNT_wires, GNP_cuboids, Hybrid_particles or GNP_CNT_mix." << endl;
+        hout << "Error: the type of particles shoud be one of the following: CNT_wires, GNP_cuboids, Hybrid_particles or GNP_CNT_mix." << endl;
         return 0;
     }
     
@@ -381,7 +377,19 @@ int Input::Read_nanotube_geo_parameters(struct Nanotube_Geo &nanotube_geo, ifstr
 	   nanotube_geo.rad_min>3*nanotube_geo.step_length||nanotube_geo.rad_max>0.05*nanotube_geo.len_min)
 	{ hout << "Error: the radius must be non-negative, min must be smaller than max, min must be smaller than 3*step_length and max must be smaller than 0.05*len_min." << endl; return 0; }
 
-	//-----------------------------------------------------------------------------------------------------------------------------------------
+    //---------------------------------------------------------------------------------------
+    //-------- AMC
+    //
+    //Define the density of the CNTs (unit: gm/cm3)
+    istringstream istr_density(Get_Line(infile));
+    istr_density >> nanotube_geo.density;
+    if (nanotube_geo.density <= 0) {
+        hout << "Error: the density has to be a value greater than zero. Input value:" << nanotube_geo.density;
+        hout << "." << endl;
+        return 0;
+    }
+    
+    //-----------------------------------------------------------------------------------------------------------------------------------------
 	//Define the volume or weight fraction of nanotubes in the RVE
 	istringstream istr_cnt_vol(Get_Line(infile));
 	istr_cnt_vol >> nanotube_geo.criterion;
@@ -389,7 +397,7 @@ int Input::Read_nanotube_geo_parameters(struct Nanotube_Geo &nanotube_geo, ifstr
 	{
 		istr_cnt_vol >> nanotube_geo.volume_fraction;
 		if(nanotube_geo.volume_fraction>1||nanotube_geo.volume_fraction<0){ hout << "Error: the volume fraction must be between 0 and 1." << endl; return 0; }
-		hout << "    The volume fraction is "<< nanotube_geo.volume_fraction << endl;
+		hout << "    The CNT volume fraction is "<< nanotube_geo.volume_fraction << endl;
         
 		istr_cnt_vol >> nanotube_geo.accum_mode;
 		if(nanotube_geo.accum_mode<0&&nanotube_geo.accum_mode>2){ hout <<"Error: the mode of accumulation should be between 0 and 2." << endl; return 0; }
@@ -418,17 +426,7 @@ int Input::Read_nanotube_geo_parameters(struct Nanotube_Geo &nanotube_geo, ifstr
 	}
 	else { hout << "Error: the criterian of generation is neither 'vol' nor 'wt'." << endl; return 0; }
     
-    //---------------------------------------------------------------------------------------
-    //-------- AMC
-    //
-    //Define the density of the CNTs (unit: gm/cm3)
-    istringstream istr_density(Get_Line(infile));
-    istr_density >> nanotube_geo.density;
-    if (nanotube_geo.density <= 0) {
-        hout << "Error: the density has to be a value greater than zero. Input value:" << nanotube_geo.density;
-        hout << "." << endl;
-        return 0;
-    }
+
 
 	return 1;
 }
@@ -513,9 +511,29 @@ int Input::Read_electrical_paramters(struct Electric_para &electric_para, ifstre
 	istringstream istr0(Get_Line(infile));
 	istr0 >> electric_para.applied_voltage;		
 
+    //Carbon fiber resistivity
 	istringstream istr1(Get_Line(infile));
 	istr1 >> electric_para.resistivity_CF;
-
+    
+    //GNP resistivities
+    istringstream istr2(Get_Line(infile));
+    istr2 >> electric_para.sheet_resitance_GNP >> electric_para.resistivity_GNP_t >> electric_para.resistivity_GNP_surf;
+    //hout << electric_para.resistivity_GNP_t <<" ,"<<electric_para.resistivity_GNP_surf<<endl;
+    
+    //Polymer matrix resistivity
+    istringstream istr_rho(Get_Line(infile));
+    istr_rho >> electric_para.resistivity_matrix;
+    //hout << "electric_para.resistivity_matrix = " << electric_para.resistivity_matrix << endl;
+    
+    //Electrical constants: electron charge (C), permitivity of vaccum (F/m), CNT work function (V), dielectric constant of polymer
+    //istringstream istr3(Get_Line(infile));
+    //istr3 >> electric_para.e_charge >> electric_para.e0_vacuum >> electric_para.CNT_work_function >> electric_para.K_polymer;
+    
+    //Electrical constants:Planck’s constant (m2kg/s), electron charge (C), electron mass (Kg), height barrier (eV)
+    istringstream istr4(Get_Line(infile));
+    istr4 >> electric_para.h_plank >> electric_para.e_charge >> electric_para.e_mass >> electric_para.lambda_barrier;
+    //hout << electric_para.h_plank <<", "<< electric_para.e_charge <<", "<< electric_para.e_mass <<", "<< electric_para.lambda_barrier << endl;
+    
 	return 1;
 }
 //---------------------------------------------------------------------------------------
@@ -531,6 +549,41 @@ int Input::Read_gnp_geo_paramters(struct GNP_Geo &gnp_geo, ifstream &infile)
         return 0;
     }
     else gnp_geo.mark = true;
+
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+    //Define if the generation of the CNTs on the GNP surface should be either parallel or independent
+    istringstream istr_gnp_grow_type(Get_Line(infile));
+    istr_gnp_grow_type >> gnp_geo.growth_type;
+    if (gnp_geo.growth_type != "parallel" && gnp_geo.growth_type != "independent") {
+        hout << "Error: the growth type of the CNTs on the GNP surface should be either parallel or independent." << endl;
+        hout << "Input was: " << gnp_geo.growth_type << endl;
+        return 0;
+    }
+    
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+    //Define the GNP orientation type (random or specific) in a RVE
+    istringstream istr_initial_orientation(Get_Line(infile));
+    istr_initial_orientation >> gnp_geo.orient_distrib_type;
+    if(gnp_geo.orient_distrib_type!="random"&&gnp_geo.orient_distrib_type!="specific"){ hout << "Error: the GNP orientation type must be either random or specific." << endl;	return 0; }
+    if(gnp_geo.orient_distrib_type=="specific")
+    {
+        istr_initial_orientation  >> gnp_geo.ini_sita >> gnp_geo.ini_pha;
+        if(gnp_geo.ini_sita<0||gnp_geo.ini_sita>PI||gnp_geo.ini_pha<0||gnp_geo.ini_pha>=2*PI)
+        {
+            hout << "Error: the specified angle is not in the acceptable range of (0, 2PI)." << endl;
+            return 0;
+        }
+    }
+    
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+    //Define the step length (unit: micromether) of nanotube growth
+    istringstream istr_step_len(Get_Line(infile));
+    istr_step_len >> gnp_geo.discr_step_length;
+    if(gnp_geo.discr_step_length<=0||
+       gnp_geo.discr_step_length>=0.25*geom_rve.len_x||
+       gnp_geo.discr_step_length>=0.25*geom_rve.wid_y||
+       gnp_geo.discr_step_length>=0.25*geom_rve.hei_z)
+    { hout << "Error: the step length must be positive and 0.25 times lesser than the dimension of the RVE box." << endl;	return 0; }
     
     //-----------------------------------------------------------------------------------------------------------------------------------------
     //Define the distribution type (uniform or normal) of the length and width (unit: micrometer) of GNPs and the range (min, max) of GNPs in a RVE
@@ -556,7 +609,6 @@ int Input::Read_gnp_geo_paramters(struct GNP_Geo &gnp_geo, ifstream &infile)
     if(gnp_geo.mass_ratio <= 0)
     { hout << "Error: the GNP/CNT mass ratio must be a value greater than zero." << endl; return 0; }
     
-
     //-----------------------------------------------------------------------------------------------------------------------------------------
     //Define the density of the CNTs (unit: gm/cm3)
     istringstream istr_density(Get_Line(infile));
@@ -566,6 +618,68 @@ int Input::Read_gnp_geo_paramters(struct GNP_Geo &gnp_geo, ifstream &infile)
         hout << "." << endl;
         return 0;
     }
+    
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+    //Define the volume or weight fraction of GNPs in the RVE
+    istringstream istr_gnp_vol(Get_Line(infile));
+    istr_gnp_vol >> gnp_geo.criterion;
+    if(gnp_geo.criterion=="vol")
+    {
+        //Read the input value to keep the flow of the reading file unaltered
+        istr_gnp_vol >> gnp_geo.volume_fraction;
+        //Check the particle type
+        //Use the input values when a GNP network is used
+        //otherwise if hybrid particle or mix of CNT and GNPs are used, calculate the GNP content based on the mass ratio
+        if (geom_rve.particle_type == "GNP_cuboids" || geom_rve.particle_type == "CNT_wires") {
+            if(gnp_geo.volume_fraction>1||gnp_geo.volume_fraction<0){ hout << "Error: the volume fraction must be between 0 and 1." << endl; return 0; }
+            hout << "    The GNP volume fraction is "<< gnp_geo.volume_fraction << endl;
+        } else {
+            //Calculate the GNP volume fraction
+            gnp_geo.volume_fraction = nanotube_geo.density*nanotube_geo.volume_fraction/(gnp_geo.mass_ratio*gnp_geo.density + nanotube_geo.density);
+            
+            //Adjust the CNT volume fraction
+            nanotube_geo.volume_fraction = nanotube_geo.volume_fraction - gnp_geo.volume_fraction;
+            //Adjust the total volume of the nanotube network
+            nanotube_geo.real_volume = nanotube_geo.volume_fraction*geom_rve.volume;
+            
+            hout << "    Given the CNT/GNP mass ratio of " << gnp_geo.mass_ratio << ", the CNT volume fraction was adjusted to " << nanotube_geo.volume_fraction << endl;
+            hout << "    The GNP volume fraction is " << gnp_geo.volume_fraction <<endl;
+        }
+        
+        //The real volume of GNPs
+        gnp_geo.real_volume = gnp_geo.volume_fraction*geom_rve.volume;
+    }
+    else if(gnp_geo.criterion=="wt")
+    {
+        //Read the input value to keep the flow of the reading file unaltered
+        istr_gnp_vol >> gnp_geo.volume_fraction;
+        //Check the particle type
+        //Use the input values when a GNP network is used
+        //otherwise if hybrid particle or mix of CNT and GNPs are used, calculate the GNP content based on the mass ratio
+        if (geom_rve.particle_type == "GNP_cuboids" || geom_rve.particle_type == "CNT_wires") {
+            if(gnp_geo.weight_fraction>1||gnp_geo.weight_fraction<0){ hout << "Error: the volume fraction must be between 0 and 1." << endl; return 0; }
+            hout << "    The weight fraction is " << gnp_geo.weight_fraction << endl;
+        } else {
+            //Calculate the GNP weight fraction
+            gnp_geo.weight_fraction = nanotube_geo.weight_fraction/(1+gnp_geo.mass_ratio);
+            
+            //Adjust the CNT weight fraction
+            nanotube_geo.weight_fraction = nanotube_geo.weight_fraction - gnp_geo.weight_fraction;
+            //Adjust the real weight of nanotubes
+            nanotube_geo.real_weight = nanotube_geo.weight_fraction*geom_rve.volume*geom_rve.density;
+            
+            hout << "    Given the CNT/GNP mass ratio of " << gnp_geo.mass_ratio << ", the CNT weight fraction was adjusted to " << nanotube_geo.weight_fraction << endl;
+            hout << "    The GNP weight fraction is " << gnp_geo.weight_fraction <<endl;
+        }
+        
+        //The real weight of GNPs
+        gnp_geo.real_weight = gnp_geo.weight_fraction*geom_rve.volume*geom_rve.density;
+    }
+    else {
+        hout << "Error: the criterion of generation is neither 'vol' nor 'wt'. Input was:"<< gnp_geo.criterion << endl;
+        return 0;
+    }
+    
     
     return 1;
 }

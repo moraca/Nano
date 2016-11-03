@@ -233,7 +233,7 @@ int Electrical_analysis::Update_hybrids(const vector<int> &cluster_gch, const ve
 
         //----------------
         //Clear the triangulations
-        hybrid_particles[hyb].triangulation_top.clear();
+        hybrid_particles[hyb].triangulation.clear();
         
     }
     

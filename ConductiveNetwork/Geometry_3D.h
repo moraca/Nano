@@ -125,12 +125,14 @@ class GCH
 {
 public:
     //Data Member
-    cuboid gnp;
-    Point_3D center;
-    MathMatrix rotation;
-    vector<int> cnts_top, cnts_bottom;
-    vector<vector<long int> > triangulation_top, triangulation_bottom;
-    int flag;
+    cuboid gnp;                                 //GNP length, width and height
+    Point_3D center;                            //GNP center
+    MathMatrix rotation;                        //Rotation matrix
+    vector<Point_3D> discrete_gnp;              //Discretization of GNP
+    vector<int> cnts_top, cnts_bottom;          //vectors of CNT number for top and bottom surfaces
+    vector<vector<long int> > triangulation;    //Tringulation edges
+    int flag;                                   //Flag that keeps the sonsecutive numbering of the GNP
+    int type;                                   //Type of particle: 1 for hybrid, 0 for GNP
     
     //Constructor
     GCH(){};

@@ -48,10 +48,11 @@ public:
     void Add_elements_to_sparse_stiffness(const long int &node1, const long int &node2, const double &Re, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal);
     double Calculate_resistance_cnt(const vector<Point_3D> &point_list, const long int &P1, const long int &P2, const double &radius, const double &resistivity);
     double Calculate_resistance_tunnel(const vector<double> &radii, const struct Electric_para &electric_param, const Point_3D &P1, const Point_3D &P2, const double &d_vdw);
-    double Calculate_resistance_gnp(const Point_3D &P1, const Point_3D &P2, const double &width, const double &sheet_resistance);
+    double Calculate_resistance_gnp(const Point_3D &P1, const Point_3D &P2, const double &rad1, const double &rad2, const GCH &hybrid, const struct Electric_para &electric_param);
     void Remove_from_vector(long int num, vector<long int> &vec);
-    int Check_repeated_col_ind_2d(const vector<vector<long int> > &structure, vector<vector<long int> > &contacts_point, const vector<Point_3D> &point_list, const vector<int> &LM_matrix, const vector<vector<long int> > &col_ind_2d, const int &nodes);
-    void Find_repeated_elements(const vector<long int> &vector_in, vector<long int> &elements);
+    int Check_repeated_col_ind_2d(const int &nodes, const vector<vector<long int> > &structure, vector<vector<long int> > &contacts_point, const vector<Point_3D> &point_list, const vector<int> &LM_matrix, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d);
+    void Find_repeated_elements(const vector<long int> &vector_in, vector<long int> &elements, vector<int> &indices);
+    int Export_matlab_sparse_matrix(const vector<vector<long int> > &col_ind_2d, const vector<vector<double> > &values_2d, const vector<double> &diagonal, const string &filename);
     void From_2d_to_1d_vectors(const vector<vector<long int> > &col_ind_2d, const vector<vector<double> > &values_2d, vector<vector<double> > &KEFT, vector<long int> &col_ind, vector<long int> &row_ptr, vector<double> &values, vector<double> &diagonal);
     int Solve_DEA_equations_CG_SSS(const int &R_flag, long int nodes, const vector<long int> &col_ind, const vector<long int> &row_ptr, const vector<double> &values, const vector<double> &diagonal, const struct Electric_para &electric_param, vector<vector<double> > &KEFT);
     void Get_voltage_vector(const double &nodes, vector<double> &voltages);

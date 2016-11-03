@@ -35,7 +35,7 @@ class Tecplot_Export
         //The geometric structure of CNT network (by quadrilaterial elements in Tecplot) with a specific filename. This function uses a 1D point vector, a 2D structure vector that references the point vector and a vector of hybrid particles
         int Export_cnt_network_meshes(const struct cuboid &cub, const vector<Point_3D> &cnts_points, const vector<double> &cnts_radius, const vector<GCH> &hybrid_particles, const vector<int> &gnp_cluster, const vector<vector<long int> > &structure, string filename)const;
 
-	private:
+	//private:
 		//Export a 3D cuboid
 		int Export_cuboid(ofstream &otec, const struct cuboid &cub)const;
 		//Export 3D nanotube threads

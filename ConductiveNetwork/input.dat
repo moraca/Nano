@@ -29,7 +29,11 @@ Create_Network
 %Define the geometric and related parameters of RVE
 RVE_Geometry
 %--------------------------------To start
-%Define the type of particles inside the RVE: CNT_wires for CNTs or Hybrid_particles for GNP-CNT hybrid particles
+%Define the type of particles inside the RVE: 
+%CNT_wires for CNTs,
+%GNP_cuboids for GNPs,
+%GNP_CNT_mix for CNTs and GNPs non-hybrid mixed fillers, or 
+%Hybrid_particles for GNP-CNT hybrid particles
 Hybrid_particles
 %CNT_wires
 %Define the domain of RVE: the lower-left corner point of RVE and the length, width and height of RVE
@@ -77,6 +81,8 @@ uniform 1.000000 1.000000
 %Define the distribution type (uniform or normal) of the radius (unit: micrometer) of nanotubes and the radius range (min, max) of nanotubes in a RVE
 %If you input "uniform", that means it satisfies the uniform distribution, or if you input "normal", that means it satisfies the normal distribution
 uniform 0.005000 0.005000
+%Define the density of the CNTs (unit: gm/cm3)
+1.78
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
 %Define the volume or weight fraction of nanotubes in the RVE
 %If you input "vol", the volume fraction is the criterion and the mode of accumulation, for example: vol 0.01 0
@@ -84,8 +90,6 @@ uniform 0.005000 0.005000
 %the mode of accumulation: 0 means every sample uses the same fraction; 1 or 2 mean every sample uses the accumulated fraction by different ways
 %wt 0.005 0 5.8E-5 1.06
 vol 0.001000 0
-%Define the density of the CNTs (unit: gm/cm3)
-1.78
 %--------------------------------To end
 %
 %
@@ -115,6 +119,15 @@ GNP_Geometry
 %--------------------------------To start
 %Define if the generation of the CNTs on the GNP surface should be parallel or independent
 independent
+%Define the GNP orientation type (random or specific) in a RVE
+%If you input "random", that means the GNP orientation is random
+%If you input "specific", that means the GNP orientation is along a specific direction
+%and please input the direction angles (in spherical coordinates) if you input "specific" type, for example: specific 0 0
+random
+%specific 0 0
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%Define the step length (unit: micrometer) for discretization of the GNP
+0.01
 %Define the distribution type (uniform or normal) of the length and width (unit: micrometer) of GNPs and the range (min, max) of GNPs in a RVE
 %If you input "uniform", that means it satisfies the uniform distribution, or if you input "normal", that means it satisfies the normal distribution
 uniform 4.000000 4.000000
@@ -123,10 +136,16 @@ uniform 4.000000 4.000000
 %If you input "uniform", that means it satisfies the uniform distribution, or if you input "normal", that means it satisfies the normal distribution
 uniform 0.03 0.03
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
-%Define the mass ratio of GNP/nanotubes in the RVE
+%Define the mass ratio of CNTs/GNPs in the RVE
 1.0
 %Define the density of the GNPs (unit: gm/cm3)
 2.25
+%------------------------------------------------------------------------------------------------------------------------------------------------------------
+%Define the volume or weight fraction of GNPs in the RVE
+%If you input "vol", the volume fraction is the criterion, for example: vol 0.01
+%or if you input "wt", the weight fraction is the criterion 
+%wt 0.005
+vol 0.001000 
 %-------------------------------- To end
 %
 %========================================================================================================
