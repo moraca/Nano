@@ -8,7 +8,7 @@
 
 #include "Electrical_analysis.h"
 
-int Electrical_analysis::Perform_analysis_on_clusters(const int &iteration, const vector<int> &family, Hoshen_Kopelman *HoKo, const vector<vector<long int> > &structure, const vector<vector<short int> > &boundary_flags, const vector<vector<int> > &boundary_cnt, const vector<Point_3D> &point_list, const vector<double> &radii, const struct Geom_RVE &geom_rve, const struct Electric_para &electric_param, const struct Cutoff_dist &cutoffs, vector<GCH> &hybrid_particles, vector<double> &families_lengths, vector<double> &branches_lengths, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices, vector<vector<int> > &gnp_dead_indices, vector<vector<int> > &gnp_indices)
+int Electrical_analysis::Perform_analysis_on_clusters(const int &iteration, const vector<int> &family, Hoshen_Kopelman *HoKo, Cutoff_Wins *Cutwins, const vector<vector<long int> > &structure, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<vector<long int> > &structure_gnp, const vector<Point_3D> &point_list_gnp, const struct Geom_RVE &geom_rve, const struct Electric_para &electric_param, const struct Cutoff_dist &cutoffs, vector<GCH> &hybrid_particles, vector<double> &families_lengths, vector<double> &branches_lengths, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices, vector<vector<int> > &gnp_dead_indices, vector<vector<int> > &gnp_indices)
 {
     //Time variables
     time_t ct0, ct1;
@@ -19,21 +19,37 @@ int Electrical_analysis::Perform_analysis_on_clusters(const int &iteration, cons
     vector<double> empty_double;
     vector<vector<double> > paralel_resistors(3, empty_double);
     
-    //hout << "clusters_cnt.size()="<<HoKo->clusters_cnt.size()<<endl;
+    //Get the number of clusters
+    int n_clusters = 0;
+    //hout<<"clusters_cnt.size()="<<clusters_cnt.size()<<endl;
+    //hout<<"clusters_gch()="<<clusters_gch.size()<<endl;
+    if (HoKo->clusters_cnt.size()) {
+        n_clusters = (int)HoKo->clusters_cnt.size();
+        
+    } else if (HoKo->clusters_gch.size()) {
+        n_clusters = (int)HoKo->clusters_gch.size();
+    }
+    
     //Scan every percolated cluster
-    for (int j = 0; j < (int)HoKo->clusters_cnt.size(); j++) {
+    for (int j = 0; j < n_clusters; j++) {
         //-----------------------------------------------------------------------------------------------------------------------------------------
         //Current iteration
         hout << "=============================" <<endl;
-        hout << "Cluster " << j+1 << " of " << HoKo->clusters_cnt.size() << endl;
+        hout << "Cluster " << j+1 << " of " << n_clusters <<", family " << family[j] << endl;
         
         //-----------------------------------------------------------------------------------------------------------------------------------------
         //Direct Electrifying algorithm
         Direct_Electrifying *DEA = new Direct_Electrifying;
+        
+        //Resitor flag, set to 0 to use unit resistors
         int R_flag = 0;
-        vector<vector<long int> > contacts_tmp = HoKo->contacts_point;
+        
+        //Keep a copy
+        vector<vector<long int> > contacts_initial(HoKo->contacts_point);
+        //hout << "contacts_initial" << endl;
+        
         ct0 = time(NULL);
-        if(!DEA->Calculate_voltage_field(family[j], R_flag, structure, contacts_tmp, boundary_flags, point_list, HoKo->clusters_cnt[j], HoKo->clusters_gch[j], radii, electric_param, cutoffs, hybrid_particles)) {
+        if (!DEA->Calculate_voltage_field(family[j], j, R_flag, HoKo, Cutwins, structure, point_list, radii, structure_gnp, point_list_gnp, electric_param, cutoffs, hybrid_particles)) {
             hout << "Error in Perform_analysis_on_cluster when calling DEA->Calculate_voltage_field using unit resistances" << endl;
             return 0;
         }
@@ -44,70 +60,22 @@ int Electrical_analysis::Perform_analysis_on_clusters(const int &iteration, cons
         //Determine the backbone and dead branches
         Backbone_Network *Backbonet = new Backbone_Network;
         ct0 = time(NULL);
-        if (Backbonet->Determine_backbone_network(family[j], R_flag, 1, DEA, electric_param, hybrid_particles, HoKo->clusters_cnt[j], structure, point_list, radii, HoKo->clusters_gch[j], families_lengths, branches_lengths, all_dead_indices, all_indices, gnp_dead_indices, gnp_indices)==0) return 0;
+        if (!Backbonet->Determine_backbone_network(family[j], j, R_flag, 1, DEA, HoKo, electric_param, cutoffs, structure, point_list, radii, structure_gnp, point_list_gnp, hybrid_particles, families_lengths, branches_lengths, all_dead_indices, all_indices, gnp_dead_indices, gnp_indices)) {
+            hout << "Error in Perform_analysis_on_cluster when calling Determine_backbone_network" << endl;
+            return 0;
+        }
         ct1 = time(NULL);
         hout << "Determine backbone network time: "<<(int)(ct1-ct0)<<" secs."<<endl;
         
         //-----------------------------------------------------------------------------------------------------------------------------------------
-        //Get the vector of directions
-        ct0 = time(NULL);
-        vector<int> directions;
-        if (!Vector_of_directions(family[j], directions)) {
-            hout << "Error in Perform_analysis_on_cluster when calling Vector_of_directions" << endl;
-            return 0;
-        }
-        ct1 = time(NULL);
-        hout << "Vector_of_directions time: "<<(int)(ct1-ct0)<<" secs."<<endl;
-        
+        //Set now the R_flag to 1 to indicate that actual resistances will be used
         R_flag = 1;
         
-        //Calculate the electrical resistance per direction
-        for (int k = 0; k < (int)directions.size(); k++) {
-            //-----------------------------------------------------------------------------------------------------------------------------------------
-            //Direct Electrifying algorithm to calculate electrical resistance
-            Direct_Electrifying *DEA_Re = new Direct_Electrifying;
-            
-            //Reset the vector of contacts
-            contacts_tmp.clear();
-            contacts_tmp = HoKo->contacts_point;
-            
-            //Generate a structure vector
-            vector<long int> empty_long;
-            vector<vector<long int> > backbone_structure(structure.size(), empty_long);
-            vector<int> backbone_cnts;
-            if (!Convert_index_to_structure(HoKo->clusters_cnt[j], Backbonet->percolated_indices, backbone_structure, backbone_cnts)) {
-                hout << "Error in Perform_analysis_on_cluster when calling Convert_index_to_structure" << endl;
-                return 0;
-            }
-            hout << "Convert_index_to_structure" << endl;
-            
-            //Update the hybrid particles that belong to the backbone
-            if (!Update_hybrids(Backbonet->percolated_gnps, structure, backbone_structure, hybrid_particles)) {
-                hout << "Error in Perform_analysis_on_cluster when calling Update_hybrids" << endl;
-                return 0;
-            }
-            hout << "Update_hybrids" << endl;
-            
-            //Run a new DEA to obtain the new voltage field in the backbone using the actual resistances
-            ct0 = time(NULL);
-            if(!DEA_Re->Calculate_voltage_field(directions[k], R_flag, backbone_structure, contacts_tmp, boundary_flags, point_list, backbone_cnts, Backbonet->percolated_gnps, radii, electric_param, cutoffs, hybrid_particles)) {
-                hout << "Error in Perform_analysis_on_cluster when calling DEA->Calculate_voltage_field using actual resistances" << endl;
-                return 0;
-            }
-            ct1 = time(NULL);
-            hout << "Calculate_voltage_field time: "<<(int)(ct1-ct0)<<" secs."<<endl;
-            
-            //With the new voltage field calculate the current going through a face and calculate the resistance along that direction
-            if (!Calculate_parallel_resistor(directions[k], DEA_Re, point_list, radii, boundary_cnt, electric_param, paralel_resistors)) {
-                hout << "Error in Perform_analysis_on_cluster when calling Calculate_parallel_resistor" << endl;
-                return 0;
-            }
-            hout << "Calculate_parallel_resistor" << endl;
-            
-            //Delete object to free memory
-            delete DEA_Re;
-            
-        }//*/
+        //Calculate the electrical resistances along each direction for current clusters
+        if (!Electrical_analysis_along_each_percolated_direction(R_flag, j, family, HoKo, Cutwins, Backbonet, electric_param, cutoffs, structure, point_list, radii, contacts_initial, structure_gnp, point_list_gnp, hybrid_particles, paralel_resistors)) {
+            hout << "Error in Perform_analysis_on_cluster when calling Electrical_analysis_along_each_percolated_direction" << endl;
+            return 0;
+        }
         
         //Delete objects to free memory
         delete DEA;
@@ -121,16 +89,99 @@ int Electrical_analysis::Perform_analysis_on_clusters(const int &iteration, cons
         return 0;
     }
     
-    //Calculate the resistance on each direction
-    if (!Calculate_resistances(matrix_resistances, paralel_resistors, resistors)) {
-        hout << "Error in Perform_analysis_on_cluster when calling Calculate_parallel_resistor" << endl;
+    //Calculate the resistances and resistivities along each direction
+    vector<double> resistivities;
+    if (!Calculate_resistances_and_resistivities(geom_rve, matrix_resistances, paralel_resistors, resistors, resistivities)) {
+        hout << "Error in Perform_analysis_on_cluster when calling Calculate_resistances_and_resistivities" << endl;
         return 0;
     }
     
-    //Save resistors to a file
+    //Append resistors to a file
     Printer *P = new Printer;
-    P->Print_1d_vec(resistors, "resistors.txt");
+    P->Append_1d_vec(resistors, "resistors.txt");
+    P->Append_1d_vec(resistivities, "resistivities.txt");
     delete P;
+    
+    return 1;
+}
+//
+int Electrical_analysis::Electrical_analysis_along_each_percolated_direction (const int &R_flag, const int &n_cluser, const vector<int> &family, Hoshen_Kopelman *HoKo, Cutoff_Wins *Cutwins, Backbone_Network *Backbonet, const struct Electric_para &electric_param, const struct Cutoff_dist &cutoffs, const vector<vector<long int> > &structure, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<vector<long int> > &contacts_initial, const vector<vector<long int> > &structure_gnp, const vector<Point_3D> &point_list_gnp, vector<GCH> &hybrid_particles, vector<vector<double> > &paralel_resistors)
+{
+    //Time variables
+    time_t ct0, ct1;
+    
+    //-----------------------------------------------------------------------------------------------------------------------------------------
+    //Get the vector of directions
+    ct0 = time(NULL);
+    vector<int> directions;
+    if (!Vector_of_directions(family[n_cluser], directions)) {
+        hout << "Error in Perform_analysis_on_cluster when calling Vector_of_directions" << endl;
+        return 0;
+    }
+    ct1 = time(NULL);
+    hout << "Vector_of_directions time: "<<(int)(ct1-ct0)<<" secs."<<endl;
+    
+    //Set now the R_flag to 1 to indicate that actual resistances will be used
+    //R_flag = 1;
+    
+    //Calculate the electrical resistance per direction
+    for (int k = 0; k < (int)directions.size(); k++) {
+        //-----------------------------------------------------------------------------------------------------------------------------------------
+        //Direct Electrifying algorithm to calculate electrical resistance
+        Direct_Electrifying *DEA_Re = new Direct_Electrifying;
+        
+        //Generate a structure vector
+        vector<long int> empty_long;
+        vector<vector<long int> > backbone_structure(structure.size(), empty_long);
+        vector<int> backbone_cnts;
+        //First check if there are CNTs in the cluster
+        if (HoKo->clusters_cnt.size() && HoKo->clusters_cnt[n_cluser].size()) {
+            if (!Convert_index_to_structure(HoKo->clusters_cnt[n_cluser], Backbonet->percolated_indices, backbone_structure, backbone_cnts)) {
+                hout << "Error in Perform_analysis_on_cluster when calling Convert_index_to_structure" << endl;
+                return 0;
+            }
+            //hout << "Convert_index_to_structure" << endl;
+        }
+        
+        
+        //Update the hybrid particles that belong to the backbone
+        if (!Update_hybrids(Backbonet->percolated_gnps, structure, backbone_structure, hybrid_particles)) {
+            hout << "Error in Perform_analysis_on_cluster when calling Update_hybrids" << endl;
+            return 0;
+        }
+        //hout << "Update_hybrids" << endl;
+        
+        //Temporary HoKo and Cutwins
+        Hoshen_Kopelman *HoKo_Re = new Hoshen_Kopelman;
+        Cutoff_Wins *Cutwins_Re = new Cutoff_Wins;
+        if (!Update_vectors_for_hoko_cutwins((int)structure.size(), (int)structure_gnp.size(), HoKo, Cutwins, HoKo_Re, Cutwins_Re, contacts_initial, backbone_cnts, Backbonet->percolated_gnps)) {
+            hout << "Error in Perform_analysis_on_cluster when calling Update_vectors_for_hoko_cutwins" << endl;
+            return 0;
+        }
+        //hout << "Update_vectors_for_hoko_cutwins" << endl;
+        
+        //Run a new DEA to obtain the new voltage field in the backbone using the actual resistances
+        ct0 = time(NULL);
+        if (!DEA_Re->Calculate_voltage_field(directions[k], 0, R_flag, HoKo_Re, Cutwins_Re, backbone_structure, point_list, radii, structure_gnp, point_list_gnp, electric_param, cutoffs, hybrid_particles)) {
+            hout << "Error in Perform_analysis_on_cluster when calling DEA_Re->Calculate_voltage_field using actual resistances" << endl;
+            return 0;
+        }
+        ct1 = time(NULL);
+        hout << "Calculate_voltage_field in Electrical_analysis_along_each_percolated_direction time: "<<(int)(ct1-ct0)<<" secs."<<endl;
+        
+        //With the new voltage field calculate the current going through a face and calculate the resistance along that direction
+        if (!Calculate_parallel_resistor(directions[k], DEA_Re, point_list, radii, HoKo->clusters_cnt, Cutwins_Re->boundary_cnt, point_list_gnp, hybrid_particles, HoKo->clusters_gch, Cutwins_Re->boundary_gnp, Cutwins_Re->boundary_flags_gnp, electric_param, paralel_resistors)) {
+            hout << "Error in Perform_analysis_on_cluster when calling Calculate_parallel_resistor" << endl;
+            return 0;
+        }
+        //hout << "Calculate_parallel_resistor" << endl;
+        
+        //Delete objects to free memory
+        delete DEA_Re;
+        delete HoKo_Re;
+        delete Cutwins_Re;
+        
+    }//*/
     
     return 1;
 }
@@ -231,11 +282,89 @@ int Electrical_analysis::Update_hybrids(const vector<int> &cluster_gch, const ve
             }
         }
 
-        //----------------
-        //Clear the triangulations
-        hybrid_particles[hyb].triangulation.clear();
+    }
+    
+    //When more than one percolated clusters are present, the triangulation for a GNP of one cluster
+    //might be used when calculating the current of another cluster
+    //Thus, clear all triangulations
+    for (int i = 0; i < (int)hybrid_particles.size(); i++) {
+        
+        hybrid_particles[i].triangulation.clear();
+        hybrid_particles[i].triangulation_flags.clear();
         
     }
+    
+    return 1;
+}
+//
+int Electrical_analysis::Update_vectors_for_hoko_cutwins(const int &n_cnts, const int &n_gnps, Hoshen_Kopelman *HoKo, Cutoff_Wins *Cutwins, Hoshen_Kopelman *HoKo_Re, Cutoff_Wins *Cutwins_Re, const vector<vector<long int> > &contacts_initial, const vector<int> &backbone_cnts, const vector<int> &percolated_gnps)
+{
+    //Update vectors of temporary HoKo and Cutwins
+    HoKo_Re->contacts_point = contacts_initial;
+    if (backbone_cnts.size())
+        HoKo_Re->clusters_cnt.push_back(backbone_cnts);
+    if (percolated_gnps.size())
+        HoKo_Re->clusters_gch.push_back(percolated_gnps);
+    Cutwins_Re->boundary_cnt = Cutwins->boundary_cnt;
+    Cutwins_Re->boundary_gnp = Cutwins->boundary_gnp;
+    Cutwins_Re->boundary_flags_cnt = Cutwins->boundary_flags_cnt;
+    Cutwins_Re->boundary_flags_gnp = Cutwins->boundary_flags_gnp;
+    
+    //Vector flags to determine CNTs and GNPs in the cluster
+    vector<short int> cnt_cluster_flags(n_cnts, 0), gnp_cluster_flags(n_gnps, 0);
+    
+    //Fill flags
+    for (int i = 0; i < (int)backbone_cnts.size(); i++) {
+        
+        //Current CNT
+        int CNT = backbone_cnts[i];
+        
+        //Set flag
+        cnt_cluster_flags[CNT] = 1;
+    }
+    for (int i = 0; i < (int)percolated_gnps.size(); i++) {
+        
+        //Current GNP
+        int GNP = percolated_gnps[i];
+        
+        //Set flag
+        gnp_cluster_flags[GNP] = 1;
+    }
+    
+    //Update gnp contact vectors
+    for (int i = 0; i < (int)HoKo->gnp_contacts.size(); i++) {
+        
+        //Get the GNP numbers
+        int GNP1 = HoKo->gnp_contacts[i].particle1;
+        int GNP2 = HoKo->gnp_contacts[i].particle2;
+        
+        //Check if both GNPs are part of the cluster
+        if (gnp_cluster_flags[GNP1] && gnp_cluster_flags[GNP2]) {
+            
+            //If both GNPs are in the cluster, then add the contact
+            HoKo_Re->gnp_contacts.push_back(HoKo->gnp_contacts[i]);
+        }
+    }
+    
+    //Update mixed contact vectors
+    for (int i = 0; i < (int)HoKo->mixed_contacts.size(); i++) {
+        
+        //Get the CNT and GNP numbers
+        int CNT = HoKo->mixed_contacts[i].particle1;
+        int GNP = HoKo->mixed_contacts[i].particle2;
+        
+        //Check if both GNPs are part of the cluster
+        if (cnt_cluster_flags[CNT] && gnp_cluster_flags[GNP]) {
+            
+            //If both GNPs are in the cluster, then add the contact
+            HoKo_Re->mixed_contacts.push_back(HoKo->mixed_contacts[i]);
+        }
+    }
+    
+    Printer *P =  new Printer;
+    P->Print_1d_vec(HoKo->gnp_contacts, "gnp_contacts_unit.txt");
+    P->Print_1d_vec(HoKo_Re->gnp_contacts, "gnp_contacts_R.txt");
+    delete P;
     
     return 1;
 }
@@ -247,73 +376,150 @@ int Electrical_analysis::Update_hybrids(const vector<int> &cluster_gch, const ve
 //4,5 for Z boundaries
 //Thus 2*direction will be 0, 2 or 4, i.e. the first boundary on each direction
 //Then, 2*direction+1 will be 1, 3 or 5, i.e. the second boundary on each direction
-int Electrical_analysis::Calculate_parallel_resistor(const int &direction, Direct_Electrifying * DEA, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<vector<int> > &boundary_cnt, const struct Electric_para &electric_param, vector<vector<double> > &paralel_resistors)
+int Electrical_analysis::Calculate_parallel_resistor(const int &direction, Direct_Electrifying * DEA, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<vector<int> > &clusters_cnt, const vector<vector<int> > &boundary_cnt, const vector<Point_3D> &point_list_gnp, const vector<GCH> &hybrid_particles, const vector<vector<int> > &clusters_gnp, const vector<vector<int> > &boundary_gnp, const vector<vector<short int> > &boundary_flags_gnp, const struct Electric_para &electric_param, vector<vector<double> > &paralel_resistors)
 {
-    //If any of the two boundary vectors has no CNTs there is an error as there cannot be perclation in this direction
-    if (!boundary_cnt[2*direction].size() || !boundary_cnt[2*direction+1].size()) {
-        hout << "One boundary vector along direction " << direction << " is empty, so there cannot be percolation along that direction."<< endl;
-        hout << "\t boundary_cnt[" << 2*direction << "].size() = " << boundary_cnt[2*direction].size() << endl;
-        hout << "\t boundary_cnt[" << 2*direction+1 << "].size() = " << boundary_cnt[2*direction+1].size() << endl;
-        return 0;
+    //Currents from CNTs
+    double I_total_cnt = 0;
+    double I_total_cnt_check = 0;
+    
+    //Currents from GNPS
+    double I_total_gnp = 0;
+    double I_total_gnp_check = 0;
+
+    
+    //---------------- Currents through CNTs
+    //Check if there are CNTs in the cluster
+    if (clusters_cnt.size()) {
+        
+        //If any of the two boundary vectors has no CNTs there is an error as there cannot be perclation in this direction
+        if (!boundary_cnt[2*direction].size() || !boundary_cnt[2*direction+1].size()) {
+            hout << "One boundary vector along direction " << direction << " is empty, so there cannot be percolation along that direction."<< endl;
+            hout << "\t boundary_cnt[" << 2*direction << "].size() = " << boundary_cnt[2*direction].size() << endl;
+            hout << "\t boundary_cnt[" << 2*direction+1 << "].size() = " << boundary_cnt[2*direction+1].size() << endl;
+            return 0;
+        }
+        
+        long int P1, P2;
+        
+        //Scan all CNTs at the boundary
+        for (int i = 0; i < (int)boundary_cnt[2*direction].size(); i++) {
+            //Current CNT
+            int CNT = boundary_cnt[2*direction][i];
+            
+            //Some CNTs on the boundary might not be part of the backbone or the geometric cluster
+            //First check if there are any elements on the CNT, if there are no elements there, skip the CNT
+            if (DEA->elements[CNT].size()) {
+                //Check if the front and/or back of the CNT are in contact with the boundary
+                
+                //Get the points of the element at the front of the CNT
+                P1 = DEA->elements[CNT].front();
+                P2 = DEA->elements[CNT][1];
+                //Add the current of the element at the front of the CNT
+                I_total_cnt = I_total_cnt + Current_of_element_in_boundary(P1, P2, radii[CNT], DEA, electric_param, point_list);
+                
+                //Get the points of the element at the back of the CNT
+                P1 = DEA->elements[CNT].back();
+                int size = (int)DEA->elements[CNT].size();
+                P2 = DEA->elements[CNT][size-2];
+                //Add the current of the element at the front of the CNT
+                I_total_cnt = I_total_cnt + Current_of_element_in_boundary(P1, P2, radii[CNT], DEA, electric_param, point_list);
+                
+            }
+        }
+        
+        //=========================== CURRENT Check
+        //hout <<"//=========================== CURRENT Check"<<endl;
+        //Scan all CNTs at the boundary
+        for (int i = 0; i < (int)boundary_cnt[2*direction+1].size(); i++) {
+            //Current CNT
+            int CNT = boundary_cnt[2*direction+1][i];
+            
+            //Some CNTs on the boundary might not be part of the backbone or the geometric cluster
+            //First check if there are any elements on the CNT, if there are no elements there, skip the CNT
+            if (DEA->elements[CNT].size()) {
+                //Check if the front and/or back of the CNT are in contact with the boundary
+                
+                //Get the points of the element at the front of the CNT
+                P1 = DEA->elements[CNT].front();
+                P2 = DEA->elements[CNT][1];
+                //Add the current of the element at the front of the CNT
+                I_total_cnt_check = I_total_cnt_check + Current_of_element_in_boundary(P1, P2, radii[CNT], DEA, electric_param, point_list);
+                
+                //Get the points of the element at the back of the CNT
+                P1 = DEA->elements[CNT].back();
+                int size = (int)DEA->elements[CNT].size();
+                P2 = DEA->elements[CNT][size-2];
+                //Add the current of the element at the front of the CNT
+                I_total_cnt_check = I_total_cnt_check + Current_of_element_in_boundary(P1, P2, radii[CNT], DEA, electric_param, point_list);
+                
+            }
+        }
+        
+        hout << "I_total_cnt="<<I_total_cnt<<" direction="<<direction<<endl;
+        hout << "I_total_cnt_check="<<I_total_cnt_check<<" direction="<<direction<<endl;
+        
     }
     
-    double I_total = 0;
-    long int P1, P2;
-    
-    //Scan all CNTs at the boundary
-    for (int i = 0; i < (int)boundary_cnt[2*direction].size(); i++) {
-        //Current CNT
-        int CNT = boundary_cnt[2*direction][i];
+    //---------------- Currents through GNPs
+    //Check if there are GNPs in the cluster
+    if (clusters_gnp.size()) {
         
-        //Some CNTs on the boundary might not be part of the backbone or the geometric cluster
-        //First check if there are any elements on the CNT, if there are no elements there, skip the CNT
-        if (DEA->elements[CNT].size()) {
-            //Check if the front and/or back of the CNT are in contact with the boundary
+        //If any of the two boundary vectors has no CNTs there is an error as there cannot be perclation in this direction
+        if (!boundary_gnp[2*direction].size() || !boundary_gnp[2*direction+1].size()) {
+            hout << "One boundary vector along direction " << direction << " is empty, so there cannot be percolation along that direction."<< endl;
+            hout << "\t boundary_gnp[" << 2*direction << "].size() = " << boundary_gnp[2*direction].size() << endl;
+            hout << "\t boundary_gnp[" << 2*direction+1 << "].size() = " << boundary_gnp[2*direction+1].size() << endl;
+            return 0;
+        }
+        
+        //hout << "Current GNP" << endl;
+        //Scan all GNPs at the boundary
+        for (int i = 0; i < (int)boundary_gnp[2*direction].size(); i++) {
             
-            //Get the points of the element at the front of the CNT
-            P1 = DEA->elements[CNT].front();
-            P2 = DEA->elements[CNT][1];
-            //Add the current of the element at the front of the CNT
-            I_total = I_total + Current_of_element_in_boundary(P1, P2, radii[CNT], DEA, electric_param, point_list);
+            //Current GNP
+            int GNP = boundary_gnp[2*direction][i];
             
-            //Get the points of the element at the back of the CNT
-            P1 = DEA->elements[CNT].back();
-            int size = (int)DEA->elements[CNT].size();
-            P2 = DEA->elements[CNT][size-2];
-            //Add the current of the element at the front of the CNT
-            I_total = I_total + Current_of_element_in_boundary(P1, P2, radii[CNT], DEA, electric_param, point_list);
+            //Some GNPs on the boundary might not be part of the backbone or the geometric cluster
+            //First check if there are any triangulation edges on the GNP, if there are no edges there, skip the GNP
+            if (hybrid_particles[GNP].triangulation.size()) {
+                
+                //hout << "GNP="<<GNP<<" dir="<<direction<<" boundary="<<2*direction<<endl;
+                
+                //Add the currents from the triangulation edges at the boundary
+                I_total_gnp = I_total_gnp + Current_of_edges_in_boundary(0, DEA, electric_param, point_list, radii, point_list_gnp, hybrid_particles[GNP]);
+                
+            }
+        }
+        
+        
+        //=========================== CURRENT Check GNP
+        hout <<"//=========================== CURRENT Check GNP"<<endl;
+        //Scan all GNPs at the boundary
+        for (int i = 0; i < (int)boundary_gnp[2*direction+1].size(); i++) {
+            
+            //Current GNP
+            int GNP = boundary_gnp[2*direction+1][i];
+            
+            //Some GNPs on the boundary might not be part of the backbone or the geometric cluster
+            //First check if there are any triangulation edges on the GNP, if there are no edges there, skip the GNP
+            if (hybrid_particles[GNP].triangulation.size()) {
+                
+                //hout << "GNP="<<GNP<<" dir="<<direction<<" boundary="<<2*direction+1<<endl;
+                
+                //Add the currents from the triangulation edges at the boundary
+                I_total_gnp_check = I_total_gnp_check + Current_of_edges_in_boundary(1, DEA, electric_param, point_list, radii, point_list_gnp, hybrid_particles[GNP]);
+            }
             
         }
+        
+        hout << "I_total_gnp="<<I_total_gnp<<" direction="<<direction<<endl;
+        hout << "I_total_gnp_check="<<I_total_gnp_check<<" direction="<<direction<<endl;
     }
     
-    //=========================== CURRENT Check
-    //hout <<"//=========================== CURRENT Check"<<endl;
-    double I_total_check = 0;
-    //Scan all CNTs at the boundary
-    for (int i = 0; i < (int)boundary_cnt[2*direction+1].size(); i++) {
-        //Current CNT
-        int CNT = boundary_cnt[2*direction+1][i];
-        
-        //Some CNTs on the boundary might not be part of the backbone or the geometric cluster
-        //First check if there are any elements on the CNT, if there are no elements there, skip the CNT
-        if (DEA->elements[CNT].size()) {
-            //Check if the front and/or back of the CNT are in contact with the boundary
-            
-            //Get the points of the element at the front of the CNT
-            P1 = DEA->elements[CNT].front();
-            P2 = DEA->elements[CNT][1];
-            //Add the current of the element at the front of the CNT
-            I_total_check = I_total_check + Current_of_element_in_boundary(P1, P2, radii[CNT], DEA, electric_param, point_list);
-            
-            //Get the points of the element at the back of the CNT
-            P1 = DEA->elements[CNT].back();
-            int size = (int)DEA->elements[CNT].size();
-            P2 = DEA->elements[CNT][size-2];
-            //Add the current of the element at the front of the CNT
-            I_total_check = I_total_check + Current_of_element_in_boundary(P1, P2, radii[CNT], DEA, electric_param, point_list);
-            
-        }
-    }
+
+    //Calculate total currents
+    double I_total = I_total_cnt + I_total_gnp;
+    double I_total_check = I_total_cnt_check + I_total_gnp_check;
     hout << "I_total="<<I_total<<" direction="<<direction<<endl;
     hout << "I_total_check="<<I_total_check<<" direction="<<direction<<endl;
     
@@ -363,6 +569,114 @@ double Electrical_analysis::Current_of_element_in_boundary(const long int &P1, c
     //If P1 was not a the boundary then zero current is returned so zero current is added to the total current
     return 0.0;
 }
+//
+double Electrical_analysis::Current_of_edges_in_boundary(const int &side, Direct_Electrifying *DEA, const struct Electric_para &electric_param, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<Point_3D> &point_list_gnp, const GCH &hybrid)
+{
+    //Total curent in boundary edges
+    double I_edges = 0.0;
+    
+    //Scan the triangulation points and look for the point at the right boundary
+    for (int i = 0; i < (int)hybrid.triangulation.size(); i++) {
+        
+        //Get the points of the triangulation edge
+        long int P1 = hybrid.triangulation[i][0];
+        long int P2 = hybrid.triangulation[i][1];
+        
+        //Determne falg of triangulation resistor
+        //0: CNT-CNT tunnel
+        //1: GNP-GNP tunnel
+        //2: CNT-GNP tunnel
+        int flag = 0, gnp_flag1 = 0, gnp_flag2 = 0;
+        
+        //Get the nodes
+        long int node1, node2;
+        //Get the points
+        Point_3D point1, point2;
+        //Get the radii or thickness
+        double rad1, rad2;
+        //flags: CNT point (1) or GNP point (0)
+        if (hybrid.triangulation_flags[i][0]) {
+            //Get the data from CNT
+            node1 = DEA->LM_matrix[P1];
+            point1 = point_list[P1];
+            rad1 = radii[point_list[P1].flag];
+        } else {
+            //Get the data from GNP
+            node1 = DEA->LM_matrix_gnp[P1];
+            point1 = point_list_gnp[P1];
+            rad1 = hybrid.gnp.hei_z;
+            gnp_flag1 = 1;
+        }
+        if (hybrid.triangulation_flags[i][1]) {
+            //Get the data from CNT
+            node2 = DEA->LM_matrix[P2];
+            point2 = point_list[P2];
+            rad2 = radii[point_list[P2].flag];
+        } else {
+            //Get the data from GNP
+            node2 = DEA->LM_matrix_gnp[P2];
+            point2 = point_list_gnp[P2];
+            rad2 = hybrid.gnp.hei_z;
+            gnp_flag2 = 1;
+        }
+        //hout << "flag1="<<hybrid.triangulation_flags[i][0]<<" P1="<<P1<<" node1="<<node1<<" flag2="<<hybrid.triangulation_flags[i][1]<<" P2="<<P2<<" node2="<<node2<<endl;
+        //hout << " ("<<point1.x<<","<<point1.y<<","<<point1.z<<") ("<<point2.x<<","<<point2.y<<","<<point2.z<<")"<<endl;
+        
+        //Voltage
+        double V = 0;
+        
+        //Flag to calculate current
+        int calculate_I = 0;
+        
+        //Check where is P1
+        //If P1 is on the right side, then the current is calculated as V(node2) - V(node1)
+        if (node1 == side) {
+            
+            //Calculate voltage difference on the triangulation edge, node1 is at the boundary with voltage 0
+            //so the voltage drop is from node2 to node1
+            V = DEA->voltages[node2] - DEA->voltages[node1];
+            //hout << "V1="<<DEA->voltages[node1]<<" V2="<<DEA->voltages[node2]<<" DV=" <<V<<endl;
+            
+            calculate_I = 1;
+            
+        }
+        //If P2 is on the right side, then the current is calculated as V(node1) - V(node2)
+        else if (node2 == side) {
+            
+            //Calculate voltage difference on the triangulation edge, node2 is at the boundary with voltage 0
+            //so the voltage drop is from node1 to node2
+            V = DEA->voltages[node1] - DEA->voltages[node2];
+            //hout << "V1="<<DEA->voltages[node2]<<" V2="<<DEA->voltages[node1]<<" DV="<<V<<endl;
+            
+            calculate_I = 1;
+            
+        }
+        
+        //Check if any point turned out to be a boundary point
+        if (calculate_I) {
+            
+            //Calculate the flag for the type of triangulation resistor
+            if (gnp_flag1 && gnp_flag2)
+                flag = 1;
+            else if (!gnp_flag1 && !gnp_flag2)
+                flag = 0;
+            else
+                flag = 2;
+            
+            //Calculate resistance of the element
+            double Re = DEA->Calculate_resistance_gnp(flag, point1, point2, rad1, rad2, hybrid,  electric_param);
+            //Calculate current and add it to the total current
+            //hout << " Re=" << Re << " I=" << V/Re << endl;
+            
+            //Add to current
+            I_edges = I_edges + V/Re;
+
+        }
+        
+    }
+
+    return I_edges;
+}
 //This function calculates the matrix resistance, depending on the direction of the applied voltage
 int Electrical_analysis::Calculate_matrix_resistances(const double &matrix_resistivity, const struct Geom_RVE &geom_rve, vector<double> &matrix_resistances)
 {
@@ -390,7 +704,7 @@ int Electrical_analysis::Calculate_matrix_resistances(const double &matrix_resis
     return 1;
 }
 //This function calculates the resistance on each direction from the vector of parallel resistors
-int Electrical_analysis::Calculate_resistances(const vector<double> &matrix_resistances, const vector<vector<double> > &paralel_resistors, vector<double> &resistors)
+int Electrical_analysis::Calculate_resistances_and_resistivities(const struct Geom_RVE &geom_rve, const vector<double> &matrix_resistances, const vector<vector<double> > &paralel_resistors, vector<double> &resistors, vector<double> &resistivities)
 {
     //Scan each direction
     //Note that matrix_resistances and paralel_resistors have the same size
@@ -410,6 +724,18 @@ int Electrical_analysis::Calculate_resistances(const vector<double> &matrix_resi
             resistors.push_back(1/R);
         }
     }
+    
+    //Calculate resistivities along each direction
+    double rho;
+    //-----x-direction
+    rho = resistors[0]*geom_rve.hei_z*geom_rve.wid_y/geom_rve.len_x;
+    resistivities.push_back(rho);
+    //-----y-direction
+    rho = resistors[1]*geom_rve.hei_z*geom_rve.len_x/geom_rve.wid_y;
+    resistivities.push_back(rho);
+    //-----z-direction
+    rho = resistors[2]*geom_rve.len_x*geom_rve.wid_y/geom_rve.hei_z;
+    resistivities.push_back(rho);
     
     return 1;
 }

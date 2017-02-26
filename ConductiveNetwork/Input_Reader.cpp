@@ -30,13 +30,9 @@ int Input::Read_Infile(ifstream &infile)
 		else if(str_temp=="Nanotube_Geometry")	{ if(Read_nanotube_geo_parameters(nanotube_geo, infile)==0) return 0; }
 		else if(str_temp=="Cluster_Geometry")	{ if(Read_cluster_geo_parameters(cluster_geo, infile)==0) return 0; }
 		else if(str_temp=="Cutoff_Distances")	{ if(Read_cutoff_distances(cutoff_dist, infile)==0) return 0; }
-		else if(str_temp=="Electrical_Parameters")	{ if(Read_electrical_paramters(electric_para, infile)==0) return 0; }
-        //---------------------------------------------------------------------------------------
-        //-------- AMC
         else if(str_temp=="GNP_Geometry")	{ if(Read_gnp_geo_paramters(gnp_geo, infile)==0) return 0; }
-        //-------- AMC
-        //---------------------------------------------------------------------------------------
-		else 
+		else if(str_temp=="Electrical_Parameters")	{ if(Read_electrical_paramters(electric_para, infile)==0) return 0; }
+		else
 		{ 
 			cout << "Error: the keywords \"" << str_temp << "\" is not defined!" << endl; 
 			hout << "Error: the keywords \"" << str_temp << "\" is not defined!" << endl; 
@@ -628,12 +624,9 @@ int Input::Read_gnp_geo_paramters(struct GNP_Geo &gnp_geo, ifstream &infile)
         //Read the input value to keep the flow of the reading file unaltered
         istr_gnp_vol >> gnp_geo.volume_fraction;
         //Check the particle type
-        //Use the input values when a GNP network is used
-        //otherwise if hybrid particle or mix of CNT and GNPs are used, calculate the GNP content based on the mass ratio
-        if (geom_rve.particle_type == "GNP_cuboids" || geom_rve.particle_type == "CNT_wires") {
-            if(gnp_geo.volume_fraction>1||gnp_geo.volume_fraction<0){ hout << "Error: the volume fraction must be between 0 and 1." << endl; return 0; }
-            hout << "    The GNP volume fraction is "<< gnp_geo.volume_fraction << endl;
-        } else {
+        //If mixed CNTs+GNPs or hybrid particles are used, then the fraction of GNPs needs to be calculated from the CNT fraction
+        //Then the CNT fraction needs to be adjusted
+        if (geom_rve.particle_type == "GNP_CNT_mix" || geom_rve.particle_type == "Hybrid_particles") {
             //Calculate the GNP volume fraction
             gnp_geo.volume_fraction = nanotube_geo.density*nanotube_geo.volume_fraction/(gnp_geo.mass_ratio*gnp_geo.density + nanotube_geo.density);
             
@@ -644,6 +637,9 @@ int Input::Read_gnp_geo_paramters(struct GNP_Geo &gnp_geo, ifstream &infile)
             
             hout << "    Given the CNT/GNP mass ratio of " << gnp_geo.mass_ratio << ", the CNT volume fraction was adjusted to " << nanotube_geo.volume_fraction << endl;
             hout << "    The GNP volume fraction is " << gnp_geo.volume_fraction <<endl;
+        } else {
+            if(gnp_geo.volume_fraction>1||gnp_geo.volume_fraction<0){ hout << "Error: the volume fraction must be between 0 and 1." << endl; return 0; }
+            hout << "    The GNP volume fraction is "<< gnp_geo.volume_fraction << endl;
         }
         
         //The real volume of GNPs
@@ -654,12 +650,9 @@ int Input::Read_gnp_geo_paramters(struct GNP_Geo &gnp_geo, ifstream &infile)
         //Read the input value to keep the flow of the reading file unaltered
         istr_gnp_vol >> gnp_geo.volume_fraction;
         //Check the particle type
-        //Use the input values when a GNP network is used
-        //otherwise if hybrid particle or mix of CNT and GNPs are used, calculate the GNP content based on the mass ratio
-        if (geom_rve.particle_type == "GNP_cuboids" || geom_rve.particle_type == "CNT_wires") {
-            if(gnp_geo.weight_fraction>1||gnp_geo.weight_fraction<0){ hout << "Error: the volume fraction must be between 0 and 1." << endl; return 0; }
-            hout << "    The weight fraction is " << gnp_geo.weight_fraction << endl;
-        } else {
+        //If mixed CNTs+GNPs or hybrid particles are used, then the fraction of GNPs needs to be calculated from the CNT fraction
+        //Then the CNT fraction needs to be adjusted
+        if (geom_rve.particle_type == "GNP_CNT_mix" || geom_rve.particle_type == "Hybrid_particles") {
             //Calculate the GNP weight fraction
             gnp_geo.weight_fraction = nanotube_geo.weight_fraction/(1+gnp_geo.mass_ratio);
             
@@ -670,6 +663,9 @@ int Input::Read_gnp_geo_paramters(struct GNP_Geo &gnp_geo, ifstream &infile)
             
             hout << "    Given the CNT/GNP mass ratio of " << gnp_geo.mass_ratio << ", the CNT weight fraction was adjusted to " << nanotube_geo.weight_fraction << endl;
             hout << "    The GNP weight fraction is " << gnp_geo.weight_fraction <<endl;
+        } else {
+            if(gnp_geo.weight_fraction>1||gnp_geo.weight_fraction<0){ hout << "Error: the volume fraction must be between 0 and 1." << endl; return 0; }
+            hout << "    The weight fraction is " << gnp_geo.weight_fraction << endl;
         }
         
         //The real weight of GNPs

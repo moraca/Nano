@@ -113,11 +113,21 @@ struct elliparam
 };
 //---------------------------------------------------------------------------
 //Structural data for a cuboid
-struct cuboid	
-{	
-	Point_3D poi_min;					//Define an origin point for a cubid
-	double len_x, wid_y, hei_z;		//Define length, width and height for a cuboid
-	double volume;							//Define the volume of a cuboid
+struct cuboid
+{
+    Point_3D poi_min;					//Define an origin point for a cubid
+    double len_x, wid_y, hei_z;		//Define length, width and height for a cuboid
+    double volume;							//Define the volume of a cuboid
+};//---------------------------------------------------------------------------
+//Structural data for a cuboid
+struct contact_pair
+{
+    int particle1;              //Number of first particle (in contact with second particle)
+    long int point1;					//Point number on particle 1
+    string type1;               //Type of particle 1, "CNT" or "GNP"
+    int particle2;              //Number of second particle (in contact with first particle)
+    long int point2;					//Point number on particle 2
+    string type2;               //Type of particle 1, "CNT" or "GNP"
 };
 //---------------------------------------------------------------------------
 //The definition for GNP-CNT hybrid particles
@@ -128,9 +138,9 @@ public:
     cuboid gnp;                                 //GNP length, width and height
     Point_3D center;                            //GNP center
     MathMatrix rotation;                        //Rotation matrix
-    vector<Point_3D> discrete_gnp;              //Discretization of GNP
     vector<int> cnts_top, cnts_bottom;          //vectors of CNT number for top and bottom surfaces
     vector<vector<long int> > triangulation;    //Tringulation edges
+    vector<vector<short int> > triangulation_flags; //Triangulation flags, they determine if a triangulation node is a CNT point (1) or a GNP point (0)
     int flag;                                   //Flag that keeps the sonsecutive numbering of the GNP
     int type;                                   //Type of particle: 1 for hybrid, 0 for GNP
     

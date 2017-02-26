@@ -32,115 +32,127 @@
  
  Output (These three are class variables):
     vector<vector< long int> > sectioned_domain
-        Vector with overlaping sub-regions. This vector is used to look for contact points faster
+        Vector with overlaping sub-regions. This vector is used to look for contact points in CNTs faster
+    vector<vector< long int> > sectioned_domain_gnps
+        Vector with overlaping sub-regions. This vector is used to look for contact points in GNPs faster
  
  */
 
-int Contact_grid::Generate_contact_grid(const struct Geom_RVE &sample, const struct Cutoff_dist &cutoffs, const struct Nanotube_Geo &cnts, const vector<int> &cnts_inside, const vector<vector<long int> > &structure, vector<Point_3D> &points_in, int window)
+int Contact_grid::Generate_contact_grid(const int &window, const struct Geom_RVE &sample, const struct Cutoff_dist &cutoffs, const struct Nanotube_Geo &cnts, const vector<int> &cnts_inside, vector<Point_3D> &points_in, const vector<vector<long int> > &structure, const vector<int> &gnps_inside, const vector<Point_3D> &points_gnp, const vector<vector<long int> > &structure_gnp)
 {
-    //Dimensions of the current observation window
-    double w_x = sample.win_max_x - window*sample.win_delt_x;
-    double w_y = sample.win_max_y - window*sample.win_delt_y;
-    double w_z = sample.win_max_z - window*sample.win_delt_z;
-
-    //These variables are the coordinates of the lower corner of the observation window
-    double xmin = sample.origin.x + (sample.len_x - w_x)/2;
-    double ymin = sample.origin.y + (sample.wid_y - w_y)/2;
-    double zmin = sample.origin.z + (sample.hei_z - w_z)/2;
-    
-    //Sizes of each region
-    double dx = sample.gs_minx;
-    double dy = sample.gs_miny;
-    double dz = sample.gs_minz;
+    //Generate the window geometry
+    struct Geom_RVE window_geom;
+    if (!Generate_window_geometry(window, sample, window_geom)) {
+        hout << "Error in Generate_contact_grid when calling Generate_window_geometry" << endl;
+        return 0;
+    }
     
     //Number of regions on each direction
-    int sx = (int)(w_x/dx);
-    int sy = (int)(w_y/dy);
-    int sz = (int)(w_z/dz);
-    
-    
-    //hout << "sx = " << sx << '\t' << "dx = " << dx << "\n";
-    //hout << "sy = " << sy << '\t' << "dy = " << dy << "\n";
-    //hout << "sz = " << sz << '\t' << "dz = " << dz  << "\n";
+    int sx = (int)(window_geom.len_x/window_geom.gs_minx);
+    int sy = (int)(window_geom.wid_y/window_geom.gs_miny);
+    int sz = (int)(window_geom.hei_z/window_geom.gs_minz);
     
     //Maximum distance between two points in contact inside the sample
     double cutoff = cutoffs.tunneling_dist + 2*cnts.rad_max;
     
+    //Check if the number of regions needs to be adjusted
+    if (!Adjust_regions_if_needed(cutoff, window_geom, sx, sy, sz)) {
+        hout << "Error in Generate_contact_grid when calling Adjust_regions_if_needed" << endl;
+        return 0;
+    }
+    hout<<"There are "<<sx*sy*sz<<" overlapping sub-regions."<<endl;
+    
+    //Fill the vector for the sectioned domain for CNTs only when there are CNTs in the structure
+    //Equivalently, this is done when the structure is not made of only GNPs
+    if (sample.particle_type != "GNP_cuboids") {
+        
+        if (!Fill_sectioned_domain(window_geom, cnts_inside, structure, points_in, cutoff, sx, sy, sz, sectioned_domain)) {
+            hout << "Error in Generate_contact_grid when calling Generate_sectioned_domain_cnts" << endl;
+            return 0;
+        }
+    }
+    
+    //Fill the vector for the sectioned domain for discrete GNPs only when there are GNPs in the structure
+    //Equivalently, this is done when the structure is not made of only CNTs
+    if (sample.particle_type != "CNT_wires") {
+        if (!Fill_sectioned_domain(window_geom, gnps_inside, structure_gnp, points_gnp, cutoff, sx, sy, sz, sectioned_domain_gnps)) {
+            hout << "Error in Generate_contact_grid when calling Generate_sectioned_domain_cnts" << endl;
+            return 0;
+        }
+    }
+    
+    return 1;
+}
+//
+int Contact_grid::Generate_window_geometry(const int &window, const struct Geom_RVE &sample, struct Geom_RVE &window_geom)
+{
+    //Dimensions of the current observation window
+    window_geom.len_x = sample.win_max_x - window*sample.win_delt_x;
+    window_geom.wid_y = sample.win_max_y - window*sample.win_delt_y;
+    window_geom.hei_z = sample.win_max_z - window*sample.win_delt_z;
+    
+    //These variables are the coordinates of the lower corner of the observation window
+    window_geom.origin.x = sample.origin.x + (sample.len_x - window_geom.len_x)/2;
+    window_geom.origin.y = sample.origin.y + (sample.wid_y - window_geom.wid_y)/2;
+    window_geom.origin.z = sample.origin.z + (sample.hei_z - window_geom.hei_z)/2;
+    
+    //Sizes of each region
+    window_geom.gs_minx = sample.gs_minx;
+    window_geom.gs_miny = sample.gs_miny;
+    window_geom.gs_minz = sample.gs_minz;
+    
+    return 1;
+}
+//
+int Contact_grid::Adjust_regions_if_needed(const double &cutoff, struct Geom_RVE &window_geom, int &sx, int &sy, int &sz)
+{
+    //hout << "sx = " << sx << '\t' << "dx = " << dx << "\n";
+    //hout << "sy = " << sy << '\t' << "dy = " << dy << "\n";
+    //hout << "sz = " << sz << '\t' << "dz = " << dz  << "\n";
+    
     //Check that the regions are not too small for the maximum cutoff distance 2r_max+tunnel
     //If they are, then change the number of sections to the maximum possible
-    if (dx < 2*cutoff) {
-        sx = (int)(w_x/(2*(cutoff+Zero)));
-        dx = w_x/(double)sx;
-        hout << "Modified the number of sections along x. " << "sx = " << sx << '\t' << "dx = " << dx << endl;
+    if (window_geom.gs_minx < 2*cutoff) {
+        sx = (int)(window_geom.len_x/(2*(cutoff+Zero)));
+        window_geom.gs_minx = window_geom.len_x/(double)sx;
+        hout << "Modified the number of sections along x. " << "sx = " << sx << '\t' << "dx = " << window_geom.gs_minx << endl;
     }
-    if (dy < 2*cutoff) {
-        sy = (int)(w_y/(2*(cutoff+Zero)));
-        dy = w_y/(double)sy;
-        hout << "Modified the number of sections along y. " << "sy = " << sy << '\t' << "dy = " << dy << endl;
+    if (window_geom.gs_miny < 2*cutoff) {
+        sy = (int)(window_geom.wid_y/(2*(cutoff+Zero)));
+        window_geom.gs_miny = window_geom.wid_y/(double)sy;
+        hout << "Modified the number of sections along y. " << "sy = " << sy << '\t' << "dy = " << window_geom.gs_miny << endl;
     }
-    if (dz < 2*cutoff) {
-        sz = (int)(w_z/(2*(cutoff+Zero)));
-        dz = w_z/(double)sz;
-        hout << "Modified the number of sections along z. " << "sz = " << sz << '\t' << "dz = " << dz  << endl;
+    if (window_geom.gs_minz < 2*cutoff) {
+        sz = (int)(window_geom.hei_z/(2*(cutoff+Zero)));
+        window_geom.gs_minz = window_geom.hei_z/(double)sz;
+        hout << "Modified the number of sections along z. " << "sz = " << sz << '\t' << "dz = " << window_geom.gs_minz  << endl;
     }
-    
-    
-    //These variables will give me the region cordinates of the region that a point belongs to
-    int a, b, c;
-    int t;
-    
-    //These variables are to reduce operations when accesing the coordinates of a point and it's CNT number
-    double x, y, z;
-    int CNT;
-    long int P;
-    
+    return 1;
+}
+//
+int Contact_grid::Fill_sectioned_domain(const struct Geom_RVE &window_geom, const vector<int> &cnts_inside, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const double &cutoff, const int &sx, const int &sy, const int &sz, vector<vector< long int> > &sectioned_domain)
+{
     //There will be sx*sy*sz different regions
     sectioned_domain.clear();
     vector<long int> empty_long;
     sectioned_domain.assign(sx*sy*sz, empty_long);
-    hout<<"There are "<<sx*sy*sz<<" overlapping sub-regions."<<endl;
     
     //First loop over the CNTs inside the box, then loop over the points inside each CNT
     for (int i = 0; i < (int)cnts_inside.size(); i++) {
         //hout<<"cnts_inside["<<i<<"]="<<cnts_inside[i]<<' ';
-        CNT = cnts_inside[i];
+        int CNT = cnts_inside[i];
         //hout<<"structure["<<CNT<<"].size()="<<structure[CNT].size()<<endl;
         for (int j = 0; j < (int)structure[CNT].size(); j++) {
-            P = structure[CNT][j];
-            //hout<<"P=structure["<<CNT<<"]["<<j<<"]="<<structure[CNT][j]<<' ';
-            //Save coordinates of the point
-            x = points_in[P].x;
-            y = points_in[P].y;
-            z = points_in[P].z;
-            //hout<<"x="<<x<<" y="<<y<<" z="<<z<<endl;
+            long int P = structure[CNT][j];
+            //hout<<"P=structure["<<CNT<<"]["<<j<<"]="<<structure[CNT][j]<< endl;
             
             //Calculate the region-coordinates
-            a = (int)((x-xmin)/dx);
-            //Limit the value of a as it has to go from 0 to sx-1
-            if (a == sx) {
-                a--;
-                //hout << " a-- x="<<x<<" xmin="<<xmin<<" dx="<<dx<<" a="<<((x-xmin)/dx)<<" sx="<<sx<<endl;
+            int a, b, c;
+            //hout << "points_in[P]=("<<points_in[P].x<<", "<<points_in[P].y<<", "<<points_in[P].z<<")"<< endl;
+            if (!Calculate_region_coordinates(window_geom, points_in[P], sx, sy, sz, a, b, c)) {
+                hout << "Error in Generate_sectioned_domain_cnts when calling Calculate_region_coordinates" << endl;
+                return 0;
             }
-            b = (int)((y-ymin)/dy);
-            //Limit the value of b as it has to go from 0 to sy-1
-            if (b == sy) {
-                b--;
-                //hout << " b-- y="<<y<<" ymin="<<ymin<<" dy="<<dy<<" b="<<((y-ymin)/dy)<<" sy="<<sy<<endl;
-            }
-            c = (int)((z-zmin)/dz);
-            //Limit the value of c as it has to go from 0 to sz-1
-            if (c == sz){
-                c--;
-                //hout << " c-- z="<<z<<" zmin="<<zmin<<" dz="<<dz<<" c="<<((z-zmin)/dz)<<" sz="<<sz<<endl;
-            }
-            
-            //Coordinates of non-overlaping region the point belongs to
-            double x1 = a*dx +  xmin;
-            double x2 = x1 + dx;
-            double y1 = b*dy +  ymin;
-            double y2 = y1 + dy;
-            double z1 = c*dz +  zmin;
-            double z2 = z1 + dz;
             
             //Initialize flags for overlaping regions
             int fx = 0;
@@ -148,46 +160,101 @@ int Contact_grid::Generate_contact_grid(const struct Geom_RVE &sample, const str
             int fz = 0;
             
             //Assign value of flag according to position of point
-            //The first operand eliminates the periodicity on the boundary
-            if ((x > cutoff + xmin) && (x >= x1) && (x <= x1+cutoff))
-                fx = -1;
-            else if ((x < w_x+xmin-cutoff) && (x >= x2-cutoff) && (x <= x2 ))
-                fx = 1;
-            if ((y > cutoff + ymin) && (y >= y1) && (y <= y1+cutoff))
-                fy = -1;
-            else if ((y < w_y+ymin-cutoff) && (y >= y2-cutoff) && (y <= y2 ))
-                fy = 1;
-            if ((z > cutoff + zmin) && (z >= z1) && (z <= z1+cutoff))
-                fz = -1;
-            else if ((z < w_z+zmin-cutoff) && (z >= z2-cutoff) && (z <= z2 ))
-                fz = 1;
-            
-            //Create array for loop over overlaping regions
-            int temp[2][3] = { {a+fx, b+fy, c+fz}, {a, b, c}};
-            
-            //In this loop I check all regions a point can belong to when it is in an overlaping zone
-            for (int ii = 0; ii < 2; ii++) {
-                if (!fx) ii++; //if flag is zero, do this loop only once
-                for (int jj = 0; jj < 2; jj++) {
-                    if (!fy) jj++; //if flag is zero, do this loop only once
-                    for (int kk = 0; kk < 2; kk++) {
-                        if (!fz) kk++; //if flag is zero, do this loop only once
-                        //hout <<"a="<<a<<" fx="<<fx<<" b="<<b<<" fy="<<fy<<" c="<<c<<" fz="<<fz;
-                        t = calculate_t(temp[ii][0],temp[jj][1],temp[kk][2],sx,sy);
-                        //hout<<" t="<<t<<" sectioned_domain["<<t<<"].size()="<<sectioned_domain[t].size();
-                        sectioned_domain[t].push_back(P);
-                        //hout<<'.'<<endl;
-                    }
-                }
+            if (!Calculate_postion_flags(window_geom, points_in[P], cutoff, a, b, c, fx, fy, fz)) {
+                hout << "Error in Generate_sectioned_domain_cnts when calling Calculate_postion_flags" << endl;
+                return 0;
             }
+            
+            //Assign the point P to the correspoding region or regions
+            if (!Assign_point_to_region(a, b, c, fx, fy, fz, sx, sy, P, sectioned_domain)) {
+                hout << "Error in Generate_sectioned_domain_cnts when calling Assign_point_to_region" << endl;
+                return 0;
+            }
+            
         }
     }
     
     return 1;
 }
-
+//
+int Contact_grid::Calculate_region_coordinates(const struct Geom_RVE &window_geom, const Point_3D &point, const int &sx, const int &sy, const int &sz, int &a, int &b, int &c)
+{
+    
+    //Calculate the region-coordinates
+    a = (int)((point.x-window_geom.origin.x)/window_geom.gs_minx);
+    //Limit the value of a as it has to go from 0 to sx-1
+    if (a == sx) {
+        a--;
+        //hout << " a-- ";
+    }
+    b = (int)((point.y-window_geom.origin.y)/window_geom.gs_miny);
+    //Limit the value of b as it has to go from 0 to sy-1
+    if (b == sy) {
+        b--;
+        //hout << " b-- ";
+    }
+    c = (int)((point.z-window_geom.origin.z)/window_geom.gs_minz);
+    //Limit the value of c as it has to go from 0 to sz-1
+    if (c == sz){
+        c--;
+        //hout << " c-- ";
+    }
+    
+    return 1;
+}
+//
+int Contact_grid::Calculate_postion_flags(const struct Geom_RVE &window_geom, const Point_3D &point, const double &cutoff, const int &a, const int &b, const int &c, int &fx, int &fy, int &fz)
+{
+    //Coordinates of non-overlaping region the point belongs to
+    double x1 = a*window_geom.gs_minx +  window_geom.origin.x;
+    double x2 = x1 + window_geom.gs_minx;
+    double y1 = b*window_geom.gs_miny +  window_geom.origin.y;
+    double y2 = y1 + window_geom.gs_miny;
+    double z1 = c*window_geom.gs_minz +  window_geom.origin.z;
+    double z2 = z1 + window_geom.gs_minz;
+    
+    //Assign value of flag according to position of point
+    //The first operand eliminates the periodicity on the boundary
+    if ((point.x > cutoff + window_geom.origin.x) && (point.x >= x1) && (point.x <= x1+cutoff))
+        fx = -1;
+    else if ((point.x < window_geom.len_x+window_geom.origin.x-cutoff) && (point.x >= x2-cutoff) && (point.x <= x2 ))
+        fx = 1;
+    if ((point.y > cutoff + window_geom.origin.y) && (point.y >= y1) && (point.y <= y1+cutoff))
+        fy = -1;
+    else if ((point.y < window_geom.wid_y+window_geom.origin.y-cutoff) && (point.y >= y2-cutoff) && (point.y <= y2 ))
+        fy = 1;
+    if ((point.z > cutoff + window_geom.origin.z) && (point.z >= z1) && (point.z <= z1+cutoff))
+        fz = -1;
+    else if ((point.z < window_geom.hei_z+window_geom.origin.z-cutoff) && (point.z >= z2-cutoff) && (point.z <= z2 ))
+        fz = 1;
+    
+    return 1;
+}
+//
+int Contact_grid::Assign_point_to_region(const int &a, const int &b, const int &c, const int &fx, const int &fy, const int &fz, const int &sx, const int &sy, const long int &P, vector<vector< long int> > &sectioned_domain)
+{
+    //Create array for loop over overlaping regions
+    int temp[2][3] = { {a+fx, b+fy, c+fz}, {a, b, c}};
+    
+    //In this loop I check all regions a point can belong to when it is in an overlaping zone
+    for (int ii = 0; ii < 2; ii++) {
+        if (!fx) ii++; //if flag is zero, do this loop only once
+        for (int jj = 0; jj < 2; jj++) {
+            if (!fy) jj++; //if flag is zero, do this loop only once
+            for (int kk = 0; kk < 2; kk++) {
+                if (!fz) kk++; //if flag is zero, do this loop only once
+                //hout <<"a="<<a<<" fx="<<fx<<" b="<<b<<" fy="<<fy<<" c="<<c<<" fz="<<fz;
+                int t = Calculate_t(temp[ii][0],temp[jj][1],temp[kk][2],sx,sy);
+                //hout<<" t="<<t<<" sectioned_domain["<<t<<"].size()="<<sectioned_domain[t].size();
+                sectioned_domain[t].push_back(P);
+                //hout<<'.'<<endl;
+            }
+        }
+    }
+    return 1;
+}
 //Calculates the region to which a point corresponds
-int Contact_grid::calculate_t(int a, int b, int c, int sx, int sy)
+int Contact_grid::Calculate_t(const int &a, const int &b, const int &c, const int &sx, const int &sy)
 {
     return a + b*sx + c*sx*sy;
 }

@@ -23,10 +23,22 @@ Point_3D Point_3D::operator+( Point_3D &pt )
 	return rp;
 }
 //---------------------------------------------------------------------------
+Point_3D Point_3D::operator+( Point_3D &pt )const
+{
+    Point_3D rp( x + pt.x, y + pt.y, z + pt.z );
+    return rp;
+}
+//---------------------------------------------------------------------------
 Point_3D Point_3D::operator+( const Point_3D &pt )
 {
 	Point_3D rp( x + pt.x, y + pt.y, z + pt.z );
 	return rp;
+}
+//---------------------------------------------------------------------------
+Point_3D Point_3D::operator+( const Point_3D &pt )const
+{
+    Point_3D rp( x + pt.x, y + pt.y, z + pt.z );
+    return rp;
 }
 //---------------------------------------------------------------------------
 Point_3D Point_3D::operator+( double d )
@@ -35,10 +47,21 @@ Point_3D Point_3D::operator+( double d )
 	return rp;
 }
 //---------------------------------------------------------------------------
+Point_3D Point_3D::operator+( double d )const
+{
+    Point_3D rp( x + d, y + d, z + d );
+    return rp;
+}//---------------------------------------------------------------------------
 Point_3D Point_3D::operator-( Point_3D &pt )
 {
 	Point_3D rp( x - pt.x, y - pt.y, z - pt.z );
 	return rp;
+}
+//---------------------------------------------------------------------------
+Point_3D Point_3D::operator-( Point_3D &pt )const
+{
+    Point_3D rp( x - pt.x, y - pt.y, z - pt.z );
+    return rp;
 }
 //---------------------------------------------------------------------------
 Point_3D Point_3D::operator-( const Point_3D &pt )
@@ -47,10 +70,22 @@ Point_3D Point_3D::operator-( const Point_3D &pt )
 	return rp;
 }
 //---------------------------------------------------------------------------
+Point_3D Point_3D::operator-( const Point_3D &pt )const
+{
+    Point_3D rp( x - pt.x, y - pt.y, z - pt.z );
+    return rp;
+}
+//---------------------------------------------------------------------------
 Point_3D Point_3D::operator-( double d )
 {
 	Point_3D rp( x - d, y - d, z - d );
 	return rp;
+}
+//---------------------------------------------------------------------------
+Point_3D Point_3D::operator-( double d )const
+{
+    Point_3D rp( x - d, y - d, z - d );
+    return rp;
 }
 //---------------------------------------------------------------------------
 Point_3D Point_3D::operator*( double d )
@@ -59,10 +94,22 @@ Point_3D Point_3D::operator*( double d )
 	return rp;
 }
 //---------------------------------------------------------------------------
+Point_3D Point_3D::operator*( double d )const
+{
+    Point_3D rp( x*d, y*d, z*d );
+    return rp;
+}
+//---------------------------------------------------------------------------
 Point_3D Point_3D::operator/( double d )
 {
 	Point_3D rp( x/d, y/d, z/d );
 	return rp;
+}
+//---------------------------------------------------------------------------
+Point_3D Point_3D::operator/( double d )const
+{
+    Point_3D rp( x/d, y/d, z/d );
+    return rp;
 }
 //---------------------------------------------------------------------------
 bool Point_3D::operator==( Point_3D &pt )
@@ -87,6 +134,16 @@ double Point_3D::distance_to(const double &px, const double &py, const double &p
 	return sqrt(rv2);
 }
 //---------------------------------------------------------------------------
+double Point_3D::squared_distance_to(const Point_3D &pt )const
+{
+    return (x-pt.x)*(x-pt.x)+(y-pt.y)*(y-pt.y)+(z-pt.z)*(z-pt.z);
+}
+//---------------------------------------------------------------------------
+double Point_3D::squared_distance_to(const double &px, const double &py, const double &pz)const
+{
+    return (x-px)*(x-px)+(y-py)*(y-py)+(z-pz)*(z-pz);
+}
+//---------------------------------------------------------------------------
 Point_3D Point_3D::cross(Point_3D &point)
 {
     double a = y*point.z - point.y*z;
@@ -100,9 +157,28 @@ double Point_3D::dot(Point_3D &point)
 {
     return x*point.x + y*point.y + z*point.z;
 }
+//---------------------------------------------------------------------------
+//Calculates the rotation of a point plus a displacement
+Point_3D Point_3D::rotation(const MathMatrix &Matrix, const Point_3D &displacement)
+{
+    //Rotated point
+    //new_point = Matrix*point + displacement
+    Point_3D new_point;
+    
+    //x-coordinate
+    new_point.x = Matrix.element[0][0]*x + Matrix.element[0][1]*y + Matrix.element[0][2]*z + displacement.x;
+    
+    //y-coordinate
+    new_point.y = Matrix.element[1][0]*x + Matrix.element[1][1]*y + Matrix.element[1][2]*z + displacement.y;
+    
+    //z-coordinate
+    new_point.z = Matrix.element[2][0]*x + Matrix.element[2][1]*y + Matrix.element[2][2]*z + displacement.z;
+    
+    return new_point;
 
+}
 //===========================================================================
-//The member function for the 3D point class
+//The member function for the 3D Line class
 //---------------------------------------------------------------------------
 //Constructor
 Line_3D::Line_3D(Point_3D p0, Point_3D p1)
@@ -205,6 +281,17 @@ Plane_3D::Plane_3D(double para[])
 	else virtual_plane = true;
 }
 //---------------------------------------------------------------------------
+//Constructor
+Plane_3D::Plane_3D(double a, double b, double c, double d)
+{
+    coef[0] = a;
+    coef[1] = b;
+    coef[2] = c;
+    coef[3] = d;
+    if(coef[0]==0.0&&coef[1]==0.0&&coef[2]==0.0) virtual_plane = false;
+    else virtual_plane = true;
+}
+//---------------------------------------------------------------------------
 //To judge if a point is contained in this plane
 int Plane_3D::contain(const Point_3D &point_temp)const
 {
@@ -217,5 +304,14 @@ int Plane_3D::contain(const double dx, const double dy, const double dz)const
 {
 	if( coef[0]*dx+coef[1]*dy+coef[2]*dz+coef[3]==0 ) return 1; //in the plane
 	return 0;  //out of the plane
+}
+//===========================================================================
+//Constructor that initializes the graphene nanoplatelet geometry
+GCH::GCH(double len_x, double wid_y, double thick_z)
+{
+    //Geometry of the GNP
+    gnp.len_x = len_x;
+    gnp.wid_y = wid_y;
+    gnp.hei_z = thick_z;
 }
 //===========================================================================

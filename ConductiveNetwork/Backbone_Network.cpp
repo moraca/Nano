@@ -8,35 +8,16 @@
 
 #include "Backbone_Network.h"
 
-//This function scans all CNTs inside one cluster and saves the indices of the points for the dead branches and conducting segmenents
-//This function takes advantage of the fact that CNTs are numbered consecutively
-//The vector dead_indices can only have sizes 0, 2 or 4 in case the whole CNT conducts, or it has one dead branch or it has two dead branches
-//respectively
-//The vector percolated_indices can only have sizes 0 or 2 in case the CNT does not conduct or it has a conducting segment, respectively
-int Backbone_Network::Determine_backbone_network(const int &family, const int &R_flag, const int &tecplot_flag, Direct_Electrifying *DEA, const Electric_para &electric_param, const vector<GCH> &hybrid_particles, const vector<int> &cluster,const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<double> &radii, vector<int> &cluster_gch, vector<double> &families_lengths, vector<double> &branches_lengths, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices, vector<vector<int> > &gnp_dead_indices, vector<vector<int> > &gnp_indices)
+
+int Backbone_Network::Determine_backbone_network(const int &family, const int &n_cluster, const int &R_flag, const int &tecplot_flag, Direct_Electrifying *DEA, Hoshen_Kopelman *HoKo, const Electric_para &electric_param, const Cutoff_dist &cutoffs, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<double> &radii, const vector<vector<long int> > &structure_gnp, const vector<Point_3D> &points_in_gnp, const vector<GCH> &hybrid_particles, vector<double> &families_lengths, vector<double> &branches_lengths, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices, vector<vector<int> > &gnp_dead_indices, vector<vector<int> > &gnp_indices)
 {
-    //First check if the percolated cluster has only one CNT, in that case there are no dead branches
-    //If the size of the cluster is greater than one, then probably there are branches that need to be removed
-    if (cluster.size() > 1) {
-        //Define the 'Zero-cutoff' of the system
-        double zero_cutoff = Zero_current(R_flag, DEA, electric_param, cluster, points_in, radii, hybrid_particles, cluster_gch);
+    //First check if the CNT cluster has only one CNT, in that case there are no dead branches and the backbone extraction can be simplified a lot
+    //Otherwise look for dead branches
+    if (HoKo->clusters_cnt.size() && HoKo->clusters_cnt[n_cluster].size() == 1 && !HoKo->clusters_gch.size()) {
         
-        //Find the dead branches of each CNT in the cluster. Save the information on the vectors dead_indices and percolated_indices
-        if (!Find_dead_branches_simplified(DEA->elements, cluster, zero_cutoff)) {
-            hout << "Error in Determine_backbone_network when calling Find_dead_branches" << endl;
-            return 0;
-        }
-        
-        //Find the dead GNPs
-        if (!Find_dead_gnps_simplified(zero_cutoff, cluster_gch, gnp_dead_indices[family], gnp_indices[family])) {
-            hout << "Error in Determine_backbone_network when calling Find_dead_gnps" << endl;
-            return 0;
-        }
-        
-    } else {
         //When there is only one percolated CNT, then the percolated_indices only contains
         //the first and last point of the CNT and dead_indices remains empty
-        int CNT = cluster.front();
+        int CNT = HoKo->clusters_cnt[n_cluster].front();
         //This varibale is used to initialize the vectors below
         vector<long int> empty;
         percolated_indices.push_back(empty);
@@ -44,72 +25,189 @@ int Backbone_Network::Determine_backbone_network(const int &family, const int &R
         percolated_indices.back().push_back(structure[CNT].back());
         //Initialize dead_indices as it needs to have the same size as percolated_indices
         dead_indices.push_back(empty);
+        
+    } else {
+        
+        //Current vectors to determine conducting segments and conducting GNPs
+        vector<vector<double> > currents_cnt, currents_gnp;
+        
+        //Define the 'Zero-cutoff' of the system
+        double zero_cutoff = Zero_current(n_cluster, R_flag, DEA, HoKo, electric_param, cutoffs, points_in, points_in_gnp, radii, hybrid_particles, currents_cnt, currents_gnp);
+        
+        //If there are CNT clusters and there are CNTs in the cluster n_cluster, find the dead branches of the CNTs
+        if (HoKo->clusters_cnt.size() && HoKo->clusters_cnt[n_cluster].size()) {
+            
+            //Find the dead branches of each CNT in the cluster. Save the information on the vectors dead_indices and percolated_indices
+            if (!Find_dead_branches(zero_cutoff, currents_cnt, HoKo->clusters_cnt[n_cluster], DEA->elements)) {
+                hout << "Error in Determine_backbone_network when calling Find_dead_branches" << endl;
+                return 0;
+            }
+        }
+        
+        //If there are GNP clusters and there are GNPs in the cluster n_cluster, find the dead GNPs
+        if (HoKo->clusters_gch.size() && HoKo->clusters_gch[n_cluster].size()) {
+            
+            //Find the dead GNPs. Save the information on the vectors dead_gnps and percolated_gnps
+            if (!Find_dead_gnps(zero_cutoff, currents_gnp, HoKo->clusters_gch[n_cluster])) {
+                hout << "Error in Determine_backbone_network when calling Find_dead_gnps" << endl;
+                return 0;
+            }
+            Printer *P = new Printer;
+            P->Print_1d_vec(HoKo->clusters_gch[n_cluster], "cluster_gnp.txt");
+            P->Print_1d_vec(percolated_gnps, "percolated_gnps.txt");
+            delete P;
+        }
+
     }
-    
-    //Use the dead_indices and percolated_indices to calculate the fraction of CNTs that belong to each family
-    if (!Calculate_lengths(family, points_in, families_lengths, branches_lengths)) {
-        hout << "Error in Determine_backbone_network when calling Calculate_lengths" << endl;
-        return 0;
-    }
-    //hout << "Calculate_lengths "<<endl;
-    
-    //Finally, add the indices to the global vectors so that they can be exported as tecplot files
-    Add_indices_to_global_vectors(family, all_dead_indices, all_indices);
-    //hout << "Add_indices_to_global_vectors" << endl;
     
     return 1;
 }
 //This function determines the cutoff for "zero current"
 //This step is necessary due to floating point errors
-double Backbone_Network::Zero_current(const int &R_flag, Direct_Electrifying *DEA, const struct Electric_para &electric_param, const vector<int> &cluster, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<GCH> &hybrid_particles, const vector<int> &cluster_gch)
+double Backbone_Network::Zero_current(const int &n_cluster, const int &R_flag, Direct_Electrifying *DEA, Hoshen_Kopelman *HoKo, const struct Electric_para &electric_param, const Cutoff_dist &cutoffs, const vector<Point_3D> &point_list, const vector<Point_3D> &point_list_gnp, const vector<double> &radii, const vector<GCH> &hybrid_particles, vector<vector<double> > &currents_cnt, vector<vector<double> > &currents_gnp)
 {
-    //Variables used to calculate the current
-    double I, Re;
+    //Valiable to store the current
+    double I;
+    
     //Variable to store the cutoff for zero voltage
     double zero_cutoff;
-    //Variables
-    int CNT;
-    long int P1, P2;
+    
     //Vector to store all the currents
     vector<double> currents;
-    //Initialize the vectors of element currents and resistances for the CNTs
-    vector<double> empty_double;
-    current_e.assign(cluster.size(), empty_double);
-    resistance_r.assign(cluster.size(), empty_double);
     
-    //Calculate all currents from CNTs
-    for (long int i = 0; i < (long int)cluster.size(); i++) {
-        CNT = cluster[i];
-        for (long int j = 0; j < (long int)DEA->elements[CNT].size()-1; j++) {
-            P1 = DEA->elements[CNT][j];
-            P2 = DEA->elements[CNT][j+1];
-            //Calculate the voltage difference
-            //Temporarily the voltage difference will be the current value, unless the element resistance is not 1
-            I = abs(Voltage_difference(P1, P2, DEA->LM_matrix, DEA->voltages));
-            //Check the resistance flag to use the appropiate resistance
-            //If R_flag is 0, the voltage difference is the current, so I remains the same
-            if (R_flag) {
-                //If R_flag is 1, then use the actual resistance
+    //Check if there is any CNT cluster and the current n_cluster has CNTs
+    if (HoKo->clusters_cnt.size() && HoKo->clusters_cnt[n_cluster].size()) {
+        
+        //Initialize the vectors of element currents and resistances for the CNTs
+        vector<double> empty_double;
+        currents_cnt.assign(HoKo->clusters_cnt[n_cluster].size(), empty_double);
+        
+        //Calculate all currents from CNTs
+        for (long int i = 0; i < (long int)HoKo->clusters_cnt[n_cluster].size(); i++) {
+            
+            //Current CNT
+            int CNT = HoKo->clusters_cnt[n_cluster][i];
+            
+            //Scan all elements in the CNT
+            for (long int j = 0; j < (long int)DEA->elements[CNT].size()-1; j++) {
                 
-                //Calculate the Resistance of the CNT segment
-                Re = DEA->Calculate_resistance_cnt(point_list, P1, P2, radii[CNT], electric_param.resistivity_CF);
-                //Calculate current
-                I = I/Re;
-                //Add resistance to the vector of element resistances
-                resistance_r[i].push_back(Re);
+                long int P1 = DEA->elements[CNT][j];
+                long int P2 = DEA->elements[CNT][j+1];
+                
+                //Calculate the voltage difference
+                //Temporarily the voltage difference will be the current value, unless the element resistance is not 1
+                I = abs(Voltage_difference(P1, P2, DEA->LM_matrix, DEA->voltages));
+                
+                //Check the resistance flag to use the appropiate resistance
+                //If R_flag is 0, the voltage difference is the current, so I remains the same
+                if (R_flag) {
+                    //If R_flag is 1, then use the actual resistance
+                    
+                    //Calculate the Resistance of the CNT segment
+                    double Re = DEA->Calculate_resistance_cnt(point_list, P1, P2, radii[CNT], electric_param.resistivity_CF);
+                    //Calculate current
+                    I = I/Re;
+                }
+                //Add current to vector of all currents
+                currents.push_back(I);
+                //Add current to the vector of element currents
+                currents_cnt[i].push_back(I);
             }
-            //Add current to vector of all currents
-            currents.push_back(I);
-            //Add current to the vector of element currents
-            current_e[i].push_back(I);
         }
     }
     
-    //Calculate all currents from tunnels
+    //Check if there is any GNP cluster and the current n_cluster has GNPs
+    if (HoKo->clusters_gch.size() && HoKo->clusters_gch[n_cluster].size()) {
+        
+        //Initialize the vectors of element currents and resistances for the GNPs
+        vector<double> empty_double;
+        currents_gnp.assign(HoKo->clusters_gch[n_cluster].size(), empty_double);
+        
+        //Calculate currents from GNPs
+        for (int i = 0; i < (int)HoKo->clusters_gch[n_cluster].size(); i++) {
+            
+            int hyb = HoKo->clusters_gch[n_cluster][i];
+            //Scan all edges of the triangulation
+            for (int j = 0; j < (int)hybrid_particles[hyb].triangulation.size(); j++) {
+                
+                //Calculate the voltage difference
+                long int P1 = hybrid_particles[hyb].triangulation[j][0];
+                long int P2 = hybrid_particles[hyb].triangulation[j][1];
+                
+                //Determne falg of triangulation resistor
+                //0: CNT-CNT tunnel
+                //1: GNP-GNP tunnel
+                //2: CNT-GNP tunnel
+                int flag = 0, gnp_flag1 = 0, gnp_flag2 = 0;
+                
+                //Get the nodes
+                long int node1, node2;
+                //Get the points
+                Point_3D point1, point2;
+                //Get the radii or thickness
+                double rad1, rad2;
+                //flags: CNT point (1) or GNP point (0)
+                if (hybrid_particles[hyb].triangulation_flags[j][0]) {
+                    //Get the data from CNT
+                    node1 = DEA->LM_matrix[P1];
+                    point1 = point_list[P1];
+                    rad1 = radii[point_list[P1].flag];
+                } else {
+                    //Get the data from GNP
+                    node1 = DEA->LM_matrix_gnp[P1];
+                    point1 = point_list_gnp[P1];
+                    rad1 = hybrid_particles[hyb].gnp.hei_z;
+                }
+                if (hybrid_particles[hyb].triangulation_flags[j][1]) {
+                    //Get the data from CNT
+                    node2 = DEA->LM_matrix[P2];
+                    point2 = point_list[P2];
+                    rad2 = radii[point_list[P2].flag];
+                } else {
+                    //Get the data from GNP
+                    node2 = DEA->LM_matrix_gnp[P2];
+                    point2 = point_list_gnp[P2];
+                    rad2 = hybrid_particles[hyb].gnp.hei_z;
+                }
+                
+                //Calculate the voltage difference
+                //Temporarily the voltage difference will be the current value, unless the element resistance is not 1
+                I = abs(DEA->voltages[node2] - DEA->voltages[node1]);
+                
+                //Check the resistance flag to use the appropiate resistance
+                //If R_flag is 0, the voltage difference is the current, so I remains the same
+                if (R_flag) {
+                    //If R_flag is 1, then use the actual resistance
+                    
+                    //Determine if the points in the GNP resistor are CNT points or GNP points
+                    if (gnp_flag1 && gnp_flag2)
+                        flag = 1;
+                    else if (!gnp_flag1 && !gnp_flag2)
+                        flag = 0;
+                    else
+                        flag = 2;
+                    
+                    //Calculate resistance of the triangulation edge
+                    double Re = DEA->Calculate_resistance_gnp(flag, point1, point2, rad1, rad2, hybrid_particles[hyb], electric_param);
+                    //Calculate current
+                    I = I/Re;
+                }
+                
+                //Add current to vector of all currents
+                currents.push_back(I);
+                //Add current to the vector of element currents
+                currents_gnp[i].push_back(I);
+            }
+        }
+    }
+    
+    //Calculate all currents from CNT-CNT tunnels
     for (int i = 0; i < (int)DEA->elements_tunnel.size(); i++) {
+        
         //Tunnel elements have only two elements per vector
-        P1 = DEA->elements_tunnel[i][0];
-        P2 = DEA->elements_tunnel[i][1];
+        long int P1 = DEA->elements_tunnel[i][0];
+        long int P2 = DEA->elements_tunnel[i][1];
+        
         //Calculate the voltage difference
         //Temporarily the voltage difference will be the current value, unless the element resistance is not 1
         I = abs(Voltage_difference(P1, P2, DEA->LM_matrix, DEA->voltages));
@@ -119,7 +217,7 @@ double Backbone_Network::Zero_current(const int &R_flag, Direct_Electrifying *DE
             //If R_flag is 1, then use the actual resistance
             
             //Calculate the Resistance of the tunnel
-            Re = DEA->Calculate_resistance_tunnel(radii, electric_param, point_list[P1], point_list[P2], 0.34);
+            double Re = DEA->Calculate_resistance_tunnel(0, radii[point_list[P1].flag], radii[point_list[P2].flag], electric_param, point_list[P1], point_list[P2], cutoffs.van_der_Waals_dist);
             //Calculate current
             I = I/Re;
         }
@@ -127,37 +225,56 @@ double Backbone_Network::Zero_current(const int &R_flag, Direct_Electrifying *DE
         currents.push_back(I);
     }
     
-    //Initialize the vectors of element currents and resistances for the GNPs
-    current_gnp.assign(cluster_gch.size(), empty_double);
-    resistance_gnp.assign(cluster_gch.size(), empty_double);
-    
-    //Calculate currents from GNPs
-    for (int i = 0; i < (int)cluster_gch.size(); i++) {
-        int hyb = cluster_gch[i];
-        //Scan all edges of the triangulation
-        for (int j = 0; j < (int)hybrid_particles[hyb].triangulation.size(); j++) {
-            //Calculate the voltage difference
-            P1 = hybrid_particles[hyb].triangulation[j][0];
-            P2 = hybrid_particles[hyb].triangulation[j][1];
-            //Temporarily the voltage difference will be the current value, unless the element resistance is not 1
-            I = abs(Voltage_difference(P1, P2, DEA->LM_matrix, DEA->voltages));
-            //Check the resistance flag to use the appropiate resistance
-            //If R_flag is 0, the voltage difference is the current, so I remains the same
-            if (R_flag) {
-                //If R_flag is 1, then use the actual resistance
-                
-                //Calculate resistance of the triangulatin edge
-                Re = DEA->Calculate_resistance_gnp(point_list[P1], point_list[P2], radii[point_list[P1].flag], radii[point_list[P2].flag], hybrid_particles[hyb], electric_param);
-                //Calculate current
-                I = I/Re;
-                //Add resistance to the vector of element resistances
-                resistance_gnp[i].push_back(Re);
-            } 
-            //Add current to vector of all currents
-            currents.push_back(I);
-            //Add current to the vector of element currents
-            current_gnp[i].push_back(I);
+    //Calculate all currents from GNP-GNP tunnels
+    for (int i = 0; i < (int)DEA->elements_gnp_tunnel.size(); i++) {
+        
+        //Tunnel elements have only two elements per vector
+        long int P1 = DEA->elements_gnp_tunnel[i][0];
+        long int P2 = DEA->elements_gnp_tunnel[i][1];
+        
+        //Calculate the voltage difference
+        //Temporarily the voltage difference will be the current value, unless the element resistance is not 1
+        I = abs(Voltage_difference(P1, P2, DEA->LM_matrix_gnp, DEA->voltages));
+        //Check the resistance flag to use the appropiate resistance
+        //If R_flag is 0, the voltage difference is the current, so I remains the same
+        if (R_flag) {
+            //If R_flag is 1, then use the actual resistance
+            
+            //Calculate the Resistance of the tunnel
+            double Re = DEA->Calculate_resistance_tunnel(1, hybrid_particles[point_list_gnp[P1].flag].gnp.hei_z, hybrid_particles[point_list_gnp[P2].flag].gnp.hei_z, electric_param, point_list_gnp[P1], point_list_gnp[P2], cutoffs.van_der_Waals_dist);
+            //Calculate current
+            I = I/Re;
         }
+        //Add current to vector of all currents
+        currents.push_back(I);
+    }
+    
+    //Calculate all currents from CNT-GNP tunnels
+    for (int i = 0; i < (int)DEA->elements_mixed_tunnel.size(); i++) {
+        
+        //Tunnel elements have only two elements per vector
+        long int P1 = DEA->elements_mixed_tunnel[i][0];
+        long int P2 = DEA->elements_mixed_tunnel[i][1];
+        
+        //Get the nodes
+        long int node1 = DEA->LM_matrix[P1];
+        long int node2 = DEA->LM_matrix_gnp[P2];
+        
+        //Calculate the voltage difference
+        //Temporarily the voltage difference will be the current value, unless the element resistance is not 1
+        I = abs(DEA->voltages[node2] - DEA->voltages[node1]);
+        //Check the resistance flag to use the appropiate resistance
+        //If R_flag is 0, the voltage difference is the current, so I remains the same
+        if (R_flag) {
+            //If R_flag is 1, then use the actual resistance
+            
+            //Calculate the Resistance of the tunnel
+            double Re = DEA->Calculate_resistance_tunnel(2, radii[point_list[P1].flag], radii[point_list[P1].flag], electric_param, point_list[P1], point_list_gnp[P2], cutoffs.van_der_Waals_dist);
+            //Calculate current
+            I = I/Re;
+        }
+        //Add current to vector of all currents
+        currents.push_back(I);
     }
     
     //Sort currents
@@ -188,7 +305,7 @@ double Backbone_Network::Voltage_difference(const long int &P1, const long int &
     return voltages[node2] - voltages[node1];
 }
 //This function scans all CNTs and calculates the currents again, then it decides which CNTs are part of the backbone and which CNTs are not percolated
-int Backbone_Network::Find_dead_branches_simplified(vector<vector<long int> > &elements, const vector<int> &cluster, const double &zero_cutoff)
+int Backbone_Network::Find_dead_branches(const double &zero_cutoff, const vector<vector<double> > &currents_cnt, const vector<int> &cluster, vector<vector<long int> > &elements)
 {
     //This varibale is used to initialize the vectors below
     vector<long int> empty;
@@ -212,9 +329,9 @@ int Backbone_Network::Find_dead_branches_simplified(vector<vector<long int> > &e
         //Vector to store the elements that have a current above the cutoff
         vector<double> element_index;
         //vectors cluster and current_e have the same size
-        for (int j = 0; j < (int)current_e[i].size(); j++) {
+        for (int j = 0; j < (int)currents_cnt[i].size(); j++) {
             //Get the element current
-            I = current_e[i][j];
+            I = currents_cnt[i][j];
             if (I > zero_cutoff) {
                 //If the current is above the zero cutoff, add the current j-index to the vector of element_index
                 element_index.push_back(j);
@@ -247,7 +364,7 @@ int Backbone_Network::Find_dead_branches_simplified(vector<vector<long int> > &e
             
             //----------- Check for a dead branch on the back -----------
             //If the last j-index in element_index is NOT current_e[i].size()-1, then there is a dead brach at the back of the CNT
-            if (element_index.back() != (current_e[i].size()-1) ) {
+            if (element_index.back() != (currents_cnt[i].size()-1) ) {
                 //The first index of the dead branch is given by the last j-index in element_index
                 jj = element_index.back();
                 //The last j-index is the first index of the last conducting element
@@ -290,20 +407,19 @@ int Backbone_Network::Find_dead_branches_simplified(vector<vector<long int> > &e
     }
     
     //Printer *P = new Printer;
-    //P->Print_2d_vec(percolated_indices, "percolated_indices_simplified.txt");
-    //P->Print_2d_vec(dead_indices, "dead_indices_simplified.txt");
+    //P->Print_2d_vec(percolated_indices, "percolated_indices.txt");
+    //P->Print_2d_vec(dead_indices, "dead_indices.txt");
     //delete P;
     
     return 1;
 }
 //
-int Backbone_Network::Find_dead_gnps_simplified(const double &zero_cutoff, vector<int> &cluster_gch, vector<int> &gnp_dead_indices, vector<int> &gnp_indices)
+int Backbone_Network::Find_dead_gnps(const double &zero_cutoff, const vector<vector<double> > &currents_gnp, const vector<int> &cluster_gch)
 {
     //Variables
     int hyb;
     
     //Scan every GNP in the cluster
-    //Scan backwards to avoid conflicts with the indices when deleting an element
     for (int i = 0; i < (int)cluster_gch.size() ; i++) {
         //Flag to determine if the GNP is part of the backbone or not
         int percolated = 0;
@@ -311,17 +427,14 @@ int Backbone_Network::Find_dead_gnps_simplified(const double &zero_cutoff, vecto
         //Current hybrid particle
         hyb = cluster_gch[i];
         
-        //hout << "Top triangulation " << i << endl;
         //Scan every current in the resistors coming from the triangulation
         //current_gnp and cluster_gch have the same size
-        for (int j = 0; j < (int)current_gnp[i].size(); j++) {
+        for (int j = 0; j < (int)currents_gnp[i].size(); j++) {
             //If at least one current (current_gnp[i][j]) is above the cutoff then the GNP is part of the backbone
-            if (current_gnp[i][j] > zero_cutoff) {
+            if (currents_gnp[i][j] > zero_cutoff) {
                 //Set the percolated flag to 1
                 percolated = 1;
                 
-                //Add the GNP to the vector gnp_indices
-                gnp_indices.push_back(hyb);
                 //Add the GNP to the local vector of percolated GNPs
                 percolated_gnps.push_back(hyb);
                 //There is no need to calculate more currents so break the loop
@@ -331,17 +444,29 @@ int Backbone_Network::Find_dead_gnps_simplified(const double &zero_cutoff, vecto
         
         //Check if the percolated flag was set to 1
         if (!percolated) {
+            
             //If not set to one, then add the GNP to the cluster of dead GNPs.
-            gnp_dead_indices.push_back(hyb);            
+            dead_gnps.push_back(hyb);
         }
     }
     
     //Printer *P = new Printer;
-    //P->Print_1d_vec(percolated_gnps, "percolated_gnps_simplified.txt");
+    //P->Print_1d_vec(percolated_gnps, "percolated_gnps.txt");
     //delete P;
     
     return 1;
 }
+//------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
 //This vector calculates the lengths of the CNTs that form part of the backbone and the dead branches
 //It is assumed that the vectors are initialized and the quantities calculated for the current cluster are added
 //To the corresponding element of the vector

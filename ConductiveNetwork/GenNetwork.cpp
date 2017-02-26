@@ -9,10 +9,12 @@
 #include "GenNetwork.h"
 
 //Generate 3D nantube networks with ovelapping
-int GenNetwork::Generate_nanotube_networks(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct GNP_Geo &gnp_geo, const struct Cutoff_dist &cutoffs, vector<Point_3D> &cpoints, vector<vector<Point_3D> > &gnps_points, vector<GCH> &hybrid_particles, vector<double> &cnts_radius, vector<vector<long int> > &cstructures)const
+int GenNetwork::Generate_nanofiller_network(const struct Geom_RVE &geom_rve, const struct Cluster_Geo &clust_geo, const struct Nanotube_Geo &nanotube_geo, const struct GNP_Geo &gnp_geo, const struct Cutoff_dist &cutoffs, vector<Point_3D> &cpoints, vector<Point_3D> &gpoints, vector<GCH> &hybrid_particles, vector<double> &cnts_radius, vector<vector<long int> > &cstructures, vector<vector<long int> > &gstructures)const
 {
     //Define a two-dimensional vector of three-dimensional points for storing the CNT threads
     vector<vector<Point_3D> > cnts_points;
+    //Define a two-dimensional vector of three-dimensional points for storing the GNP discretizations
+    vector<vector<Point_3D> > gnps_points;
     
     double carbon_vol = 0, carbon_weight = 0;
     if (geom_rve.particle_type == "CNT_wires") {
@@ -47,28 +49,14 @@ int GenNetwork::Generate_nanotube_networks(const struct Geom_RVE &geom_rve, cons
             hout << "Error in generating a GNP network" << endl;
             return 0;
         }
-        //hout << "gnps_points sizes: " << endl;
-        int gnps = (int)gnps_points.size();
-        long int gnp_points_total = 0;
-        vector<double> cnts_radius_tmp;
-        for (int i = 0; i < gnps; i++) {
-            //hout << gnps_points[i].size() << endl;
-            gnp_points_total = gnp_points_total + gnps_points[i].size();
-            cnts_radius_tmp.push_back(0.0);
-        }
-        //hout << "np_points_total = " << gnp_points_total << endl;
         //Generate a network defined by points and connections
         //Use the Mersenne Twister for the random number generation
         //==========================
         //GNP_CNT_mix works only with penetrating model in CNTs (oct 30 2016)
         //WILL BE CHANGED FOR THE HYBRID PARTICLE FUNCTION?
-        if (!Generate_network_threads_mt(geom_rve, clust_geo, nanotube_geo, cutoffs, gnps_points, cnts_radius_tmp)) {
+        if (!Generate_network_threads_mt(geom_rve, clust_geo, nanotube_geo, cutoffs, cnts_points, cnts_radius)) {
             hout << "Error in generating a CNT network mixed with GNPs" << endl;
             return 0;
-        }
-        for (int i = gnps; i < (int)gnps_points.size(); i++) {
-            cnts_points.push_back(gnps_points[i]);
-            cnts_radius.push_back(cnts_radius_tmp[i]);
         }
 
     } else {
@@ -80,8 +68,11 @@ int GenNetwork::Generate_nanotube_networks(const struct Geom_RVE &geom_rve, cons
     if(CNTs_quality_testing(cnts_points)==0) return 0;
     
     //-----------------------------------------------------------------------------------------------------------------------------------------
-    //Transform the 2D cnts_points into 1D cpoints and 2D cstructuers
+    //Transform the 2D cnts_points into 1D cpoints and 2D cstructures
+    hout << "There are "<<cnts_points.size()<<" CNTs."<<endl;
     if(Transform_cnts_points(cnts_points, cpoints, cstructures)==0) return 0;
+    //Transform the 2D gnps_points into 1D gpoints and 2D gstructures
+    if(Transform_cnts_points(gnps_points, gpoints, gstructures)==0) return 0;
     
     //-----------------------------------------------------------------------------------------------------------------------------------------
     /*/A new class of Tecplot_Export
@@ -516,27 +507,34 @@ int GenNetwork::Generate_gnp_network_mt(const struct GNP_Geo &gnp_geo, const str
         }
         
         //Center point in reference coordinate system
-        hybrid.center.x = hybrid.gnp.len_x/2;
-        hybrid.center.y = hybrid.gnp.wid_y/2;
-        hybrid.center.z = 0;
+        //hybrid.center.x = hybrid.gnp.len_x/2;
+        //hybrid.center.y = hybrid.gnp.wid_y/2;
+        //hybrid.center.z = 0;
         
         //---------------------------------------------------------------------------
         //Randomly generate a direction in the spherical coordinates as the orientation of the GNP
-        double cnt_sita, cnt_pha;
-        if(Get_uniform_direction_mt(gnp_geo, cnt_sita, cnt_pha, engine_sita, engine_pha, dist)==0) return 0;
-        //Calculate the rotation matrix for the top CNTs
-        multiplier = Get_transformation_matrix(cnt_sita, cnt_pha);
+        double gnp_sita, gnp_pha;
+        if(Get_uniform_direction_mt(gnp_geo, gnp_sita, gnp_pha, engine_sita, engine_pha, dist)==0) return 0;
+        //Calculate the rotation matrix for the GNP
+        hybrid.rotation = Get_transformation_matrix(gnp_sita, gnp_pha);
         //Save this rotation as the rotation of the GNP
-        hybrid.rotation = multiplier;
+        //hybrid.rotation = multiplier;
         
         //---------------------------------------------------------------------------
         //Randomly generate a point inside the sample domain, this will be the displacement applied to the GNP, i.e,
         //its random location
-        if(Get_seed_point_mt(excub, gnp_poi, engine_x, engine_y, engine_z, dist)==0) return 0;
+        if(Get_seed_point_mt(excub, hybrid.center, engine_x, engine_y, engine_z, dist)==0) return 0;
         
         //---------------------------------------------------------------------------
         //Rotate and move center point of GNP
-        hybrid.center = hybrid.center.rotation(multiplier, gnp_poi);
+        //hybrid.center = hybrid.center.rotation(multiplier, gnp_poi);
+        
+        //---------------------------------------------------------------------------
+        //Update flag of hybrid particle with the particle number (starts in 0)
+        hybrid.flag = gnp_count;
+        //Increase the counter of particles
+        gnp_count++;
+        //hout << "gnp_count=" << gnp_count << endl;
         
         //---------------------------------------------------------------------------
         //Discretizise the GNP
@@ -556,16 +554,8 @@ int GenNetwork::Generate_gnp_network_mt(const struct GNP_Geo &gnp_geo, const str
             return 0;
         }
         
-        //Update flag of hybrid particle with the particle number (starts in 0)
-        hybrid.flag = gnp_count;
-        
         //Add the current particle to the vector of particles
         hybrid_praticles.push_back(hybrid);
-        
-        //Increase the counter of particles
-        gnp_count++;
-        //hout << "gnp_count=" << gnp_count << endl;
-        
     }
     
     carbon_vol = vol_sum;
@@ -797,7 +787,9 @@ int GenNetwork::Generate_cnt_network_threads_over_gnps_mt(const struct GNP_Geo &
     
     hout << "There were " << hybrid_count << " hybrid particles generated. Initially " << hybrid_praticles.size() << " GNPS generated" << endl << endl;
     
+    //Delete unused GNPs
     hybrid_praticles.erase(hybrid_praticles.begin()+hybrid_count,hybrid_praticles.end());
+    gnps_points.erase(gnps_points.begin()+hybrid_count,gnps_points.end());
     
     hout << "Deleted additional GNPs, now there are " << hybrid_praticles.size() << " GNPs" << endl << endl;
     
@@ -1321,7 +1313,7 @@ int GenNetwork::Calculate_number_of_CNTs_on_GNP_surface(const struct Nanotube_Ge
     //The maximum nuber of CNTs that can be placed in a GNP surface is just the GNP surface area divided
     //by the cross-sectional area of the CNT
     double CNT_area = cnt_rad*cnt_rad*PI;
-    int max_CNT = (int)GNP_area/CNT_area;
+    int max_CNT = (int)(GNP_area/CNT_area);
     
     //Calculate the number of CNTs on the GNP surface that result in the input CNT to GNP mass ratio
     ns = (int)round(gnp_geo.mass_ratio*gnp_geo.density*volume/(2*nanotube_geo.density*cnt_length*CNT_area));
@@ -1330,8 +1322,8 @@ int GenNetwork::Calculate_number_of_CNTs_on_GNP_surface(const struct Nanotube_Ge
     if (ns < max_CNT) {
         return 1;
     } else {
-        hout << "The maximum number of CNTs that can be placed on a GNP surface without them penetrating eachother is " << max_CNT;
-        hout << ". With the current CNT and GNP geometries, the number of CNTs required for a CNT to GNP weight ratio equal to 1 is ";
+        hout << "The maximum number of CNTs that can be placed on a GNP surface without them penetrating eachother is " << max_CNT << '.' << endl;
+        hout << "With the current CNT and GNP geometries, the number of CNTs required for a CNT to GNP weight ratio equal to 1 is ";
         hout << ns << '.' << endl;
         return 0;
     }
@@ -2138,7 +2130,7 @@ int GenNetwork::Discretize_gnp(const struct cuboid &gvcub, const GCH &hybrid, co
     Point_3D step_y(0.0,hybrid.gnp.wid_y/((double)n_points),0.0);
     
     //Discretize the bottom surface
-    if (Discretize_plane(gvcub, hybrid.rotation, hybrid.center, corner, step_x, step_y, n_points, n_points, 0, gnp_discrete)==0) {
+    if (Discretize_plane(gvcub, hybrid, corner, step_x, step_y, n_points, n_points, 0, gnp_discrete)==0) {
         hout << "Error in Discretize_gnp while calling Discretize_plane." << endl;
         return 0;
     }
@@ -2151,7 +2143,7 @@ int GenNetwork::Discretize_gnp(const struct cuboid &gvcub, const GCH &hybrid, co
     corner.z = hybrid.gnp.hei_z/2;
     
     //Discretize the top surface (The steps are the same as with the bottom surface)
-    if (Discretize_plane(gvcub, hybrid.rotation, hybrid.center, corner, step_x, step_y, n_points, n_points, 0, gnp_discrete)==0) {
+    if (Discretize_plane(gvcub, hybrid, corner, step_x, step_y, n_points, n_points, 0, gnp_discrete)==0) {
         hout << "Error in Discretize_gnp while calling Discretize_plane." << endl;
         return 0;
     }
@@ -2169,7 +2161,7 @@ int GenNetwork::Discretize_gnp(const struct cuboid &gvcub, const GCH &hybrid, co
     Point_3D step_z(0.0,0.0,-hybrid.gnp.hei_z/((double)n_points_z));
     
     //Discretize one of the side surface
-    if (Discretize_plane(gvcub, hybrid.rotation, hybrid.center, corner, step_z, step_y, n_points_z, n_points, 1, gnp_discrete)==0) {
+    if (Discretize_plane(gvcub, hybrid, corner, step_z, step_y, n_points_z, n_points, 1, gnp_discrete)==0) {
         hout << "Error in Discretize_gnp while calling Discretize_plane." << endl;
         return 0;
     }
@@ -2181,7 +2173,7 @@ int GenNetwork::Discretize_gnp(const struct cuboid &gvcub, const GCH &hybrid, co
     corner.y = hybrid.gnp.wid_y/2;   //corner.x remains negative
     
     //Discretize one of the side surface
-    if (Discretize_plane(gvcub, hybrid.rotation, hybrid.center, corner, step_z, step_x, n_points_z, n_points, 1, gnp_discrete)==0) {
+    if (Discretize_plane(gvcub, hybrid, corner, step_z, step_x, n_points_z, n_points, 1, gnp_discrete)==0) {
         hout << "Error in Discretize_gnp while calling Discretize_plane." << endl;
         return 0;
     }
@@ -2196,7 +2188,7 @@ int GenNetwork::Discretize_gnp(const struct cuboid &gvcub, const GCH &hybrid, co
     step_y.y = -step_y.y;
     
     //Discretize one of the side surface
-    if (Discretize_plane(gvcub, hybrid.rotation, hybrid.center, corner, step_z, step_y, n_points_z, n_points, 1, gnp_discrete)==0) {
+    if (Discretize_plane(gvcub, hybrid, corner, step_z, step_y, n_points_z, n_points, 1, gnp_discrete)==0) {
         hout << "Error in Discretize_gnp while calling Discretize_plane." << endl;
         return 0;
     }
@@ -2211,7 +2203,7 @@ int GenNetwork::Discretize_gnp(const struct cuboid &gvcub, const GCH &hybrid, co
     step_x.x = -step_x.x;
     
     //Discretize one of the side surface
-    if (Discretize_plane(gvcub, hybrid.rotation, hybrid.center, corner, step_z, step_x, n_points_z, n_points, 1, gnp_discrete)==0) {
+    if (Discretize_plane(gvcub, hybrid, corner, step_z, step_x, n_points_z, n_points, 1, gnp_discrete)==0) {
         hout << "Error in Discretize_gnp while calling Discretize_plane." << endl;
         return 0;
     }
@@ -2219,7 +2211,7 @@ int GenNetwork::Discretize_gnp(const struct cuboid &gvcub, const GCH &hybrid, co
     return 1;
 }
 //This function discretizes a single plane
-int GenNetwork::Discretize_plane(const struct cuboid &gvcub, const MathMatrix rotation, const Point_3D center, const Point_3D &corner, const Point_3D &step_x1, const Point_3D &step_x2, const int &n_points_x1, const int &n_points_x2, const int &side_flag, vector<Point_3D> &gnp_discrete)const
+int GenNetwork::Discretize_plane(const struct cuboid &gvcub, const GCH &hybrid, const Point_3D &corner, const Point_3D &step_x1, const Point_3D &step_x2, const int &n_points_x1, const int &n_points_x2, const int &side_flag, vector<Point_3D> &gnp_discrete)const
 {
     //Loop over the points on the central plane
     //The side flag indicates if the plane is on the sides (1) or top or bottom (0)
@@ -2234,13 +2226,15 @@ int GenNetwork::Discretize_plane(const struct cuboid &gvcub, const MathMatrix ro
             //A point that approximates the volume will be i steps in the x-direction and j steps in the y-direction
             Point_3D temp = corner + step_x1*i + step_x2*j;
             
-            //Map to global coordinates
-            temp = temp.rotation(rotation, center);
+            //Assign same flag as hybrid
+            temp.flag = hybrid.flag;
             
-            //If the point is outside the composite domain, then there is no need to consider the point for penetrations
-            if (Judge_RVE_including_point(gvcub, temp)) {
-                gnp_discrete.push_back(temp);
-            }
+            //Map to global coordinates
+            temp = temp.rotation(hybrid.rotation, hybrid.center);
+            
+            //Add the point to the discretization vector
+            gnp_discrete.push_back(temp);
+            
         }
     }
     
@@ -4011,10 +4005,9 @@ int GenNetwork::Get_projected_points_in_plane(const Point_3D &center, const Poin
     return 1;
 }
 //---------------------------------------------------------------------------
-//Transform the 2D cnts_points into 1D cpoints and 2D cstructuers
+//Transform the 2D cnts_points into 1D cpoints and 2D cstructures
 int GenNetwork::Transform_cnts_points(const vector<vector<Point_3D> > &cnts_points, vector<Point_3D> &cpoints, vector<vector<long int> > &cstructures)const
 {
-    hout << "There are "<<cnts_points.size()<<" CNTs."<<endl;
     long int count = 0;
     for(int i=0; i<(int)cnts_points.size(); i++)
     {

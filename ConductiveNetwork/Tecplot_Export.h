@@ -33,7 +33,7 @@ class Tecplot_Export
         //The geometric structure of CNT network (by quadrilaterial elements in Tecplot) with a specific filename. This function uses a 1D point vector and a 2D structure vector that references the point vector
         int Export_cnt_network_meshes(const struct cuboid &cub, const vector<Point_3D> &cnts_points, const vector<double> &cnts_radius, const vector<vector<long int> > &structure, string filename)const;
         //The geometric structure of CNT network (by quadrilaterial elements in Tecplot) with a specific filename. This function uses a 1D point vector, a 2D structure vector that references the point vector and a vector of hybrid particles
-        int Export_cnt_network_meshes(const struct cuboid &cub, const vector<Point_3D> &cnts_points, const vector<double> &cnts_radius, const vector<GCH> &hybrid_particles, const vector<int> &gnp_cluster, const vector<vector<long int> > &structure, string filename)const;
+        int Export_cnt_network_meshes(const struct cuboid &cub, const int &n_cluster, const vector<vector<int> > &gnp_clusters, const vector<vector<int> > &cnt_clusters, const vector<vector<long int> > &structure, const vector<Point_3D> &cnts_points, const vector<double> &cnts_radius, const vector<GCH> &hybrid_particles, string &filename, string &family)const;
 
 	//private:
 		//Export a 3D cuboid
@@ -50,9 +50,9 @@ class Tecplot_Export
         //Export nanotube network by tetrahedron elements (Single zones in tecplot: all nanotubes by one zone) with a specific filename
         int Export_cnts_meshes_singlezone(const struct cuboid &cub, const vector<vector<Node> > &nodes, const vector<vector<Element> > &eles, string filename)const;
         //Export hybrid particle network by tetrahedron elements (Single zones in tecplot: all nanotubes by one zone) with a specific filename
-        int Export_hybrid_meshes_singlezone(const struct cuboid &cub, const vector<vector<Node> > &nodes, const vector<vector<Element> > &eles, const vector<GCH> &hybrid_particles, const vector<int> &gnp_cluster, string filename)const;
+        int Export_hybrid_meshes_singlezone(const struct cuboid &cub, const int &n_cluster, const vector<vector<Node> > &nodes, const vector<vector<Element> > &eles, const vector<GCH> &hybrid_particles, const vector<vector<int> > &gnp_clusters, string &filename, string &family)const;
         //Export a 3D cuboid with a random orientation
-        int Export_randomly_oriented_gnps(ofstream &otec, const vector<GCH> &hybrid_particles, const vector<int> &gnp_cluster)const;
+        int Export_randomly_oriented_gnps(ofstream &otec, const vector<GCH> &hybrid_particles, const vector<int> &gnp_cluster, string &family)const;
 };
 //-------------------------------------------------------
 #endif
