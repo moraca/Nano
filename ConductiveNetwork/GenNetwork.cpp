@@ -478,12 +478,12 @@ int GenNetwork::Generate_gnp_network_mt(const struct GNP_Geo &gnp_geo, const str
     gvcub.poi_min = geom_rve.origin;
     gvcub.len_x = geom_rve.len_x;
     gvcub.wid_y = geom_rve.wid_y;
-    gvcub.hei_z = geom_rve.hei_z;//*/
+    gvcub.hei_z = geom_rve.hei_z;
     struct cuboid excub;					//generate a cuboid to represent the extended domain
-    excub.poi_min = geom_rve.ex_origin;
-    excub.len_x = geom_rve.ex_len;
-    excub.wid_y = geom_rve.ey_wid;
-    excub.hei_z = geom_rve.ez_hei;
+    excub.poi_min = geom_rve.origin - Point_3D(gnp_geo.len_max/2,gnp_geo.len_max/2,gnp_geo.len_max/2);
+    excub.len_x = geom_rve.len_x + gnp_geo.len_max;
+    excub.wid_y = geom_rve.wid_y + gnp_geo.len_max;
+    excub.hei_z = geom_rve.hei_z + gnp_geo.len_max;
     excub.volume = excub.len_x*excub.wid_y*excub.hei_z;
     
     gvcub.volume = geom_rve.volume;
@@ -539,7 +539,7 @@ int GenNetwork::Generate_gnp_network_mt(const struct GNP_Geo &gnp_geo, const str
         //---------------------------------------------------------------------------
         //Discretizise the GNP
         vector<Point_3D> gnp_discrete;
-        if (Discretize_gnp(gvcub, hybrid, gnp_geo.discr_step_length, gnp_discrete)==0) {
+        if (Discretize_gnp(hybrid, gnp_geo.discr_step_length, gnp_discrete)==0) {
             hout << "Error in Generate_hybrid_particle_threads_mt when calling Discretize_gnp." << endl;
             return 0;
         }
@@ -953,7 +953,7 @@ int GenNetwork::Generate_hybrid_particle_threads_mt(const struct GNP_Geo &gnp_ge
         if (penetrating_model_flag) {
             //---------------------------------------------------------------------------
             //Discretizise the GNP
-            if (Discretize_gnp(gvcub, hybrid, nanotube_geo.step_length, gnp_discrete)==0) {
+            if (Discretize_gnp(hybrid, nanotube_geo.step_length, gnp_discrete)==0) {
                 hout << "Error in Generate_hybrid_particle_threads_mt when calling Discretize_gnp." << endl;
                 return 0;
             }
@@ -1359,10 +1359,13 @@ int GenNetwork::Generate_cnt_seeds(const struct Nanotube_Geo &nanotube_geo, cons
 int GenNetwork::Get_seed_point_2d_mt(const struct cuboid &cub, const double &cnt_rad, Point_3D &point, mt19937 &engine_x, mt19937 &engine_y, uniform_real_distribution<double> &dist)const
 {
     //Adding cnt_rad and subtracting 2*cnt_rad to len_x, will make the CNT seed to be entirely inside the GNP surface
-    point.x = cub.poi_min.x + cnt_rad + (cub.len_x - 2*cnt_rad)*dist(engine_x);
+    point.x = -cub.len_x/2 + cnt_rad + (cub.len_x - 2*cnt_rad)*dist(engine_x);
     
     //Adding cnt_rad and subtracting 2*cnt_rad to wid_y, will make the CNT seed to be entirely inside the GNP surface
-    point.y = cub.poi_min.y + cnt_rad + (cub.wid_y - 2*cnt_rad)*dist(engine_y);
+    point.y = -cub.wid_y/2 + cnt_rad + (cub.wid_y - 2*cnt_rad)*dist(engine_y);
+    
+    //By deafault the point is generated in the "top" surface, the rotation will later move it to the "bottom" surface if needed
+    point.z = cub.hei_z/2;
     
     point.flag = 0; //0 denotes this point is the initial point of a CNT
     
@@ -1487,12 +1490,6 @@ int GenNetwork::Grow_cnts_on_gnp_surface(const struct Geom_RVE &geom_rve, const 
     //---------------------------------------------------------------------------
     //Initialize a point to be used in the rest of the function
     Point_3D cnt_poi(0.0,0.0,0.0);
-
-    //---------------------------------------------------------------------------
-    //Initialize a point to be used as teh GNP displacement
-    //This displacement is not the GNP center but the displacement of one of its corners
-    Point_3D gnp_disp(-hybrid.gnp.len_x/2, -hybrid.gnp.wid_y/2, 0.0);
-    gnp_disp = gnp_disp.rotation(hybrid.rotation, hybrid.center);
     
     //---------------------------------------------------------------------------
     //Vectors for the CNT seeds, they will help in checking for seed overlapping
@@ -1509,13 +1506,12 @@ int GenNetwork::Grow_cnts_on_gnp_surface(const struct Geom_RVE &geom_rve, const 
         
         //While the maximum number of attempts has not been reached and CNT has not grown successfully, keep trying
         while (attempts < MAX_ATTEMPTS && !success) {
+            
             //hout << "Grow0.00 ";
-            //Create a CNT seed in the top surface
-            cnt_poi.z = hybrid.gnp.hei_z/2;
             if (Get_seed_point_2d_mt(hybrid.gnp, cnt_rad, cnt_poi, engine_x, engine_y, dist)==0) return 0;
             
             //Apply rotation and displacement to the CNT seed
-            cnt_poi = cnt_poi.rotation(hybrid.rotation, gnp_disp);
+            cnt_poi = cnt_poi.rotation(hybrid.rotation, hybrid.center);
             
             //Check seed penetration
             //If seed is penetrating then, generate another seed (that is why the rest of the code is inside the if-statement)
@@ -2110,131 +2106,117 @@ int GenNetwork::Approximate_gnp_volume(const struct cuboid &gvcub, const GCH &hy
 //This function takes a GNP and generates a discretized version.
 //This dicretized version consists of a vector of points that approximates the six surfaces of the GNP with a square lattice.
 //The distance between points is equal to the step size of the CNTs.
-int GenNetwork::Discretize_gnp(const struct cuboid &gvcub, const GCH &hybrid, const double &step, vector<Point_3D> &gnp_discrete)const
+int GenNetwork::Discretize_gnp(const GCH &hybrid, const double &step, vector<Point_3D> &gnp_discrete)const
 {
-    //---------------------------------------------------------------------------
-    //---------------------------------------------------------------------------
-    //---------------------------------------------------------------------------
-    //Bottom surface
     
-    //Number of points per top and bottom surfaces
-    int n_points = ((int)hybrid.gnp.len_x/step) + 1;
+    //The surface is squared, so generate all points in a single line from -l/2 to l/2
+    //where l is the side length of the squared surface
+    double largest = hybrid.gnp.len_x/2, smallest = - largest;
+    vector<double> step_line;
     
-    //First calculate the lower left corner on the bottom surface of the GNP
-    //It is assummed the center of the GNP is the origin (0,0,0), thus the center of the hybrid particle is the displacement
-    //to be used in the function that maps to global coordinates
-    Point_3D corner( -hybrid.gnp.len_x/2, -hybrid.gnp.wid_y/2, -hybrid.gnp.hei_z/2);
+    //Initialize the current step with the first step, i.e. smallest
+    double current_step = smallest;
     
-    //These points determine the location of the n_points*n_points points that are used to approximate the volume of the GNP
-    Point_3D step_x(hybrid.gnp.len_x/((double)n_points),0.0,0.0);
-    Point_3D step_y(0.0,hybrid.gnp.wid_y/((double)n_points),0.0);
-    
-    //Discretize the bottom surface
-    if (Discretize_plane(gvcub, hybrid, corner, step_x, step_y, n_points, n_points, 0, gnp_discrete)==0) {
-        hout << "Error in Discretize_gnp while calling Discretize_plane." << endl;
-        return 0;
+    //Add steps while the current step is smaller than the largest step
+    while (current_step < largest) {
+        
+        //Add the current step to the vector of steps
+        step_line.push_back(current_step);
+        
+        //Increase the step
+        current_step = current_step + step;
     }
     
-    //---------------------------------------------------------------------------
-    //Top surface
+    //Add the last step
+    step_line.push_back(largest);
     
-    //Calculate the lower left corner on the top surface of the GNP
-    //Only the z-coordinate changes with respect to the bottom surface
-    corner.z = hybrid.gnp.hei_z/2;
-    
-    //Discretize the top surface (The steps are the same as with the bottom surface)
-    if (Discretize_plane(gvcub, hybrid, corner, step_x, step_y, n_points, n_points, 0, gnp_discrete)==0) {
-        hout << "Error in Discretize_gnp while calling Discretize_plane." << endl;
-        return 0;
-    }
     
     //---------------------------------------------------------------------------
-    //---------------------------------------------------------------------------
-    //---------------------------------------------------------------------------
-    //Side surface 1
+    //Bottom and top surface
     
-    //Number of points along the thicknes of the GNP
-    int n_points_z = ((int)hybrid.gnp.hei_z/step) + 1;
-    
-    //Start in the last corner and discretize surface, since the z-coordinate is positive, the step on the z-direction
-    //has to be negative
-    Point_3D step_z(0.0,0.0,-hybrid.gnp.hei_z/((double)n_points_z));
-    
-    //Discretize one of the side surface
-    if (Discretize_plane(gvcub, hybrid, corner, step_z, step_y, n_points_z, n_points, 1, gnp_discrete)==0) {
-        hout << "Error in Discretize_gnp while calling Discretize_plane." << endl;
-        return 0;
-    }
-    
-    //---------------------------------------------------------------------------
-    //Side surface 2
-    
-    //Move to the next corner
-    corner.y = hybrid.gnp.wid_y/2;   //corner.x remains negative
-    
-    //Discretize one of the side surface
-    if (Discretize_plane(gvcub, hybrid, corner, step_z, step_x, n_points_z, n_points, 1, gnp_discrete)==0) {
-        hout << "Error in Discretize_gnp while calling Discretize_plane." << endl;
-        return 0;
-    }
-    
-    //---------------------------------------------------------------------------
-    //Side surface 3
-    
-    //Move to the next corner
-    corner.x = hybrid.gnp.len_x/2;  //corner.x remains positive
-    
-    //Now the step has to be given in the negative y-direction
-    step_y.y = -step_y.y;
-    
-    //Discretize one of the side surface
-    if (Discretize_plane(gvcub, hybrid, corner, step_z, step_y, n_points_z, n_points, 1, gnp_discrete)==0) {
-        hout << "Error in Discretize_gnp while calling Discretize_plane." << endl;
-        return 0;
-    }
-    
-    //---------------------------------------------------------------------------
-    //Side surface 4
-    
-    //Move to the next corner
-    corner.y = -hybrid.gnp.wid_y/2;   //corner.x remains positive
-    
-    //Now the step has to be given in the negative x-direction
-    step_x.x = -step_x.x;
-    
-    //Discretize one of the side surface
-    if (Discretize_plane(gvcub, hybrid, corner, step_z, step_x, n_points_z, n_points, 1, gnp_discrete)==0) {
-        hout << "Error in Discretize_gnp while calling Discretize_plane." << endl;
-        return 0;
-    }
-    
-    return 1;
-}
-//This function discretizes a single plane
-int GenNetwork::Discretize_plane(const struct cuboid &gvcub, const GCH &hybrid, const Point_3D &corner, const Point_3D &step_x1, const Point_3D &step_x2, const int &n_points_x1, const int &n_points_x2, const int &side_flag, vector<Point_3D> &gnp_discrete)const
-{
-    //Loop over the points on the central plane
-    //The side flag indicates if the plane is on the sides (1) or top or bottom (0)
-    //When it is a top or bottom plane, all the points in the discretized surface are considered
-    //When it is a side surface, some of the points were already generated, i.e., those of the shared edge
-    //with the top and bottom surfaces
-    for(int i=0+side_flag; i<n_points_x1-side_flag; i++) {
-        //The side surfaces also share edges, so there is also the posibility of adding twice the same point
-        //In this case, only the last step is ignored. In this way, by discretizing the side surfaces in order,
-        //the last point is not added, but is the same as the first point of the next surface
-        for(int j=0; j<n_points_x2-side_flag; j++) {
-            //A point that approximates the volume will be i steps in the x-direction and j steps in the y-direction
-            Point_3D temp = corner + step_x1*i + step_x2*j;
+    //The bottom and top surfaces are all combinatios of two steps in the step_line with +lz/2 and -lz/2
+    for (int i = 0; i < (int)step_line.size(); i++) {
+        
+        for (int j = 0; j < (int)step_line.size(); j++) {
             
-            //Assign same flag as hybrid
-            temp.flag = hybrid.flag;
+            //Point that will be added to the discretization vector
+            Point_3D point_tmp(step_line[i], step_line[j], hybrid.gnp.hei_z/2);
             
             //Map to global coordinates
-            temp = temp.rotation(hybrid.rotation, hybrid.center);
+            point_tmp = point_tmp.rotation(hybrid.rotation, hybrid.center);
+            
+            //Assign same flag as hybrid
+            point_tmp.flag = hybrid.flag;
             
             //Add the point to the discretization vector
-            gnp_discrete.push_back(temp);
+            gnp_discrete.push_back(point_tmp);
             
+            //Generate the same point with at the opposite z-boundary
+            point_tmp.x = step_line[i];
+            point_tmp.y = step_line[j];
+            point_tmp.z = -hybrid.gnp.hei_z/2;
+            
+            //Map to global coordinates
+            point_tmp = point_tmp.rotation(hybrid.rotation, hybrid.center);
+            
+            //Assign same flag as hybrid
+            point_tmp.flag = hybrid.flag;
+            
+            //Add the point to the discretization vector
+            gnp_discrete.push_back(point_tmp);
+        }
+    }
+    
+    //---------------------------------------------------------------------------
+    //Lateral surfaces
+    
+    //Reset largest and smallest
+    largest = hybrid.gnp.hei_z/2; smallest = -largest;
+    
+    //Step vector for the lateral surfaces, they will be added in "layers"
+    vector<double> step_layer;
+    
+    //Initialize the current step with the first step, i.e. smallest
+    current_step = smallest;
+    
+    //Add steps while the current step is smaller than the largest step
+    while (current_step < largest) {
+        
+        //Add the current step to the vector of steps
+        step_layer.push_back(current_step);
+        
+        //Increase the step
+        current_step = current_step + step;
+    }
+    
+    //Add the last step
+    step_layer.push_back(largest);
+    
+    //Scan all steps except the first and last since those are the squared sufaces and
+    //they were already discretized
+    for (int k = 1; k < (int)step_layer.size()-1; k++) {
+        
+        //Scan all possible combinations of the step_line vector
+        for (int i = 0; i < (int)step_line.size(); i++) {
+            
+            for (int j = 0; j < (int)step_line.size(); j++) {
+                
+                //A point is in a lateral surface is i=0 or i=step_line.size()-1 j=0 or j=step_line.size()-1
+                if (i == 0 || i == (int)step_line.size()-1 || j == 0 || j == (int)step_line.size()-1) {
+                    
+                    //Generate the lateral point
+                    Point_3D point_tmp(step_line[i], step_line[j], step_layer[k]);
+                    
+                    //Map to global coordinates
+                    point_tmp = point_tmp.rotation(hybrid.rotation, hybrid.center);
+                    
+                    //Assign same flag as hybrid
+                    point_tmp.flag = hybrid.flag;
+                    
+                    //Add the point to the discretization vector
+                    gnp_discrete.push_back(point_tmp);
+                }
+            }
         }
     }
     

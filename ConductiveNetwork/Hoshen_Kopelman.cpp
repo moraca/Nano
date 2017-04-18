@@ -367,9 +367,6 @@ int Hoshen_Kopelman::Scan_sub_regions_gnp(const vector<Point_3D> &points_gnp, co
     //It is initialized to -1 so if there is a bug in the code, there is going to be an error when using the -1 as an index
     labels_gnp.assign(hybrid_particles.size(), -1);
     
-    //Squared of tunneling cutoff
-    double tunnel_2 = tunnel*tunnel;
-    
     //new_label will take the value of the newest cluster
     int new_label = 0;
     
@@ -384,38 +381,54 @@ int Hoshen_Kopelman::Scan_sub_regions_gnp(const vector<Point_3D> &points_gnp, co
                 GNP2 = points_gnp[P2].flag;
                 //If distance below the cutoff and points belong to different CNT
                 
-                //First check if the GNPs are different. Only when the GNPs are different the distance between points is calculated
-                //In this way calculation of all distances is avoided
-                //Also to make the code faster, use the squared distance so the squared root is not performed and compare with the squared tunnel
-                double distance = points_gnp[P1].squared_distance_to(points_gnp[P2]);
-                if ((GNP1!=GNP2)&&( distance <= tunnel_2)) {
-                    //First identify the GNP with the largest number, this will be the row
-                    //The GNP with the lowest number will be the column
-                    int row, column;
-                    if (GNP1 < GNP2) {
-                        row = GNP2;
-                        column = GNP1;
-                    } else {
-                        row = GNP1;
-                        column = GNP2;
-                    }
-                    //hout <<"P1="<<P1<<" GNP1="<<GNP1<<" P2="<<P2<<" GNP2="<<GNP2;
-                    //hout <<" row="<<row<<" col="<<column<<endl;
-                    //hout <<"point_matrix.s="<<point_matrix.size()<<endl;
-                    //hout <<"point_matrix[GNP1].s="<<point_matrix[GNP1].size()<<endl;
-                    //hout <<"point_matrix[GNP2].s="<<point_matrix[GNP2].size()<<endl;
-                    //Check if the distance is smaller than the one in the distance_matrix
-                    if (distance < distance_matrix[row][column]) {
-                        //If the distance is smaller than the one in the distance matrix, take this pair of points as the contact
-                        point_matrix[GNP1][GNP2] = P1; //Point on GNP1 in contact with GNP2
-                        point_matrix[GNP2][GNP1] = P2; //Point on GNP2 in contact with GNP1
-                        //Update the squared distance
-                        distance_matrix[row][column] = distance;
-                    }
-                    //Here is where the actual HK76 algorithm takes place
-                    if (!HK76(GNP1, GNP2, new_label, labels_gnp, labels_labels_gnp)) {
-                        hout << "Error in Scan_sub_regions_gnp when calling HK76" << endl;
-                        return 0;
+                //Check if the GNPs are different
+                //Only when the GNPs are different it is worth to do the rest of computations
+                if (GNP1 != GNP2) {
+                    
+                    //Map P2 to the local coordinates of GNP1
+                    Point_3D demapped = Demap_gnp_point(hybrid_particles[GNP1], points_gnp[P2]);
+                    
+                    //Check if the point is inside the GNP bounding box that determines contact
+                    if ( Judge_point_inside_bounding_box(hybrid_particles[GNP1].gnp, demapped, tunnel) ) {
+                        
+                        //If the point of GNP2 is inside the GNP1 bounding box, then the GNPs are in contact
+                        
+                        //Identify the GNP with the largest number, this will be the row
+                        //The GNP with the lowest number will be the column
+                        int row, column;
+                        if (GNP1 < GNP2) {
+                            row = GNP2;
+                            column = GNP1;
+                        } else {
+                            row = GNP1;
+                            column = GNP2;
+                        }
+                        
+                        //Calculate the distance between the points in contact
+                        double distance = points_gnp[P1].squared_distance_to(points_gnp[P2]);
+                        
+                        //hout <<"P1="<<P1<<" GNP1="<<GNP1<<" P2="<<P2<<" GNP2="<<GNP2;
+                        //hout <<" row="<<row<<" col="<<column<<endl;
+                        //hout <<"point_matrix.s="<<point_matrix.size()<<endl;
+                        //hout <<"point_matrix[GNP1].s="<<point_matrix[GNP1].size()<<endl;
+                        //hout <<"point_matrix[GNP2].s="<<point_matrix[GNP2].size()<<endl;
+                        
+                        //Check if the distance between points is smaller than the one in the distance_matrix
+                        if (distance < distance_matrix[row][column]) {
+                            
+                            //If the distance is smaller than the one in the distance matrix, take this pair of points as the contact
+                            point_matrix[GNP1][GNP2] = P1; //Point on GNP1 in contact with GNP2
+                            point_matrix[GNP2][GNP1] = P2; //Point on GNP2 in contact with GNP1
+                            
+                            //Update the squared distance
+                            distance_matrix[row][column] = distance;
+                        }
+                        
+                        //Here is where the actual HK76 algorithm takes place
+                        if (!HK76(GNP1, GNP2, new_label, labels_gnp, labels_labels_gnp)) {
+                            hout << "Error in Scan_sub_regions_gnp when calling HK76" << endl;
+                            return 0;
+                        }
                     }
                 }
             }
@@ -455,6 +468,35 @@ int Hoshen_Kopelman::Initialize_contact_matrices(const int &n_GNPs, vector<vecto
     
     return 1;
 }
+//This function maps a point to the local coordinates of a GNP
+//It is asummed the center of coordinates is located at the GNP center
+Point_3D Hoshen_Kopelman::Demap_gnp_point(const GCH &hybrid, const Point_3D &point_gnp2)
+{
+    //Point to store the result
+    Point_3D demapped_point;
+    
+    //First subtract the displacement form the point in GNP2
+    Point_3D tmp = point_gnp2 - hybrid.center;
+    
+    //Multiply the transpose of the rotation matrix by the point obtained in the previous step
+    //The operation is done explicitly since a matrix-point multiplication is not defined
+    demapped_point.x = hybrid.rotation.element[0][0]*tmp.x + hybrid.rotation.element[1][0]*tmp.y + hybrid.rotation.element[2][0]*tmp.z;
+    
+    demapped_point.y = hybrid.rotation.element[0][1]*tmp.x + hybrid.rotation.element[1][1]*tmp.y + hybrid.rotation.element[2][1]*tmp.z;
+    
+    demapped_point.z = hybrid.rotation.element[0][2]*tmp.x + hybrid.rotation.element[1][2]*tmp.y + hybrid.rotation.element[2][2]*tmp.z;
+
+    return demapped_point;
+}
+//This function judges if a point is inside a GNP bounding box
+int Hoshen_Kopelman::Judge_point_inside_bounding_box(const struct cuboid &gnp, const Point_3D &point, const double &extension)
+{
+    //If the point is outside the function returns 0: any of the operations will return 1; thus the OR wil return 1; then the NOT returns 0
+    return !(point.x<-(gnp.len_x/2+extension)||point.x>(gnp.len_x/2+extension)||
+            point.y<-(gnp.wid_y/2+extension)||point.y>(gnp.wid_y/2+extension)||
+            point.z<-(gnp.hei_z/2+extension)||point.z>(gnp.hei_z/2+extension) );
+}
+//
 int Hoshen_Kopelman::Create_vector_of_gnp_contacts(const vector<vector<long int> > &point_matrix)
 {
     //Scan the distance matrix, this will be enough to include all contacts
@@ -511,18 +553,22 @@ int Hoshen_Kopelman::Cleanup_labels(vector<int> &labels, vector<int> &labels_lab
     vector<int> label_map(labels_labels.size(),-1);
     //This variable will be used to count the number of cluster
     int counter = 0;
-    //Temporary vector of labels of labels that will substitute the original vector
-    vector<int> labels_labels_tmp;
+    
+    //Temporary vector of labels of labels initialized to be equal to the original vector
+    vector<int> labels_labels_tmp(labels_labels);
+    //Clear the original vector of labels
+    labels_labels.clear();
     
     //First scan all the labels of labels to find the root labels
     //Create a map from root label to proper label
     //Proper labels are consecutive labels from 0 to N-1, where N is the number of clusters
     //i.e., these are merged and renumbered labels
-    for (int i = 0; i < (int)labels_labels.size(); i++) {
-        //if labels_labels[i] > 0, then i is a proper label
-        if (labels_labels[i] > 0) {
+    for (int i = 0; i < (int)labels_labels_tmp.size(); i++) {
+        //if labels_labels_tmp[i] > 0, then i is a proper label
+        if (labels_labels_tmp[i] > 0) {
             label_map[i] = counter;
-            labels_labels_tmp.push_back(labels_labels[i]);
+            //Now the vector of labels of labels has only positive integers
+            labels_labels.push_back(labels_labels_tmp[i]);
             counter++;
         }
     }
@@ -532,17 +578,17 @@ int Hoshen_Kopelman::Cleanup_labels(vector<int> &labels, vector<int> &labels_lab
         //Check that labels[i] is a valid label
         if (labels[i] != -1) {
             //Find the root label of labels[i]
-            int root = Find_root(labels[i], labels_labels);
+            int root = Find_root(labels[i], labels_labels_tmp);
             //Find the proper label
             int proper = label_map[root];
+            if (proper == -1) {
+                hout << "Invalid proper label " << proper << ". Valid labels are positive integers or 0"<<endl;
+                return 0;
+            }
             //Change the current label by the proper label
             labels[i] = proper;
         }
     }
-    
-    //Clear the labels_labels and make it equal to the vector labels_labels_tmp
-    labels_labels.clear();
-    labels_labels.assign(labels_labels_tmp.begin(), labels_labels_tmp.end());
     
     return 1;
 }
@@ -560,9 +606,6 @@ int Hoshen_Kopelman::Scan_sub_regions_cnt_and_gnp(const struct Geom_RVE &sample,
     vector<int> empty_int;
     //Contact matrix that assigns the contact number to a given GNP
     vector<vector<int> > gnp_contact_matrix( hybrid_particles.size(), empty_int);
-    
-    //Varable to calculate the cutoff for tunneling
-    double cutoff_t;
     
     //Number of CNTs, used to calculate the particle number of GNPs
     int n_cnts = (int)labels.size();
@@ -599,6 +642,7 @@ int Hoshen_Kopelman::Scan_sub_regions_cnt_and_gnp(const struct Geom_RVE &sample,
     //This is possible because both vectors have the same size
     for (long int i = 0; i < (long int)sectioned_domain.size(); i++) {
         
+        //number of elements in sectioned_domain[i]
         long int inner1 = (long int)sectioned_domain[i].size();
         
         for (long int j = 0; j < inner1; j++) {
@@ -606,6 +650,8 @@ int Hoshen_Kopelman::Scan_sub_regions_cnt_and_gnp(const struct Geom_RVE &sample,
             //Current point in the CNT sub-regions
             P1 = sectioned_domain[i][j];
             CNT1 = points_in[P1].flag;
+            
+            //Number of elements in sectioned_domain_gnp[i]
             long int inner2 = (long int)sectioned_domain_gnp[i].size();
             
             for (long int k = 0; k < inner2; k++) {
@@ -613,27 +659,22 @@ int Hoshen_Kopelman::Scan_sub_regions_cnt_and_gnp(const struct Geom_RVE &sample,
                 //Current point in the GNP sub-regions
                 P2 = sectioned_domain_gnp[i][k];
                 GNP2 = points_gnp[P2].flag;
-                if  (GNP2 > (int)hybrid_particles.size())
-                    return 0;
-                //If distance below the cutoff and points belong to different CNT
-                cutoff_t = radii[CNT1] + tunnel;
                 
-                //hout <<"P1="<<P1<<" CNT1="<<CNT1<<" P2="<<P2<<" GNP2="<<GNP2;
-                //hout <<" cutoff_t="<<cutoff_t;
-                //hout<<" r1="<<radii[CNT1]<<endl;
-                
-                //First check if the CNT is not attached to the GNP. This eliminates add resistors between a CNT seed and a GNP point and between a CNT point close to its seed and a GNP point
-                //In this way calculation of all point-to-point distances is avoided
+                //First check if the CNT is not attached to the GNP. This eliminates adding resistors between a CNT seed, or close to a CNT seed, and a GNP point
                 if (cnt_gnp_numbers[CNT1] != GNP2) {
                     
-                    //Calculate distance
-                    double distance = points_in[P1].distance_to(points_gnp[P2]);
+                    //Map the CNT point P to the local coordinates of the GNP
+                    Point_3D demapped = Demap_gnp_point(hybrid_particles[GNP2], points_gnp[P1]);
                     
-                    //Check if the distance is less than the cutoff
-                    if (distance <= cutoff_t) {
+                    //Calculate the extension of the GNP bounding box, which is the same as the cutoff for tunneling
+                    double extension = tunnel + radii[CNT1];
+                    
+                    //Check if the CNT point is inside the GNP bounding box that determines contact
+                    if ( Judge_point_inside_bounding_box(hybrid_particles[GNP2].gnp, demapped, extension) ) {
                         
-                        //Check if contact repeated or equivalent to an existing one
-                        if (!Check_repeated_or_equivalent(P1, P2, distance, points_in, points_gnp, mixed_contacts, gnp_contact_matrix[GNP2])) {
+                        //If the CNT point is inside the boundaing box, then there us a contact
+                        //Check if the contact is repeated or it is equivalent to an existing one
+                        if (!Check_repeated_or_equivalent(P1, P2, points_in, points_gnp, mixed_contacts, gnp_contact_matrix[GNP2])) {
                             
                             //If not repeated or equivalent, create a new contact
                             struct contact_pair tmp;
@@ -650,13 +691,16 @@ int Hoshen_Kopelman::Scan_sub_regions_cnt_and_gnp(const struct Geom_RVE &sample,
                             gnp_contact_matrix[GNP2].push_back((int)mixed_contacts.size()-1);
                         }
                         
-                        //Here is where the actual HK76 algorithm takes place
+                        //Get the particle number of the GNP for the mixed labels
                         int particle2 = GNP2+n_cnts;
+                        
+                        //Here is where the actual HK76 algorithm takes place
                         if (!HK76(CNT1, particle2, new_label, labels_mixed, labels_labels_mixed)) {
                             hout << "Error in Scan_sub_regions_cnt_and_gnp when calling HK76" << endl;
                             return 0;
                         }
                     }
+                    
                 }
             }
         }
@@ -756,25 +800,30 @@ int Hoshen_Kopelman::Cluster_gnps_and_cnts(const vector<GCH> &hybrid_particles, 
         //Current GNP
         int GNP = gnps_inside[i];
         
-        //Get a CNT numer
-        int CNT, flag = 1;
-        if (hybrid_particles[GNP].cnts_top.size()) {
-            //If there are CNT at the top surface, take the first one
-            CNT = hybrid_particles[GNP].cnts_top[0];
-        } else if (hybrid_particles[GNP].cnts_bottom.size()) {
-            //If there are no CNTs at the top surface but there are at the bottom surface, take the first one at the bottom 
-            CNT = hybrid_particles[GNP].cnts_bottom[0];
-        } else {
-            //If none of the surfaces of the GNP had CNTs, then set the flag to skip the HK76
-            flag = 0;
+        //Scan all CNTs on top surface
+        for (int j = 0; j < (int)hybrid_particles[GNP].cnts_top.size(); j++) {
+            
+            //Get CNTnumber
+            int CNT = hybrid_particles[GNP].cnts_top[j];
+            
+            //Get the particle number of the GNP for the mixed labels
+            int particle2 = GNP+n_cnts;
+            if (!HK76(CNT, particle2, new_label, labels_mixed, labels_labels_mixed)) {
+                hout << "Error in Scan_sub_regions_cnt_and_gnp when calling HK76" << endl;
+                return 0;
+            }
         }
         
-        //Check the flag
-        if (flag) {
-            //Get the label of a CNT that belongs to that GNP
-            //At this point, CNTs that belong to the same GNP are already a cluster
-            //Here is where the actual HK76 algorithm takes place
+        //Scan all CNTs on bottom surface
+        for (int j = 0; j < (int)hybrid_particles[GNP].cnts_bottom.size(); j++) {
+            
+            //Get CNTnumber
+            int CNT = hybrid_particles[GNP].cnts_bottom[j];
+            
+            //Get the particle number of the GNP for the mixed labels
             int particle2 = GNP+n_cnts;
+            
+            //Here is where the actual HK76 algorithm takes place
             if (!HK76(CNT, particle2, new_label, labels_mixed, labels_labels_mixed)) {
                 hout << "Error in Scan_sub_regions_cnt_and_gnp when calling HK76" << endl;
                 return 0;
@@ -785,75 +834,59 @@ int Hoshen_Kopelman::Cluster_gnps_and_cnts(const vector<GCH> &hybrid_particles, 
     return 1;
 }
 //This function checks if a contact has alraedy been created
-//It ia assumed that the CNT is the first particle
-int Hoshen_Kopelman::Check_repeated_or_equivalent(const long int &point_cnt, const long int &point_gnp, const double &distance, const vector<Point_3D> &points_in, const vector<Point_3D> &points_gnp, vector<contact_pair> &contacts, vector<int> &gnp_contact_vector)
+//It is assumed that the CNT is the first particle
+int Hoshen_Kopelman::Check_repeated_or_equivalent(const long int &point_cnt, const long int &point_gnp, const vector<Point_3D> &points_in, const vector<Point_3D> &points_gnp, vector<contact_pair> &contacts, vector<int> &gnp_contact_vector)
 {
+    //Get the CNT number
+    int CNT = points_in[point_cnt].flag;
+    
     //define the range of points to eliminate long tunnels
-    int range = 2;
+    int range = 10;
+    
     //Iterate over the contacts of the GNP and check if it the contact has already been created
     for (int i = 0; i < (int)gnp_contact_vector.size(); i++) {
+        
         //Current contact
         int cont_pair = gnp_contact_vector[i];
-        //Check if the CNT point is close to a point contact then consider the contact to be repeated
-        //By checking the range then too long tunnels are eleiminated and only keep the shortest one
-        //Variables for the range limit
-        long int start_range = contacts[cont_pair].point1-range, end_range = contacts[cont_pair].point1+range;
-        //Check if point is inside the range and
-        if (start_range <= point_cnt && point_cnt <= end_range) {
-            //If the point is in the range, then the contact (or an equivalent contact) has already been created
-            //Find the shortest tunnel in the given range, initialize variable with current tunneling distance
-            double min_tunnel = distance;
-            //Check if the range is non-negative and not grater than the number of points
-            if (start_range < 0)
-                start_range = 0;
-            if (end_range >= (long int)points_in.size())
-                end_range = (long int)points_in.size()-1;
-            //iterate over the range of CNT points
-            //hout <<"start_range="<<start_range<<" end_range="<<end_range<<endl;
-            //hout <<"contact["<<cont_pair<<"]="<<contacts[cont_pair].point1<<", "<<contacts[cont_pair].particle1<<", "<<contacts[cont_pair].point2<<", "<<contacts[cont_pair].particle2<<endl;
-            for (long int j = start_range; j <= end_range; j++) {
-                //The points in the range might belong to different CNTs, so only check for equivalent contacts when the points are in the same CNTs
-                //hout<<"points_in["<<j<<"].flag="<<points_in[j].flag<<endl;
-                if (points_in[j].flag == contacts[cont_pair].particle1) {
-                    
-                    //The numbering of the GNP points does not say much about their relative location, i.e., two consecutive numbers might not refer to two consecutive points
-                    //Unlike CNT points, in which two consecutive numbers refer to two consecutive points
-                    //So just compare distances of the CNT point to the the GNP point in the existing contact and to the GNP point in the contact just found
-                    
-                    //This check the distance to the existing contact
-                    double distance_tmp = points_in[j].distance_to(points_gnp[contacts[cont_pair].point2]);
-                    if ( distance_tmp < min_tunnel) {
-                        //Set the new distance ad the minimum tunnel
-                        min_tunnel = distance_tmp;
-                        //Update the contact
-                        Update_contact(j, contacts[cont_pair].particle1, contacts[cont_pair].point2, contacts[cont_pair].particle2, contacts[cont_pair]);
-                    }
-                    //This check the distance to the contact just found
-                    if (contacts[cont_pair].point2 != point_gnp ) {
-                        //If the points in the GNP are different, compare the other distance
-                        distance_tmp = points_in[j].distance_to(points_gnp[point_gnp]);
-                        if (distance_tmp < min_tunnel) {
-                            min_tunnel = distance_tmp;
-                            Update_contact(j, contacts[cont_pair].particle1, point_gnp, contacts[cont_pair].particle2, contacts[cont_pair]);
-                        }
-                    }
-
-                }
-                
-            }
-            //Since the same or an equivalent contact was found, return 1
+        
+        //First check if the points are the same
+        if (point_cnt == contacts[cont_pair].point1 && point_gnp == contacts[cont_pair].point2) {
+            
+            //The contact is repeated, thus terminate the function
             return 1;
         }
+        //Check if the CNT is the same as in the current contact pair (CNTs are always particle1)
+        //in case there is an equivalent contact
+        else if (CNT == contacts[cont_pair].particle1) {
+            
+            //If the contact was not the same, now we check if the contact is equivalent
+            
+            //Compute the point numbers in the range to determine if the contact already exists
+            long int start_range = contacts[cont_pair].point1-range, end_range = contacts[cont_pair].point1+range;
+            
+            //Check if point_cnt is inside the range
+            if (start_range <= point_cnt && point_cnt <= end_range) {
+                
+                //If the CNT point is inside the range, then the contact is equivalent
+                //Choose the pair of points whith the shortest squared distance (to reduce computations)
+                double new_distance = points_in[point_cnt].squared_distance_to(points_gnp[point_gnp]);
+                double previous_distance = points_in[contacts[cont_pair].point1].squared_distance_to(points_gnp[contacts[cont_pair].point2]);
+                
+                if ( new_distance < previous_distance) {
+                    
+                    //Update the points in contact
+                    contacts[cont_pair].point1 = point_cnt;
+                    contacts[cont_pair].point2 = point_gnp;
+                }
+                
+                //The contact is equivalent, so return 1
+                return 1;
+            }
+        }//*/
     }
-    //If an equivalent contact was not found, return 0
+    
+    //An equivalent contact was not found, so return 0
     return 0;
-}
-void Hoshen_Kopelman::Update_contact(const long int &point1, const int &particle1, const long int &point2, const int &particle2, struct contact_pair &contact)
-{
-    contact.point1 = point1;
-    contact.point2 = point2;
-    contact.particle1 = particle1;
-    contact.particle2 = particle2;
 }
 //Renumber the two sets of labels to merge the clusters of CNTs and GNPs
 int Hoshen_Kopelman::Merge_interparticle_labels(vector<int> &labels_mixed)

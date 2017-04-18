@@ -160,7 +160,7 @@ int Contact_grid::Fill_sectioned_domain(const struct Geom_RVE &window_geom, cons
             int fz = 0;
             
             //Assign value of flag according to position of point
-            if (!Calculate_postion_flags(window_geom, points_in[P], cutoff, a, b, c, fx, fy, fz)) {
+            if (!Calculate_postion_flags(window_geom, points_in[P], cutoff, a, b, c, sx, sy, sz, fx, fy, fz)) {
                 hout << "Error in Generate_sectioned_domain_cnts when calling Calculate_postion_flags" << endl;
                 return 0;
             }
@@ -203,7 +203,7 @@ int Contact_grid::Calculate_region_coordinates(const struct Geom_RVE &window_geo
     return 1;
 }
 //
-int Contact_grid::Calculate_postion_flags(const struct Geom_RVE &window_geom, const Point_3D &point, const double &cutoff, const int &a, const int &b, const int &c, int &fx, int &fy, int &fz)
+int Contact_grid::Calculate_postion_flags(const struct Geom_RVE &window_geom, const Point_3D &point, const double &cutoff, const int &a, const int &b, const int &c, const int &sx, const int &sy, const int &sz, int &fx, int &fy, int &fz)
 {
     //Coordinates of non-overlaping region the point belongs to
     double x1 = a*window_geom.gs_minx +  window_geom.origin.x;
@@ -215,17 +215,17 @@ int Contact_grid::Calculate_postion_flags(const struct Geom_RVE &window_geom, co
     
     //Assign value of flag according to position of point
     //The first operand eliminates the periodicity on the boundary
-    if ((point.x > cutoff + window_geom.origin.x) && (point.x >= x1) && (point.x <= x1+cutoff))
+    if ((a > 0) && (point.x >= x1) && (point.x <= x1+cutoff))
         fx = -1;
-    else if ((point.x < window_geom.len_x+window_geom.origin.x-cutoff) && (point.x >= x2-cutoff) && (point.x <= x2 ))
+    else if ((a < sx-1) && (point.x >= x2-cutoff) && (point.x <= x2 ))
         fx = 1;
-    if ((point.y > cutoff + window_geom.origin.y) && (point.y >= y1) && (point.y <= y1+cutoff))
+    if ((b > 0) && (point.y >= y1) && (point.y <= y1+cutoff))
         fy = -1;
-    else if ((point.y < window_geom.wid_y+window_geom.origin.y-cutoff) && (point.y >= y2-cutoff) && (point.y <= y2 ))
+    else if ((b < sy-1) && (point.y >= y2-cutoff) && (point.y <= y2 ))
         fy = 1;
-    if ((point.z > cutoff + window_geom.origin.z) && (point.z >= z1) && (point.z <= z1+cutoff))
+    if ((c > 0) && (point.z >= z1) && (point.z <= z1+cutoff))
         fz = -1;
-    else if ((point.z < window_geom.hei_z+window_geom.origin.z-cutoff) && (point.z >= z2-cutoff) && (point.z <= z2 ))
+    else if ((c < sz-1) && (point.z >= z2-cutoff) && (point.z <= z2 ))
         fz = 1;
     
     return 1;

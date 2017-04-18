@@ -22,7 +22,7 @@ class Direct_Electrifying
 public:
     //Data Member
     vector<double> voltages;
-    vector<double> resistances;
+    vector<double> resistances, resistances_tunnel, separations;
     vector<vector<long int> > elements; //This vector will store the elements. It is needed to trim the CNTs
     vector<vector<long int> > elements_tunnel, elements_mixed_tunnel, elements_gnp_tunnel; //This vector will store the tunnel elements. It is needed to calculate the zero-current cutoff
     vector<int> LM_matrix;//Local mapping matrix. It maps from point number to node number. It is also used to calculate the currents
@@ -39,7 +39,7 @@ public:
     int Get_global_nodes(const int &family);
     void Initialize_boundary_node_map();
     int Get_LM_matrices(const int &family, const int &n_cluster, Hoshen_Kopelman *HoKo, Cutoff_Wins *Cutwins, const vector<vector<long int> > &structure, const vector<vector<long int> > &structure_gnp, int &global_nodes, vector<int> &LM_matrix, vector<int> &LM_matrix_gnp, vector<vector<long int> > &elements, vector<vector<long int> > &gnp_triangulation_points);
-    int Fill_mixed_contact_flags(const vector<contact_pair> &mixed_contacts, vector<long int> &cnt_contacts_point, vector<long int> &gnp_contacts_point);
+    int Fill_mixed_contact_flags(const int &family, const vector<contact_pair> &mixed_contacts, const vector<vector<short int> > &boundary_flags_cnt, vector<long int> &cnt_contacts_point, vector<long int> &gnp_contacts_point);
     int Fill_gnp_contact_flags(const vector<contact_pair> &gnp_contacts, vector<long int> &gnp_contacts_point);
     void Add_point_to_LM_matrix(long int P, int family, const vector<vector<short int> > &boundary_flags, int &global_nodes, vector<int> &LM_matrix);
     int Is_in_relevant_boundary(int family, short int boundary_node);
@@ -49,9 +49,14 @@ public:
     double Calculate_resistance_cnt(const vector<Point_3D> &point_list, const long int &P1, const long int &P2, const double &radius, const double &resistivity);
     void Add_elements_to_sparse_stiffness(const long int &node1, const long int &node2, const double &Re, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal);
     void Check_for_other_elements(const int &R_flag, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<int> &LM_matrix, const struct Electric_para &electric_param, const double d_vdw, const long int &P1, const long int &node1, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal, vector<vector<long int> > &contacts_point);
-    double Calculate_resistance_tunnel(const int &tunnel_flag, const double &rad1, const double &rad2, const struct Electric_para &electric_param, const Point_3D &P1, const Point_3D &P2, const double &d_vdw);
+    double Calculate_resistance_tunnel(const double &rad1, const Point_3D &P1, const double &rad2, const Point_3D &P2, const struct Electric_para &electric_param, const double &d_vdw);
+    double Calculate_resistance_tunnel(const int &tunnel_flag, const GCH &hybrid1, const Point_3D &P1, const double &rad2, const Point_3D &P2, const struct Electric_para &electric_param, const double &d_vdw);
+    double Calculate_distance_tunnel_point_gnp(const GCH &hybrid1, const Point_3D &P1, const Point_3D &P2);
+    double Exponential_tunnel(const struct Electric_para &electric_param, const double &d_vdw, const double &A, double &separation);
     void Remove_from_vector(long int num, vector<long int> &vec);
     int Fill_2d_matrices_gnp(const int &R_flag, const vector<int> &cluster_gnp, const vector<vector<long int> > &structure, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<int> &LM_matrix, const vector<Point_3D> &point_list_gnp, const vector<vector<long int> > &gnp_triangulation_points, const vector<int> &LM_matrix_gnp, const struct Electric_para &electric_param, vector<GCH> &hybrid_particles, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal);
+    int Same_boundary_node_preprocessing(const vector<vector<long int> > &structure, const vector<Point_3D> &point_list, const vector<int> &LM_matrix, const vector<int> &LM_matrix_gnp, const vector<long int> &gnp_triangulation_points, GCH &hybrid, vector<int> &tmp_cnts);
+    int Only_add_values(const vector<int> &LM_matrix, const vector<short int> &edge_flags, const long int &node1, const int &particle1, const long int &node2, const int &particle2);
     double Calculate_resistance_gnp(const int &flag, const Point_3D &P1, const Point_3D &P2, const double &rad1, const double &rad2, const GCH &hybrid, const struct Electric_para &electric_param);
     int Flags_gnps_inside(const vector<int> &clusters_gnp, vector<short int> &gnps_inside_flags);
     int Fill_2d_matrices_gnp_gnp_tunnels(const int &R_flag, const vector<contact_pair> &gnp_contacts, const vector<Point_3D> &point_list_gnp, const vector<int> &LM_matrix_gnp, const vector<int> &clusters_gnp, vector<short int> &gnps_inside_flags, const struct Electric_para &electric_param, const double &d_vdw, vector<GCH> &hybrid_particles, vector<vector<long int> > &col_ind_2d, vector<vector<double> > &values_2d, vector<double> &diagonal);

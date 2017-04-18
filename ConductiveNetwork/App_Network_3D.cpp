@@ -87,7 +87,7 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
         hout << "Determine nanotube clusters time: "<<(int)(ct1-ct0)<<" secs."<<endl;
         
         //-----------------------------------------------------------------------------------------------------------------------------------------
-        /*/Save cluters into a file
+        //Save cluters into a file
         ct0 = time(NULL);
         if (Export_tecplot_files_for_clusters("Cluster", i, Init->geom_rve, cnts_point, cnts_radius, cnts_structure, HoKo->clusters_cnt, HoKo->isolated, hybrid_particles, HoKo->clusters_gch, HoKo->isolated_gch)==0) return 0;
         ct1 = time(NULL);
@@ -101,7 +101,7 @@ int App_Network_3D::Create_conductive_network_3D(Input *Init)const
         ct1 = time(NULL);
         hout << "Determine percolating clusters time: "<<(int)(ct1-ct0)<<" secs."<<endl;
         
-        /*/-----------------------------------------------------------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------------------------------------------------------
         //Save cluters into a file
         ct0 = time(NULL);
         if (Export_tecplot_files_for_clusters("Percolated", i, Init->geom_rve, cnts_point, cnts_radius, cnts_structure, HoKo->clusters_cnt, HoKo->isolated, hybrid_particles, HoKo->clusters_gch, HoKo->isolated_gch)==0) return 0;

@@ -34,24 +34,35 @@ int Direct_Electrifying::Calculate_voltage_field(const int &family, const int &n
     //Initialize the vector boundary_node_map
     Initialize_boundary_node_map();
     
-    //hout << "Get_LM_matrices"<<endl;
     //Initialize the size of the elements matrix to be equal to the number of CNTs
     vector<long int> empty;
     elements.assign(structure.size(), empty);
+    //Initialize the vector of GNP points to triangulate
     vector<vector<long int> > gnp_triangulation_points(structure_gnp.size(), empty);
+    
+    //Construct the LM matrices
+    //hout << "Get_LM_matrices"<<endl;
     if (!Get_LM_matrices(family, n_cluster, HoKo, Cutwins, structure, structure_gnp, global_nodes, LM_matrix, LM_matrix_gnp, elements, gnp_triangulation_points)) {
         hout << "Error in Calculate_voltage_field when calling Get_LM_matrices" << endl;
         return 0;
     }
     
-    /*/Export stiffness matrix to check conditioning number
+    //Export stiffness matrix to check conditioning number
     Printer *P = new Printer;
     if (R_flag == 1) {
         P->Print_2d_vec(gnp_triangulation_points, "gnp_triangulation_points_R.txt");
         P->Print_2d_vec(Cutwins->boundary_gnp, "boundary_gnp_R.txt");
+        P->Print_2d_vec(elements, "elements_R.txt");
+        P->Print_1d_vec(LM_matrix_gnp, "LM_matrix_gnp_R.txt");
+        P->Print_1d_vec(LM_matrix, "LM_matrix_R.txt");
+        P->Print_1d_vec(HoKo->gnp_contacts, "gnp_contacts_R.txt");
     } else if (R_flag == 0) {
         P->Print_2d_vec(gnp_triangulation_points, "gnp_triangulation_points_unit.txt");
         P->Print_2d_vec(Cutwins->boundary_gnp, "boundary_gnp_unit.txt");
+        P->Print_2d_vec(elements, "elements_unit.txt");
+        P->Print_1d_vec(LM_matrix_gnp, "LM_matrix_gnp_unit.txt");
+        P->Print_1d_vec(LM_matrix, "LM_matrix_unit.txt");
+        P->Print_1d_vec(HoKo->gnp_contacts, "gnp_contacts_unit.txt");
     } else {
         hout << "Error in Fill_sparse_stiffness_matrix. Invalid R_flag:" << R_flag << ". Only 0 and 1 are valid flags." << endl;
         return 0;
@@ -175,7 +186,7 @@ int Direct_Electrifying::Get_LM_matrices(const int &family, const int &n_cluster
     //Vector with flags indicating a GNP point has a contact with another GNP point
     vector<long int> gnp_contacts_point(LM_matrix_gnp.size(), 0);
     //Fill the vectors of flags
-    if (!Fill_mixed_contact_flags(HoKo->mixed_contacts, cnt_contacts_point, gnp_contacts_point)) {
+    if (!Fill_mixed_contact_flags(family, HoKo->mixed_contacts, Cutwins->boundary_flags_cnt, cnt_contacts_point, gnp_contacts_point)) {
         hout << "Error in Get_LM_matrix when calling Fill_mixed_contact_flags" << endl;
         return 0;
     }
@@ -285,7 +296,7 @@ int Direct_Electrifying::Get_LM_matrices(const int &family, const int &n_cluster
     return 1;
 }
 //This function finds all CNT and GNP points in contact with GNP points, then it fills the contact flags
-int Direct_Electrifying::Fill_mixed_contact_flags(const vector<contact_pair> &mixed_contacts, vector<long int> &cnt_contacts_point, vector<long int> &gnp_contacts_point)
+int Direct_Electrifying::Fill_mixed_contact_flags(const int &family, const vector<contact_pair> &mixed_contacts, const vector<vector<short int> > &boundary_flags_cnt, vector<long int> &cnt_contacts_point, vector<long int> &gnp_contacts_point)
 {
     //Scan all mixed contacts
     for (int i = 0; i < (int)mixed_contacts.size(); i++) {
@@ -293,14 +304,19 @@ int Direct_Electrifying::Fill_mixed_contact_flags(const vector<contact_pair> &mi
         //If the CNT is inside the cluster, get the CNT point number of contact i
         long int P = mixed_contacts[i].point1;
         
-        //Set the value of the corresponding CNT contact point to 1
-        cnt_contacts_point[P] = 1;
-        
-        //Get the GNP point number of contact i
-        P = mixed_contacts[i].point2;
-        
-        //Set the value of the corresponding GNP contact point to 1
-        gnp_contacts_point[P] = 1;
+        //If the CNT point is a boundary point in a relevant boundary, ignore the tunnel
+        if (!(boundary_flags_cnt[P].size() && Is_in_relevant_boundary(family, boundary_flags_cnt[P][0]))) {
+            
+            //Set the value of the corresponding CNT contact point to 1
+            cnt_contacts_point[P] = 1;
+            
+            //Get the GNP point number of contact i
+            P = mixed_contacts[i].point2;
+            
+            //Set the value of the corresponding GNP contact point to 1
+            gnp_contacts_point[P] = 1;
+
+        }
     }
     
     return 1;
@@ -399,17 +415,22 @@ int Direct_Electrifying::Fill_sparse_stiffness_matrix(const int &R_flag, const i
             return 0;
         }
     }
-
+    if (R_flag == 0) {
+        Printer *P = new Printer;
+        P->Print_2d_vec(col_ind_2d, "col_ind_2d_unit_preTr.txt");
+        delete P;
+    } else {
+        Printer *P = new Printer;
+        P->Print_2d_vec(col_ind_2d, "col_ind_2d_R_preTr.txt");
+        delete P;
+    }
     //------------------------------------------------------------------------
     //------------------------------------------------------------------------
     /*/CHECK
-    Printer *P = new Printer;
-    P->Print_2d_vec(col_ind_2d, "col_ind_2d_R_preT.txt");
-    delete P;
     hout << "=========================================================================================" << endl;
     hout << "=========================================================================================" << endl;
     hout << "Check_repeated_col_ind_2d" << endl;
-    if (!Check_repeated_col_ind_2d(nodes, structure, contacts_point_tmp, point_list, LM_matrix, col_ind_2d, values_2d)) {
+    if (!Check_repeated_col_ind_2d(nodes, structure, contacts_point_tmp, point_list, LM_matrix, point_list_gnp, LM_matrix_gnp, col_ind_2d, values_2d)) {
         hout << "Error in Fill_sparse_stiffness_matrix when calling Check_repeated_col_ind_2d " << R_flag << endl;
         return 0;
     }
@@ -424,7 +445,7 @@ int Direct_Electrifying::Fill_sparse_stiffness_matrix(const int &R_flag, const i
     //Fill the 2D matrices with the contributions of the GNPs when there are GNP clusters
     if (HoKo->clusters_gch.size() && HoKo->clusters_gch[n_cluster].size()) {
         
-        //hout << "GNP resistors" << endl;
+        hout << "GNP resistors" << endl;
         if (!Fill_2d_matrices_gnp(R_flag, HoKo->clusters_gch[n_cluster], structure, point_list, radii, LM_matrix, point_list_gnp, gnp_triangulation_points, LM_matrix_gnp, electric_param, hybrid_particles, col_ind_2d, values_2d, diagonal)) {
             hout << "Error in Fill_sparse_stiffness_matrix when calling Fill_2d_matrices_gnp" << endl;
             return 0;
@@ -437,14 +458,34 @@ int Direct_Electrifying::Fill_sparse_stiffness_matrix(const int &R_flag, const i
             return 0;
         }
         
-        //hout << "GNP-GNP tunnels" << endl;
+        if (R_flag == 0) {
+            Printer *P = new Printer;
+            P->Print_2d_vec(col_ind_2d, "col_ind_2d_unit_preGNPT.txt");
+            delete P;
+        } else {
+            Printer *P = new Printer;
+            P->Print_2d_vec(col_ind_2d, "col_ind_2d_R_preGNPT.txt");
+            delete P;
+        }
+        
+        hout << "GNP-GNP tunnels" << endl;
         //Fill the 2D matrices with the contributions of the GNP-GNP tunnels
         if (!Fill_2d_matrices_gnp_gnp_tunnels(R_flag, HoKo->gnp_contacts, point_list_gnp, LM_matrix_gnp, HoKo->clusters_gch[n_cluster], gnps_inside_flags, electric_param, d_vdw, hybrid_particles, col_ind_2d, values_2d, diagonal)) {
             hout << "Error in Fill_sparse_stiffness_matrix when calling Fill_2d_matrices_gnp_gnp_tunnels" << endl;
             return 0;
         }
         
-        //hout << "CNT-GNP tunnels" << endl;
+        if (R_flag == 0) {
+            Printer *P = new Printer;
+            P->Print_2d_vec(col_ind_2d, "col_ind_2d_unit_preMixT.txt");
+            delete P;
+        } else {
+            Printer *P = new Printer;
+            P->Print_2d_vec(col_ind_2d, "col_ind_2d_R_preMixT.txt");
+            delete P;
+        }
+        
+        hout << "CNT-GNP tunnels" << endl;
         //Fill the 2D matrices with the contributions of the CNT-GNP tunnels
         if (!Fill_2d_matrices_cnt_gnp_tunnels(R_flag, HoKo->mixed_contacts, point_list, radii, LM_matrix, point_list_gnp, LM_matrix_gnp, gnps_inside_flags, electric_param, d_vdw, hybrid_particles, col_ind_2d, values_2d, diagonal)) {
             hout << "Error in Fill_sparse_stiffness_matrix when calling Fill_2d_matrices_cnt_gnp_tunnels" << endl;
@@ -458,7 +499,16 @@ int Direct_Electrifying::Fill_sparse_stiffness_matrix(const int &R_flag, const i
     //------------------------------------------------------------------------
     //Check that there are no repeated nodes on each column of the stiffness matrix
     //If there are, then check if they can be added or if there is an error
-    hout << "Check_repeated_col_ind_2d" << endl;
+    //hout << "Check_repeated_col_ind_2d" << endl;
+    if (R_flag == 0) {
+        Printer *P = new Printer;
+        P->Print_2d_vec(col_ind_2d, "col_ind_2d_unit.txt");
+        delete P;
+    } else {
+        Printer *P = new Printer;
+        P->Print_2d_vec(col_ind_2d, "col_ind_2d_R.txt");
+        delete P;
+    }
     if (!Check_repeated_col_ind_2d(nodes, structure, contacts_point_tmp, point_list, LM_matrix, point_list_gnp, LM_matrix_gnp, col_ind_2d, values_2d)) {
         hout << "Error in Fill_sparse_stiffness_matrix when calling Check_repeated_col_ind_2d. R_flag=" << R_flag << endl;
         return 0;
@@ -467,23 +517,30 @@ int Direct_Electrifying::Fill_sparse_stiffness_matrix(const int &R_flag, const i
     contacts_point_tmp.clear();
     
     
-    /*/Export stiffness matrix to check conditioning number
-    Printer *P = new Printer;
+    //Export stiffness matrix to check conditioning number
+    
     if (R_flag == 1) {
+        Printer *P = new Printer;
         Export_matlab_sparse_matrix(col_ind_2d, values_2d, diagonal, "Matrix_R.dat");
         P->Print_1d_vec(resistances, "resistances_R.txt");
+        P->Print_1d_vec(resistances_tunnel, "resistances_tunnel_R.txt");
+        P->Print_1d_vec(separations, "separations_R.txt");
         P->Print_2d_vec(values_2d, "values_2d_R.txt");
         P->Print_1d_vec(diagonal, "diagonal_R.txt");
+        delete P;
     } else if (R_flag == 0) {
+        Printer *P = new Printer;
         Export_matlab_sparse_matrix(col_ind_2d, values_2d, diagonal, "Matrix_unit.dat");
         P->Print_1d_vec(resistances, "resistances_unit.txt");
+        P->Print_1d_vec(resistances_tunnel, "resistances_tunnel_unit.txt");
+        P->Print_1d_vec(separations, "separations_unit.txt");
         P->Print_2d_vec(values_2d, "values_2d_unit.txt");
         P->Print_1d_vec(diagonal, "diagonal_unit.txt");
+        delete P;
     } else {
         hout << "Error in Fill_sparse_stiffness_matrix. Invalid R_flag:" << R_flag << ". Only 0 and 1 are valid flags." << endl;
         return 0;
-    }
-    delete P;//*/
+    }//*/
     
     //------------------------------------------------------------------------
     //------------------------------------------------------------------------
@@ -515,47 +572,107 @@ int Direct_Electrifying::Fill_2d_matrices_cnts(const int &R_flag, const vector<v
     
     //Scan every CNT in the cluster
     for (long int i = 0; i < (long int)cluster.size(); i++) {
+        
+        //Current CNT in cluster
         CNT = cluster[i];
-        //hout << "CNT="<<CNT<<" elements[CNT].size()="<<elements[CNT].size()<<endl;
-        for (long int j = 0; j < (long int)elements[CNT].size()-1; j++) {
-            //Find node numbers of the first two elements
-            P1 = elements[CNT][j];
-            node1 = LM_matrix[P1];
-            P2 = elements[CNT][j+1];
-            node2 = LM_matrix[P2];
-            //Add the elements to the sparse vectors
-            //hout << "P1=" << P1 <<" LM_matrix[P1]="<<LM_matrix[P1]<< " P2=" << P2<<" LM_matrix[P2]="<<LM_matrix[P2] << endl;
-            //hout << "Add_elements_to_sparse_stiffness "<<j<<" node1="<<node1<<" node2="<<node2<<endl;
+        
+        //First check the special case of a CNT with three nodes, where the two endpoints are in the same boundary
+        if (elements[CNT].size() == 3 && LM_matrix[elements[CNT].front()] == LM_matrix[elements[CNT].back()]) {
             
-            //Sometimes two points at a boundary will be in contact, but since both are at a boundary
-            //it makes no sense to have tunneling there
-            //Thus ignore elements that have a boundary node
-            //Equivalently only add elements when both nodes are different
-            if (node1 != node2) {
-                double Re;
-                if (R_flag == 1) {
-                    Re = Calculate_resistance_cnt(point_list, P1, P2, radii[CNT], electric_param.resistivity_CF);
-                } else if (R_flag == 0) {
-                    Re = 1.0;
-                } else {
-                    hout << "Error in Fill_2d_matrices_cnts. Invalid resistor flag:" << R_flag << ". Valid flags are 0 and 1 only." << endl;
-                    return 0;
-                }
-                resistances.push_back(Re);
-                Add_elements_to_sparse_stiffness(node1, node2, Re, col_ind_2d, values_2d, diagonal);
-                
-                //Check if the current node1 has any contacts and add the corresponding contributions to the
-                //stiffness matrix
-                //hout << "Check_for_other_elements nested loop "<<j<<endl;
-                Check_for_other_elements(R_flag, point_list, radii, LM_matrix, electric_param, d_vdw, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
+            //Find node numbers of the points
+            P1 = elements[CNT][0];
+            node1 = LM_matrix[P1];
+            P2 = elements[CNT][1];
+            node2 = LM_matrix[P2];
+            long int P3 = elements[CNT][2];
+            long int node3 = LM_matrix[P3];
+            
+            //Calculate resistance depending of the R_flag
+            double Re;
+            if (R_flag == 1) {
+                Re = Calculate_resistance_cnt(point_list, P1, P2, radii[CNT], electric_param.resistivity_CF);
+            } else if (R_flag == 0) {
+                Re = 1.0;
+            } else {
+                hout << "Error in Fill_2d_matrices_cnts. Invalid resistor flag:" << R_flag << ". Valid flags are 0 and 1 only." << endl;
+                return 0;
             }
+            resistances.push_back(Re);
+            
+            //Add to sparse stiffnes
+            Add_elements_to_sparse_stiffness(node1, node2, Re, col_ind_2d, values_2d, diagonal);
+            
+            //Check if the first two nodes have any contacts and add the corresponding contributions to the
+            //stiffness matrix
+            //hout << "Check_for_other_elements first contact"<<endl;
+            Check_for_other_elements(R_flag, point_list, radii, LM_matrix, electric_param, d_vdw, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
+            //hout << "Check_for_other_elements middle contact"<<endl;
+            Check_for_other_elements(R_flag, point_list, radii, LM_matrix, electric_param, d_vdw, P2, node2, col_ind_2d, values_2d, diagonal, contacts_point);
+            
+            //Re-calcualte the resistance if needed
+            if (R_flag == 1) {
+                Re = Calculate_resistance_cnt(point_list, P2, P3, radii[CNT], electric_param.resistivity_CF);
+            }
+            
+            //For the second segment add the contributions to the stiffness matrix without calling the function
+            //since only existing values are modified, no values are added (pushed back) to the vectors
+            diagonal[node2] += 1/Re;
+            diagonal[node3] += 1/Re;
+            
+            //node3 is boundary node so node2>node3, thus -1/Re is added to values[node2].back()
+            values_2d[node2].back() += -1/Re;
+            
+            //Check if the last node has any contacts and add the corresponding contributions to the
+            //hout << "Check_for_other_elements third contact"<<endl;
+            Check_for_other_elements(R_flag, point_list, radii, LM_matrix, electric_param, d_vdw, P3, node3, col_ind_2d, values_2d, diagonal, contacts_point);
+            
         }
-        //Check if the last node has any contacts and add the corresponding contributions to the
-        //stiffness matrix
-        P1 = elements[CNT].back();
-        node1 = LM_matrix[P1];
-        Check_for_other_elements(R_flag, point_list, radii, LM_matrix, electric_param, d_vdw, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
-        //hout << "Check_for_other_elements "<<endl;
+        //Else continue with the general case
+        else {
+            //hout << "CNT="<<CNT<<" elements[CNT].size()="<<elements[CNT].size()<<endl;
+            for (long int j = 0; j < (long int)elements[CNT].size()-1; j++) {
+                
+                //Find node numbers of the first two points
+                P1 = elements[CNT][j];
+                node1 = LM_matrix[P1];
+                P2 = elements[CNT][j+1];
+                node2 = LM_matrix[P2];
+                
+                //Add the elements to the sparse vectors
+                //hout << "P1=" << P1 <<" LM_matrix[P1]="<<LM_matrix[P1]<< " P2=" << P2<<" LM_matrix[P2]="<<LM_matrix[P2] << endl;
+                //hout << "Add_elements_to_sparse_stiffness "<<j<<" node1="<<node1<<" node2="<<node2<<endl;
+                
+                //Sometimes two points at a boundary will be in contact, but since both are at a boundary
+                //it makes no sense to have tunneling there
+                //Thus ignore elements that have a boundary node
+                //Equivalently only add elements when both nodes are different
+                if (node1 != node2) {
+                    double Re;
+                    if (R_flag == 1) {
+                        Re = Calculate_resistance_cnt(point_list, P1, P2, radii[CNT], electric_param.resistivity_CF);
+                    } else if (R_flag == 0) {
+                        Re = 1.0;
+                    } else {
+                        hout << "Error in Fill_2d_matrices_cnts. Invalid resistor flag:" << R_flag << ". Valid flags are 0 and 1 only." << endl;
+                        return 0;
+                    }
+                    resistances.push_back(Re);
+                    Add_elements_to_sparse_stiffness(node1, node2, Re, col_ind_2d, values_2d, diagonal);
+                    
+                    //Check if the current node1 has any contacts and add the corresponding contributions to the
+                    //stiffness matrix
+                    //hout << "Check_for_other_elements nested loop "<<j<<endl;
+                    Check_for_other_elements(R_flag, point_list, radii, LM_matrix, electric_param, d_vdw, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
+                }
+            }
+            //Check if the last node has any contacts and add the corresponding contributions to the
+            //stiffness matrix
+            P1 = elements[CNT].back();
+            node1 = LM_matrix[P1];
+            Check_for_other_elements(R_flag, point_list, radii, LM_matrix, electric_param, d_vdw, P1, node1, col_ind_2d, values_2d, diagonal, contacts_point);
+            //hout << "Check_for_other_elements "<<endl;
+        }
+
     }
     
     return 1;
@@ -613,7 +730,7 @@ void Direct_Electrifying::Check_for_other_elements(const int &R_flag, const vect
             //Sometimes there is tunneling between a boundary point and a non-boundary point
             //If the CNT that contains the non-boundary point happens to be in contact with the
             //boundary (this is actually likely to happen), then there will be two resistors connecting
-            //the same nodes: a CNT resistor and a tunner resistor
+            //the same nodes: a CNT resistor and a tunnel resistor
             //A tunnel from a boundary to a CNT that is already in contact with the boundary does not
             //seem to be physically correct, so the tunnels between the boundary and a CNT are avoided
             //Boundary nodes have a node number below the variable reserved_nodes, so to include a tunnel
@@ -625,11 +742,17 @@ void Direct_Electrifying::Check_for_other_elements(const int &R_flag, const vect
                 //Calculate tunnel resistance
                 double Re = 0.0;
                 if (R_flag == 1) {
-                    Re = Calculate_resistance_tunnel(0, radii[point_list[P1].flag], radii[point_list[P2].flag], electric_param, point_list[P1], point_list[P2], d_vdw);
+                    
+                    //Call the function for CNT-CNT tunnels
+                    Re = Calculate_resistance_tunnel(radii[point_list[P1].flag], point_list[P1], radii[point_list[P2].flag], point_list[P2], electric_param, d_vdw);
+                    
                 } else if (R_flag == 0) {
+                    
+                    //Use unit resistance
                     Re = 1.0;
                 }
                 resistances.push_back(Re);
+                resistances_tunnel.push_back(Re);
                 //Add the elements to the sparse vectors
                 Add_elements_to_sparse_stiffness(node1, node2, Re, col_ind_2d, values_2d, diagonal);
                 //Remove the contac tha was used so it is not used again in the future
@@ -647,72 +770,225 @@ void Direct_Electrifying::Check_for_other_elements(const int &R_flag, const vect
     }
 }
 //This function calculates the electrical resistance due to tunneling using Hu et al. approach
-//There are three different types of tunnel considered:
-//0: CNT-CNT tunnel
-//1: GNP-GNP tunnel
-//2: CNT-GNP tunnel
-double Direct_Electrifying::Calculate_resistance_tunnel(const int &tunnel_flag, const double &rad1, const double &rad2, const struct Electric_para &electric_param, const Point_3D &P1, const Point_3D &P2, const double &d_vdw)
+//Only CNT-CNT tunnel resistances are calculated with this function
+double Direct_Electrifying::Calculate_resistance_tunnel(const double &rad1, const Point_3D &P1, const double &rad2, const Point_3D &P2, const struct Electric_para &electric_param, const double &d_vdw)
 {
-    //Variable to store the separation between CNTs
-    double separation;
-    
-    //Calculate the distance between the points in contact
-    double distance = P1.distance_to(P2);
-    
-    //Variable to store the minimum possible distance
-    double min_dist;
     
     //Variable to store the tunnel area
     double A;
     
-    //Calculate the minimum possible distance between points depending on the type of tunnel
-    if (tunnel_flag == 0) {
+    //Calculate the separation between CNTs, which is the distance between points minus the radii
+    double separation = P1.distance_to(P2);
+    separations.push_back(separation);
+    separation = separation  - rad1 - rad2;
+    
+    //The tunnel area is equal to the CNT cross-sectional area
+    //The thinnest CNT is taken as it will limit the flow of electrons
+    if (rad1 < rad2)
+        //rad1 is the smallest of the two
+        A = PI*rad1*rad1;
+    else
+        //rad2 is the smallest of the two
+        A = PI*rad2*rad2;
+    
+    
+    //==============================================================================
+    //==============================================================================
+    //Call the function that uses scaled input parameters to avoid numerical errors when reading the input file
+    return Exponential_tunnel(electric_param, d_vdw, A, separation);
+}
+//This function calculates the electrical resistance due to tunneling using Hu et al. approach
+//Only GNP-GNP and CNT-GNP tunnel resistances are calculated with this function
+//Tunnel flags are as follows:
+//1: GNP-GNP tunnel
+//2: CNT-GNP tunnel
+double Direct_Electrifying::Calculate_resistance_tunnel(const int &tunnel_flag, const GCH &hybrid1, const Point_3D &P1, const double &rad2, const Point_3D &P2, const struct Electric_para &electric_param, const double &d_vdw)
+{
+    
+    //Variable to store the separation between particles
+    double separation;
+    
+    //Variable to store the tunnel area
+    double A;
+    
+    //Calculate the minimum possible distance between points and area depending on the type of tunnel
+    //GNP-GNP tunnel
+    if (tunnel_flag == 1) {
         
-        //The minimum possible distance between points is r1 + r2 + d_vdw
-        min_dist = rad1 + rad2 + d_vdw;
-        
-        //The tunnel area is equal to the CNT cross-sectional area
-        //The thinnest CNT is taken as it will limit the flow of electrons
-        if (rad1 < rad2)
-            //rad1 is the smallest of the two
-            A = PI*rad1*rad1;
-        else
-            //rad2 is the smallest of the two
-            A = PI*rad2*rad2;
-        
-    } else if (tunnel_flag == 1) {
-        
-        //The minimum possible distance between points is d_vdw
-        min_dist = d_vdw;
+        //Calculate the separation between GNPs, which is the distance from P2 to GNP1
+        separation = Calculate_distance_tunnel_point_gnp(hybrid1, P1, P2);
         
         //For a GNP-GNP tunnel, take a rectangle with lengths where rad1 is the thickness of
         //GNP1 and rad2 is the thickness of GNP2
+        double rad1 = hybrid1.gnp.hei_z;
         A = rad1*rad2;
         
-    } else if (tunnel_flag == 2) {
+    }
+    //CNT-GNP tunnel
+    else if (tunnel_flag == 2) {
         
-        //The minimum possible distance between points is r1 + d_vdw
-        min_dist = rad1 + d_vdw;
+        //Calculate the separation between the GNP and CNT, which is the distance from P2 to the GNP1 minus the radius of CNT
+        separation = Calculate_distance_tunnel_point_gnp(hybrid1, P1, P2) - rad2;
         
         //For a mixed contact, take the crossectional area of the CNT
         //Use the value of rad1
-        A = PI*rad1*rad1;
+        A = PI*rad2*rad2;
         
-    } else {
-        hout << "Error in Calculate_resistance_tunnel. Invalid tunnel flag: " << tunnel_flag <<". Valid flags are 0, 1, and 2 only" << endl;
+    } else  {
+        hout << "Error in Calculate_resistance_tunnel. Invalid tunnel flag: " << tunnel_flag <<". Valid flags are 1 and 2 only" << endl;
         return 0;
     }
     
-    //Check if the distance between points is below the minimum possible distance
+    //==============================================================================
+    //==============================================================================
+    //Call the function that uses scaled input parameters to avoid numerical errors when reading the input file
+    return Exponential_tunnel(electric_param, d_vdw, A, separation);
+}
+//This function calcualtes the distance of the tunnel between a point and a GNP point
+//It is assumend that point1 is in the GNP and point2 is in another particle (either CNT or GNP)
+double Direct_Electrifying::Calculate_distance_tunnel_point_gnp(const GCH &hybrid1, const Point_3D &P1, const Point_3D &P2)
+{
+    //Temporary object to take advantage of the demapping function
+    Hoshen_Kopelman *HKtmp = new Hoshen_Kopelman;
+    
+    //Demap the points using as reference hybrid1
+    Point_3D point1 = HKtmp->Demap_gnp_point(hybrid1, P1);
+    Point_3D point2 = HKtmp->Demap_gnp_point(hybrid1, P2);
+    
+    //Delete temporary object
+    delete HKtmp;
+    
+    //Flags to determine if the point is at a GNP surface, edge or vertex
+    int fx = 0, fy = 0, fz = 0, flag = 0;
+    
+    //This point will be used as reference
+    //If point1 is at a surface or edge, it can be used to generate new points on the surface or edge
+    //If point1 is a vertex, this point will be that vertex
+    Point_3D reference(0,0,0);
+    
+    //Detemine if point1 is at any boundary
+    if ( abs(hybrid1.gnp.len_x/2 - point1.x)  < Zero) {
+        fx = 1;
+        reference.x = hybrid1.gnp.len_x/2;
+    } else if ( abs(hybrid1.gnp.len_x/2 + point1.x) < Zero) {
+        fx = -1;
+        reference.x = -hybrid1.gnp.len_x/2;
+    }
+    if ( abs(hybrid1.gnp.wid_y/2 - point1.y)  < Zero) {
+        fy = 1;
+        reference.y = hybrid1.gnp.wid_y/2;
+    } else if ( abs(hybrid1.gnp.wid_y/2 + point1.y) < Zero) {
+        fy = -1;
+        reference.y = -hybrid1.gnp.wid_y/2;
+    }
+    if ( abs(hybrid1.gnp.hei_z/2 - point1.z)  < Zero) {
+        fz = 1;
+        reference.z = hybrid1.gnp.hei_z/2;
+    } else if ( abs(hybrid1.gnp.hei_z/2 + point1.z) < Zero) {
+        fz = -1;
+        reference.z = -hybrid1.gnp.hei_z/2;
+    }
+    
+    //Calculate the total flag
+    flag = abs(fx) + abs(fy) + abs(fz);
+    
+    //Detemine if point1 is at a GNP surface, edge or vertex based on the total flag
+    if (flag == 1) {
+        
+        //point1 is in a surface, so I need three points to calculate the distance from point2 to the plane corresponding to the surface of point1
+        //point1 is already in the surface, so I only need two more points
+        //Procedure from: http://mathworld.wolfram.com/Point-PlaneDistance.html
+        
+        //The new points will start as opposite corners
+        //To set them to the same plane they will have an equal coordinate
+        //This coordinate will be given by the flags
+        Point_3D x1(hybrid1.gnp.len_x/2,hybrid1.gnp.wid_y/2,hybrid1.gnp.hei_z/2);
+        Point_3D x2(-hybrid1.gnp.len_x/2,-hybrid1.gnp.wid_y/2,-hybrid1.gnp.hei_z/2);
+        
+        //The non-zero flag determines the shared coordinate that puts x1 and x2 in the same plane, which is the same plane as point1
+        if (fx) {
+            x1.x = reference.x;
+            x2.x = reference.x;
+        }
+        else if(fy) {
+            x1.y = reference.y;
+            x2.y = reference.y;
+        }
+        else if(fz) {
+            x1.z = reference.z;
+            x2.z = reference.z;
+        }
+        
+        //Now that there are three points in a plane, calculate the distance from point2 to the plane
+        
+        //First, calculate a vector normal to the plane
+        Point_3D x3 = point1 - x1; //For some reason the argument of cross() cannot be (point1 - x1)
+        Point_3D normal = (x2 - x1).cross(x3);
+        //Second, make unit normal vector
+        normal = normal/sqrt(normal.dot(normal));
+        //Third, calculate distance (the abs is used because this formula gives a signed distance)
+        x3 = point2 - x1; //For some reason the argument of dot() cannot be (point2 - x1)
+        return abs(normal.dot(x3));
+        
+    }
+    //point1 is at an edge
+    else if (flag == 2) {
+        
+        //point1 is on an edge, so I need two points to calculate the distance from point2 to the line corresponding to the edge of point1
+        //point1 is already on the edge, so I only need one more point
+        //Procedure from: http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
+        
+        //Initialize the new point in a corner
+        Point_3D x1(hybrid1.gnp.len_x/2,hybrid1.gnp.wid_y/2,hybrid1.gnp.hei_z/2);
+        
+        //Modify the coordinates that will set the point in the line
+        if (fx) {
+            x1.x = reference.x;
+        }
+        if(fy) {
+            x1.y = reference.y;
+        }
+        if(fz) {
+            x1.z = reference.z;
+        }
+        
+        //Now that there are two points in a line, calculate the distance from point2 to the line
+        Point_3D x3 = x1 - point2;
+        //Calculate the cross product of the numerator
+        x3 = (point1 - x1).cross(x3);
+        //Calcualte the numerator
+        double num = sqrt(x3.dot(x3));
+        //Calculate the subtraction of the denominator
+        x3 = point1 - x1;
+        //calculate the denominator
+        double den = sqrt(x3.dot(x3));
+        
+        //Return the absolute value of the division
+        return abs(num/den);
+        
+    }
+    //point1 is a vertex
+    else if (flag == 3) {
+        
+        //point1 is a vertex, so calculate the distance from point1 to point2
+        return point1.distance_to(point2);
+    }
+    
+    
+    hout << "Error. The GNP point is not on a surface, edge or vertex."<<endl;
+    return -1;
+}
+double Direct_Electrifying::Exponential_tunnel(const struct Electric_para &electric_param, const double &d_vdw, const double &A, double &separation)
+{
+    //==============================================================================
+    //==============================================================================
+    //Pre-processing
+    
+    //Check if the tunnel distance is below the van der Waals distance
     //This happens when the penetrating model is used
-    if (distance < min_dist)
-        //If the distance between the points is below min_dist, then set the separation equal to the van der Waals distance
+    if (separation < d_vdw)
+        //If the distance between the points is below the van der Waals distance, then set the separation equal to the van der Waals distance
         separation = d_vdw;
-    else
-        //If the distance between the points is above min_dist, then calculate the separation between particles
-        //This separation is the distance between the points minus the radii of CNTs involved
-        //Equivalently, this is equal to: distance - (min_dist - d_vdw)
-        separation = distance - min_dist + d_vdw;
     
     //==============================================================================
     //==============================================================================
@@ -753,15 +1029,33 @@ int Direct_Electrifying::Fill_2d_matrices_gnp(const int &R_flag, const vector<in
     
     //Scan every hybrid particle, perform the triangulations and add the elements to the stiffness matrix
     for (long int i = 0; i < (long int)cluster_gnp.size(); i++) {
+        
         //current hybrid particle
         int hyb = cluster_gnp[i];
         
-        //Perform triangulations
+        //Pre-procesing on the points to triangulate
+        //In case there is more than one point at the same boundary, only use one
+        vector<int> tmp_cnts;
+        if (!Same_boundary_node_preprocessing(structure, point_list, LM_matrix, LM_matrix_gnp, gnp_triangulation_points[hyb], hybrid_particles[hyb], tmp_cnts)) {
+            hout << "Error in Fill_2d_matrices_gnp when calling Same_boundary_node_preprocessing" << endl;
+            return 0;
+        }
+        
+        //Perform triangulation
         if (!delaunay->Generate_3d_trangulation(last_cnt_node, point_list, structure, point_list_gnp, gnp_triangulation_points[hyb], hybrid_particles[hyb])) {
-            hout << "Error in Fill_2d_matrices_gch" << endl;
+            hout << "Error in Fill_2d_matrices_gnp when calling delaunay->Generate_3d_trangulation" << endl;
             return 0;
         }
         //hout << "Triangulation " << i << ", " << gnp_triangulation_points[hyb].size() << " points in GNP " << hyb<<", " << hybrid_particles[hyb].triangulation.size() << " edges"<< endl;
+        
+        //Add back elements deleted in the pre-processing
+        for (int j = 0; j < (int)tmp_cnts.size(); j++) {
+            if (tmp_cnts[j] >= 0) {
+                hybrid_particles[hyb].cnts_top.push_back(tmp_cnts[j]);
+            } else {
+                hybrid_particles[hyb].cnts_bottom.push_back(-tmp_cnts[j]);
+            }
+        }
         
         //Vector to store elements from the triangulation that need to be deleted
         vector<int> to_delete;
@@ -773,14 +1067,11 @@ int Direct_Electrifying::Fill_2d_matrices_gnp(const int &R_flag, const vector<in
             P1 = hybrid_particles[hyb].triangulation[j][0];
             P2 = hybrid_particles[hyb].triangulation[j][1];
             
-            //Determne flag of triangulation resistor
-            //0: CNT-CNT tunnel
-            //1: GNP-GNP tunnel
-            //2: CNT-GNP tunnel
-            int flag = 0, gnp_flag1 = 0, gnp_flag2 = 0;
+            //Particle numbers
+            int particle1, particle2;
             
             //Get the nodes
-            long int node1, node2;
+            int node1, node2;
             //Get the points
             Point_3D point1, point2;
             //Get the radii or thickness
@@ -790,61 +1081,135 @@ int Direct_Electrifying::Fill_2d_matrices_gnp(const int &R_flag, const vector<in
                 //Get the data from CNT
                 node1 = LM_matrix[P1];
                 point1 = point_list[P1];
-                rad1 = radii[point_list[P1].flag];
+                particle1 = point_list[P1].flag;
+                rad1 = radii[particle1];
             } else {
                 //Get the data from GNP
                 node1 = LM_matrix_gnp[P1];
                 point1 = point_list_gnp[P1];
+                particle1 = point_list_gnp[P1].flag;
                 rad1 = hybrid_particles[hyb].gnp.hei_z;
-                gnp_flag1 = 1;
             }
             if (hybrid_particles[hyb].triangulation_flags[j][1]) {
                 //Get the data from CNT
                 node2 = LM_matrix[P2];
                 point2 = point_list[P2];
-                rad2 = radii[point_list[P2].flag];
+                particle2 = point_list[P2].flag;
+                rad2 = radii[particle2];
             } else {
                 //Get the data from GNP
                 node2 = LM_matrix_gnp[P2];
                 point2 = point_list_gnp[P2];
+                particle2 = point_list_gnp[P2].flag;
                 rad2 = hybrid_particles[hyb].gnp.hei_z;
-                gnp_flag2 = 1;
             }
-                
-            //Sometimes a CNT seed is also a boundary point, in that case the triangulation will result
-            //in having repeated elements in the stiffness matrix, since there is no tunneling on a bonudary point
-            //Thus ignore elements that have two CNT points that are boundary nodes
-            int ignore_flag = !gnp_flag1 && !gnp_flag2 && node1 < (long int)reserved_nodes && node2 < (long int)reserved_nodes;
             
-            //Add elements when there ignore_flag is 0
-            if (!ignore_flag) {
+            //Check if the egde should be ignored, added to all vectors (of the sparse matix) or just to the values and diagonal vectors
+            
+            //CASE 1: Check if the edge has to be ignored
+            //Sometimes a CNT seed is also a boundary point, in that case the triangulation will result in having repeated elements in the stiffness matrix
+            //This since two boundary nodes have the same node number, thus this adds a resistor connected to the same node on both ends
+            //Because of this, tunneling is ignored on a bonudary point where voltage is applied
+            //Thus ignore elements that have two points that are boundary nodes
+            if (node1 == node2 && node1 < reserved_nodes && node2 < reserved_nodes) {
+                
+                //If the edge needs to be ignored, then this element needs to be deleted from the triangulation
+                to_delete.push_back(j);
+                hout << "TO DELETE: flag1="<<hybrid_particles[hyb].triangulation_flags[j][0]<<" P1="<<P1<<" node1="<<node1<<" flag2="<<hybrid_particles[hyb].triangulation_flags[j][1]<<" P2="<<P2<<" node2="<<node2<<endl;
+            }
+            else {
+                
+                //Whatever the case is, the resistance is needed
+                //So first calculate the resistance of the edge and then check in which of the remaining cases the edge belongs to
                 //Resistance of the "conduction band" in the GNP
                 if (R_flag == 1) {
                     
                     //Calculate the flag for the type of triangulation resistor
-                    if (gnp_flag1 && gnp_flag2)
-                        flag = 1;
-                    else if (!gnp_flag1 && !gnp_flag2)
-                        flag = 0;
-                    else
-                        flag = 2;
+                    if (!hybrid_particles[hyb].triangulation_flags[j][0] && !hybrid_particles[hyb].triangulation_flags[j][1]) {
+                        
+                        //flag = 1;
+                        //Calculate the triangulation resistor considering a GNP-GNP edge
+                        Re = Calculate_resistance_gnp(1, point1, point2, rad1, rad2, hybrid_particles[hyb], electric_param);
+                    }
                     
-                    //Calculate the triangulation resistor
-                    Re = Calculate_resistance_gnp(flag, point1, point2, rad1, rad2, hybrid_particles[hyb], electric_param);
+                    else if (hybrid_particles[hyb].triangulation_flags[j][0] && hybrid_particles[hyb].triangulation_flags[j][1]) {
+                        
+                        //flag = 0;
+                        //Calculate the triangulation resistor considering a CNT-CNT edge
+                        Re = Calculate_resistance_gnp(0, point1, point2, rad1, rad2, hybrid_particles[hyb], electric_param);
+                    }
+                    
+                    else if ( hybrid_particles[hyb].triangulation_flags[j][0] && !hybrid_particles[hyb].triangulation_flags[j][1]){
+                        
+                        //flag = 2;
+                        //Calculate the triangulation resistor considering a GNP-CNT edge
+                        //where the particle 1 is the CNT
+                        Re = Calculate_resistance_gnp(2, point1, point2, rad1, rad2, hybrid_particles[hyb], electric_param);
+                    }
+                    
+                    else {
+                        
+                        //flag = 2;
+                        //Calculate the triangulation resistor considering a GNP-CNT edge
+                        //where the particle 2 is the CNT
+                        Re = Calculate_resistance_gnp(2, point2, point1, rad2, rad1, hybrid_particles[hyb], electric_param);
+                    }
+                
                 } else if (R_flag == 0) {
+                    
+                    //Use unit resistance
                     Re = 1.0;
+                    
                 } else {
                     hout << "Error in Fill_2d_matrices_gnp. Invalid resistor flag:" << R_flag << ". Valid flags are 0 and 1 only." << endl;
                     return 0;
                 }
-                
                 resistances.push_back(Re);
-                //hout << "flag1="<<hybrid_particles[hyb].triangulation_flags[j][0]<<" P1="<<P1<<" node1="<<node1<<" flag2="<<hybrid_particles[hyb].triangulation_flags[j][1]<<" P2="<<P2<<" node2="<<node2<<endl;
-                Add_elements_to_sparse_stiffness(node1, node2, Re, col_ind_2d, values_2d, diagonal);
-            } else {
-                //If one node is a boundary node this element needs to be deleted from the triangulation
-                to_delete.push_back(j);
+                
+                //CASE 2:
+                //Sometimes a triangulation edge has a CNT seed connected to a boundary GNP point without any other node in between
+                //In this case, the CNT resistor and the triangulation edge connect the same nodes so this results
+                //in repeated elements in the stiffness matrix
+                //Thus, check if this is happening
+                if(Only_add_values(LM_matrix, hybrid_particles[hyb].triangulation_flags[j], node1, particle1, node2, particle2)){
+                    
+                    //Identify the CNT node
+                    int cnt_node = 0, gnp_node = 0;
+                    if (hybrid_particles[hyb].triangulation_flags[j][0]) {
+                        cnt_node = node1;
+                        gnp_node = node2;
+                    }
+                    else {
+                        cnt_node = node2;
+                        gnp_node = node1;
+                    }
+                    
+                    //Add contributions to diagonal
+                    diagonal[cnt_node] += 1/Re;
+                    diagonal[gnp_node] += 1/Re;
+                    
+                    //In this situation, gnp_node > cnt_node as the CNT node is a boundary node
+                    //thus -1/Re is added to values[gnp_node][k], where k is the same when
+                    //col_ind_2d[gnp_node][k] == cnt_node
+                    for (int k = 0; k < (int)col_ind_2d[gnp_node].size(); k++) {
+                        if (col_ind_2d[gnp_node][k] == cnt_node) {
+                            values_2d[gnp_node][k] += -1/Re;
+                            break;
+                        }
+                    }
+                    
+                }
+                //CASE 3:
+                //Add the edge following the standard procedure
+                else {
+                    
+                    //hout << "flag1="<<hybrid_particles[hyb].triangulation_flags[j][0]<<" P1="<<P1<<" node1="<<node1<<" flag2="<<hybrid_particles[hyb].triangulation_flags[j][1]<<" P2="<<P2<<" node2="<<node2<<" Re="<<Re<<endl;
+                    Add_elements_to_sparse_stiffness(node1, node2, Re, col_ind_2d, values_2d, diagonal);
+                }
+
+                
             }
+            
         }
         
         //Delete the elements that have boundary nodes
@@ -861,13 +1226,116 @@ int Direct_Electrifying::Fill_2d_matrices_gnp(const int &R_flag, const vector<in
     
     return 1;
 }
+//
+int Direct_Electrifying::Same_boundary_node_preprocessing(const vector<vector<long int> > &structure, const vector<Point_3D> &point_list, const vector<int> &LM_matrix, const vector<int> &LM_matrix_gnp, const vector<long int> &gnp_triangulation_points, GCH &hybrid, vector<int> &tmp_cnts)
+{
+    
+    //Find the boundary nodes in the GNP
+    vector<int> boundary_nodes;
+    for (int i = 0; i < (int)gnp_triangulation_points.size(); i++) {
+        
+        //Get the node number
+        int node = LM_matrix_gnp[gnp_triangulation_points[i]];
+        
+        //Check if node is a (relevant) boundary node
+        if (node >= 0 && node < reserved_nodes) {
+            
+            //Add the node to the boundary_nodes vector
+            boundary_nodes.push_back(node);
+        }
+    }
+    
+    //compare every boundary node
+    for (int i = 0; i < (int)boundary_nodes.size(); i++) {
+        
+        //current boundary node
+        int node = boundary_nodes[i];
+        
+        //Scan all CNTs in the top surface, starting from the last one
+        for (int j = (int)hybrid.cnts_top.size() - 1; j >= 0; j--) {
+            
+            //Current CNT
+            int CNT = hybrid.cnts_top[j];
+            
+            //Current CNT seed point
+            long int P = structure[CNT].front();
+            
+            //Get the node for the CNT seed
+            int node2 = LM_matrix[P];
+            
+            //if the nodes are the same, then add the CNT to the tmp_cnts vector and delete it from the hybrid
+            if (node == node2) {
+                
+                tmp_cnts.push_back(CNT);
+                hybrid.cnts_top.erase(hybrid.cnts_top.begin()+j);
+            }
+        }
+        
+        //Scan all CNTs in the bottom surface, starting from the last one
+        for (int j = (int)hybrid.cnts_bottom.size() - 1; j >= 0; j--) {
+            
+            //Current CNT
+            int CNT = hybrid.cnts_bottom[j];
+            
+            //Current CNT seed point
+            long int P = structure[CNT].front();
+            
+            //Get the node for the CNT seed
+            int node2 = LM_matrix[P];
+            
+            //if the nodes are the same, then add the CNT to the tmp_cnts vector and delete it from the hybrid
+            if (node == node2) {
+                
+                tmp_cnts.push_back(-CNT);
+                hybrid.cnts_bottom.erase(hybrid.cnts_bottom.begin()+j);
+            }
+        }
+    }
+    
+    return 1;
+}
+//This function checks if the triangulation edge should be only added to the values and diagonal vectors
+int Direct_Electrifying::Only_add_values(const vector<int> &LM_matrix, const vector<short int> &edge_flags, const long int &node1, const int &particle1, const long int &node2, const int &particle2)
+{
+    //Then check if only one point is CNT point and it has only two points in the elements vector
+    //When the sum of the flags is 1, then there is one CNT point and one GNP point
+        
+        //Check which node of the triangulation is a CNT point, and if that CNT has only two nodes
+        if ( (edge_flags[0] && elements[particle1].size() == 2) ) {
+            
+            //The CNT is particle 1, the second node of the CNT is the one that might be at the boundary and
+            //causing the repeated element in the stiffness matrix (a CNT seed is always the first point of a CNT)
+            long int node3 = LM_matrix[elements[particle1][1]];
+            
+            //Check if the node of the GNP point (node2) and the second CNT node (node3) are the same
+            //In that case, ignore the edge
+            if (node2 == node3) {
+                return 1;
+            }
+        }
+        else if ( (edge_flags[1] && elements[particle2].size() == 2) ) {
+            
+            //The CNT is particle 2, the second node of the CNT is the one that might be at the boundary and
+            //causing the repeated element in the stiffness matrix (a CNT seed is always the first point of a CNT)
+            long int node3 = LM_matrix[elements[particle2][1]];
+            
+            //Check if the node of the GNP point (node1) and the second CNT node (node3) are the same
+            //In that case, ignore the edge
+            if (node1 == node3) {
+                return 1;
+            }
+        }
+    
+    //If none of the cases above, do not ignore the edge
+    return 0;
+}
 //This function calculates the resistance that comes from the triangulation on the GNPs
 //It uses the resistivities along the surface and along the thickness so the resistance
 //can be calculated along any direction the triangulation edge may have
 //Flag:
-//0: CNT-CNT tunnel
-//1: GNP-GNP tunnel
-//2: CNT-GNP tunnel
+//0: CNT-CNT edge
+//1: GNP-GNP edge
+//2: CNT-GNP edge
 double Direct_Electrifying::Calculate_resistance_gnp(const int &flag, const Point_3D &P1, const Point_3D &P2, const double &rad1, const double &rad2, const GCH &hybrid, const struct Electric_para &electric_param)
 {
     //Calculate the distance between the points in contact
@@ -957,8 +1425,13 @@ int Direct_Electrifying::Fill_2d_matrices_gnp_gnp_tunnels(const int &R_flag, con
             //Calculate tunnel resistance
             double Re;
             if (R_flag == 1) {
-                Re = Calculate_resistance_tunnel(1, hybrid_particles[GNP1].gnp.hei_z, hybrid_particles[GNP2].gnp.hei_z, electric_param, point_list_gnp[P1], point_list_gnp[P2], d_vdw);
+                
+                //Call the function for GNP tunnel and set the flag for GNP-GNP tunnel
+                Re = Calculate_resistance_tunnel(1, hybrid_particles[GNP1], point_list_gnp[P1], hybrid_particles[GNP2].gnp.hei_z, point_list_gnp[P2], electric_param, d_vdw);
+                
             } else if (R_flag == 0) {
+                
+                //Use unit resistance
                 Re = 1.0;
             } else {
                 hout << "Error in Fill_2d_matrices_tunnels (GNP-GNP tunnel). Invalid resistor flag:" << R_flag << ". Valid flags are 0 and 1 only." << endl;
@@ -968,6 +1441,7 @@ int Direct_Electrifying::Fill_2d_matrices_gnp_gnp_tunnels(const int &R_flag, con
             //Add the elements to the sparse vectors
             //hout << "node1=" << node1 << " node2=" << node2 << " Re=" << Re <<endl;
             Add_elements_to_sparse_stiffness(node1, node2, Re, col_ind_2d, values_2d, diagonal);
+            resistances.push_back(Re);
             
             //Add a new tunnel element
             vector<long int> empty;
@@ -977,8 +1451,6 @@ int Direct_Electrifying::Fill_2d_matrices_gnp_gnp_tunnels(const int &R_flag, con
         }
 
     }
-
-    //hout << "end" << endl;
     
     return 1;
 }
@@ -1008,36 +1480,40 @@ int Direct_Electrifying::Fill_2d_matrices_cnt_gnp_tunnels(const int &R_flag, con
             int node1 = LM_matrix[P1];
             
             //Debugging
-            //hout <<i<<"\nCNT="<<CNT<<" P1="<<P1<<" node1="<<node1<<endl;
+            //hout <<i<<" CNT="<<CNT<<" P1="<<P1<<" node1="<<node1<<endl;
             //hout <<" GNP2="<<GNP<<" flag="<<gnps_inside_flags[GNP]<<" P2="<<P2<<" node2="<<node2<<endl;
-            if (node1 == -1 || node2 == -1) {
-                hout << "There is an invalid node number in a CNT-GNP tunnel: node1=" << node1 << ", node2=" << node2 << endl;
-                return 0;
+            
+            //Only add the tunnel if both nodes are different and if both nodes are not boundary nodes
+            if (node1 != node2 && node1 >= reserved_nodes && node2 >= reserved_nodes) {
+                //Calculate tunnel resistance
+                double Re;
+                if (R_flag == 1) {
+                    
+                    //Call the function for GNP tunnel and set the flag for CNT-GNP tunnel
+                    Re = Calculate_resistance_tunnel(2, hybrid_particles[GNP], point_list_gnp[P2], radii[CNT], point_list[P1], electric_param, d_vdw);
+                    
+                } else if (R_flag == 0) {
+                    
+                    //Use unit ressitance
+                    Re = 1.0;
+                } else {
+                    hout << "Error in Fill_2d_matrices_tunnels (CNT-GNP tunnel). Invalid resistor flag:" << R_flag << ". Valid flags are 0 and 1 only." << endl;
+                    return 0;
+                }
+                
+                //Add the elements to the sparse vectors
+                Add_elements_to_sparse_stiffness(node1, node2, Re, col_ind_2d, values_2d, diagonal);
+                
+                //Add a new tunnel element
+                vector<long int> empty;
+                elements_mixed_tunnel.push_back(empty);
+                elements_mixed_tunnel.back().push_back(P1);
+                elements_mixed_tunnel.back().push_back(P2);
             }
             
-            //Calculate tunnel resistance
-            double Re;
-            if (R_flag == 1) {
-                Re = Calculate_resistance_tunnel(2, radii[CNT], hybrid_particles[GNP].gnp.hei_z, electric_param, point_list[P1], point_list_gnp[P2], d_vdw);
-            } else if (R_flag == 0) {
-                Re = 1.0;
-            } else {
-                hout << "Error in Fill_2d_matrices_tunnels (CNT-GNP tunnel). Invalid resistor flag:" << R_flag << ". Valid flags are 0 and 1 only." << endl;
-                return 0;
-            }
-            
-            //Add the elements to the sparse vectors
-            Add_elements_to_sparse_stiffness(node1, node2, Re, col_ind_2d, values_2d, diagonal);
-            
-            //Add a new tunnel element
-            vector<long int> empty;
-            elements_mixed_tunnel.push_back(empty);
-            elements_mixed_tunnel.back().push_back(P1);
-            elements_mixed_tunnel.back().push_back(P2);
         }
 
     }
-    //hout << "end" << endl;
     
     return 1;
 }
@@ -1047,156 +1523,230 @@ int Direct_Electrifying::Check_repeated_col_ind_2d(const int &nodes, const vecto
     //Create inverse mapping for the LM_matrix, i.e., from node number to point number
     //Initialize the LM_inverse with the number of nodes
     vector<long int> LM_inverse(nodes, -1);
+    
     //Vector of flags to choose CNT points or GNP points
     //1: CNT node
     //0: GNP node
     vector<short int> point_flag(nodes, 1);
     
+    //Vectors of boundary points
+    vector<long int> empty_long;
+    vector<vector<long int> > gnp_boundary_points(reserved_nodes, empty_long), cnt_boundary_points(reserved_nodes, empty_long);
+    
     //Fill the LM_inverse matrix
     for (long int i = 0; i < (long int)LM_matrix.size(); i++) {
         int current_node = LM_matrix[i];
         if (current_node != -1) {
-            LM_inverse[current_node] = i;
+            //Check if the node is a boundary node
+            if (current_node < reserved_nodes) {
+                cnt_boundary_points[current_node].push_back(i);
+                LM_inverse[current_node] = -2;
+            }
+            else {
+                LM_inverse[current_node] = i;
+            }
         }
     }
     for (long int i = 0; i < (long int)LM_matrix_gnp.size(); i++) {
         int current_node = LM_matrix_gnp[i];
         if (current_node != -1) {
-            LM_inverse[current_node] = i;
+            //Check if the node is a boundary node
+            if (current_node < reserved_nodes) {
+                gnp_boundary_points[current_node].push_back(i);
+                LM_inverse[current_node] = -2;
+            }
+            else {
+                LM_inverse[current_node] = i;
+            }
             point_flag[current_node] = 0;
         }
     }
     
+    //For reference, print out the number of CNTs
+    hout << "Total CNTs: " << structure.size() << endl;
+    
+    //Flag to print boundary points
+    //This flag will be activated whenever there is repeatition involving boundary nodes
+    int print_flag = 0;
+    
     //Loop over the rows of the 2D sparse matrix
-    for (int i = 0; i <= last_cnt_node; i++) {
+    for (int i = 0; i < (int)col_ind_2d.size(); i++) {
+        
         //Find repeated elements in the vector col_ind_2d[i]
         vector<long int> repeated_elements;
         vector<int> indices;
         Find_repeated_elements(col_ind_2d[i], repeated_elements, indices);
         
-        //If there are repeated elements and both nodes are CNT points, then check if the repeated element can be added or there is an error
-        if (repeated_elements.size() == 1 && point_flag[i] && point_flag[repeated_elements[0]]) {
-            //Get the point number of the node with repeated indices
-            long int P = LM_inverse[i];
-            //Get the CNT of P
-            int CNT = point_list[P].flag;
+        if (repeated_elements.size()) {
             
-            //Sometimes two CNTs have a shared boundary point and one CNT is not part of the backbone
-            //It might happen that the point has the CNT number of the CNT that is no longer part of the backbone
-            //That CNT will be empty, which will cause errors in the rest of the code in this if-statement
-            //In that case first check if the CNT is empty
-            if (!structure[CNT].size()) {
-                //If it is empty, then update the CNT number
-                //hout << "Empty CNT" << endl;
+            //Check if node is a boundary node
+            if (i < reserved_nodes) {
                 
-                //Get the CNT numbers of the previous and next point
-                int CNT_prev = point_list[P-1].flag;
-                int CNT_next = point_list[P+1].flag;
+                //Flag to print once "boundary node i"
+                int print_once_flag = 1;
                 
-                //find the non-empty CNT and update the CNT variable
-                if (structure[CNT_prev].size()) {
-                    CNT = CNT_prev;
-                } else if (structure[CNT_next].size()) {
-                    CNT = CNT_next;
-                } else {
-                    //If both are empty, then there is an error
-                    hout << "Error in Check_repeated_col_ind_2d, A point is located in an empty CNT" << endl;
-                    hout << "col_ind_2d[" << i << "] (";
-                    hout <<"point="<<LM_inverse[i]<<" CNT="<<point_list[LM_inverse[i]].flag<<" ["<<structure[point_list[LM_inverse[i]].flag].size()<<"]"<<endl;
-                    hout <<"("<<point_list[LM_inverse[i]].x<<", "<<point_list[LM_inverse[i]].y<<", ";
-                    hout <<point_list[LM_inverse[i]].z<<')'<<endl;
-                    hout<<"previous point in CNT "<<point_list[LM_inverse[i]-1].flag<<endl;
-                    hout <<"("<<point_list[LM_inverse[i]-1].x<<", "<<point_list[LM_inverse[i]-1].y<<", "<<point_list[LM_inverse[i]-1].z<<')'<<endl;
-                    hout<<"next point in CNT "<<point_list[LM_inverse[i]+1].flag<<endl;
-                    hout <<"("<<point_list[LM_inverse[i]+1].x<<", "<<point_list[LM_inverse[i]+1].y<<", "<<point_list[LM_inverse[i]+1].z<<')'<<endl;
-                    hout <<" CNT[0]="<<structure[point_list[LM_inverse[i]].flag].front();
-                    hout <<" CNT[last]="<<structure[point_list[LM_inverse[i]].flag].back()<<")";
-                    hout << endl;
-                    return 0;
-                }
-            }
-            
-            //Get the node numbers of the endpoints of the CNT
-            int node_front = LM_matrix[elements[CNT].front()];
-            int node_back = LM_matrix[elements[CNT].back()];
-            //Check if the two endpoints of the CNT are the same and they are boundary nodes
-            if (node_back == node_front && node_front < reserved_nodes) {
-                //If the two endpoints are in the same node and are boundary nodes, that means that the CNT has two contacts with the boundary and one contact in between
-                //This is the only case in with two nodes have two resistors
-                //So in this case add the quantities in the vector values
-                values_2d[i][indices[0]] = values_2d[i][indices[0]] + values_2d[i][indices[1]];
-                
-                //Remove repeated element from the vectors
-                //Te repeated element is the second index in the vector indices
-                col_ind_2d[i].erase(col_ind_2d[i].begin()+indices[1]);
-                values_2d[i].erase(values_2d[i].begin()+indices[1]);
-                
-            }
-        } else if (repeated_elements.size()) {
-            //If there is more than one element repeated then something else is going wrong and will need this output to help me understand
-            hout << "repeated nodes:"<<repeated_elements.size()<<endl;
-            hout << "col_ind_2d[" << i << "] (";
-            long int P1 = LM_inverse[i];
-            int particle1;
-            string type1;
-            if (point_flag[i]) {
-                particle1 = point_list[LM_inverse[i]].flag;
-                type1 = "CNT";
-            } else {
-                particle1 = point_list_gnp[LM_inverse[i]].flag;
-                type1 = "GNP";
-            }
-            
-            hout <<"point="<<P1<<" "<<type1<<"="<<particle1<<endl;
-            if (type1 == "GNP") {
-                hout <<"("<<point_list_gnp[P1].x<<", "<<point_list_gnp[P1].y<<", "<<point_list_gnp[P1].z<<')'<<endl;
-            } else {
-                hout <<"("<<point_list[P1].x<<", "<<point_list[P1].y<<", "<<point_list[P1].z<<')'<<endl;
-                hout <<" CNT[0]="<<structure[point_list[P1].flag].front()<<" ["<<structure[point_list[P1].flag].size()<<"]";
-                hout <<" CNT[last]="<<structure[point_list[P1].flag].back()<<")"<< endl;
-                hout << "Total contacts: "<<contacts_point[P1].size()<<endl;
-                for (int k = 0; k < (int)contacts_point[P1].size(); k++) {
-                    long int contact_tmp = contacts_point[P1][k];
-                    int CNT_tmp = point_list[contact_tmp].flag;
-                    hout << "Contact "<<k<<": P="<<contact_tmp<<" node2="<<LM_matrix[contact_tmp]<<" CNT="<<CNT_tmp;
-                    hout << " CNT[0]="<<structure[CNT_tmp].front()<<" CNT[last]="<<structure[CNT_tmp].back()<<endl;
-                    hout <<"("<<point_list[contact_tmp].x<<", "<<point_list[contact_tmp].y<<", ";
-                    hout <<point_list[contact_tmp].z<<')'<<endl;
-                }
-            }
-            
-            for (int j = 0; j < (int)repeated_elements.size(); j++) {
-                //Current repeated element
-                long int rep = repeated_elements[j];
-                int particle2;
-                string type2;
-                long int P2 = LM_inverse[rep];
-                if (point_flag[rep]) {
-                    particle2 = point_list[P2].flag;
-                    type2 = "CNT";
-                } else {
-                    particle2 = point_list_gnp[P2].flag;
-                    type2 = "GNP";
-                }
-                hout <<"Repeated node="<<repeated_elements[j]<<" point="<<P2<<" "<<type2<<"="<<particle2;
-                if (type2 == "CNT") {
-                    hout <<"("<<point_list[P2].x<<", "<<point_list[P2].y<<", "<<point_list[P2].z<<')'<<endl;
-                    hout <<" CNT[0]="<<structure[particle2].front()<<" CNT[last]="<<structure[particle2].back()<< endl;
-                    //Print out the contacts of repeated element
-                    hout << "Total contacts of repeated node: "<<contacts_point[P2].size()<<endl;
-                    for (int k = 0; k < (int)contacts_point[P2].size(); k++) {
-                        long int contact_tmp = contacts_point[P2][k];
-                        int CNT_tmp = point_list[contact_tmp].flag;
-                        hout << "Contact "<<k<<": P="<<contact_tmp<<" CNT="<<CNT_tmp;
-                        hout << " CNT[0]="<<structure[CNT_tmp].front()<<endl;
+                for (int j = 0; j < (int)repeated_elements.size(); j++) {
+                    
+                    //If there are repeated elements connecting two boundaries, these repeated elements are not important
+                    //When transfroming 2D vectors to 1D vectors the sub-matrix that contains resistors connecting boundaries is removed
+                    //This, because the sub-matrix used to solve the system of equations does not consider these elements
+                    //Thus, only print the information of repeated elements when they are not boundary nodes
+                    if (repeated_elements[j] >= reserved_nodes) {
+                        
+                        if (print_once_flag) {
+                            
+                            hout << "boundary node " << i <<endl;
+                            hout << "repeated elements: "<<repeated_elements.size()<<endl;
+                            
+                            //Activate print flag
+                            print_flag = 1;
+                            
+                            //Set the flag to 0
+                            print_once_flag = 0;
+                        }
+                        
+                        //store the repeated node in a variable to ease reading
+                        long int node2 = repeated_elements[j];
+                        
+                        //Get the point number of the repeated node
+                        long int P2 = LM_inverse[node2];
+                        
+                        int particle2;
+                        string type2;
+                        
+                        //Get particle number and type of repeated point
+                        if (point_flag[node2]) {
+                            particle2 = point_list[P2].flag;
+                            type2 = "CNT";
+                        } else {
+                            particle2 = point_list_gnp[P2].flag;
+                            type2 = "GNP";
+                        }
+                        
+                        //Print info of repeated point
+                        hout << j << ") node " << node2 << " P2="<<P2<<' '<<type2<<"="<<particle2<<endl;
+                        if (type2 == "GNP") {
+                            hout <<"("<<point_list_gnp[P2].x<<", "<<point_list_gnp[P2].y<<", "<<point_list_gnp[P2].z<<')'<<endl;
+                        } else {
+                            hout <<"("<<point_list[P2].x<<", "<<point_list[P2].y<<", "<<point_list[P2].z<<')'<<endl;
+                            hout <<" CNT[0]="<<structure[particle2].front()<<" n_points="<<structure[particle2].size();
+                            hout <<" CNT[last]="<<structure[particle2].back()<< endl;
+                            hout <<" nodes in CNT: ";
+                            for (int nn = 0; nn < (int)elements[particle2].size(); nn++) {
+                                hout << LM_matrix[elements[particle2][nn]] << ' ';
+                            }
+                            hout<<endl;
+                        }
                     }
+                }
+                
+            }
+            //Not a boundary node
+            else {
+                
+                //Get the point number of current node
+                long int P1 = LM_inverse[i];
+                
+                int particle1;
+                string type1;
+                
+                //Get particle number and type of current point
+                if (point_flag[i]) {
+                    particle1 = point_list[P1].flag;
+                    type1 = "CNT";
                 } else {
-                    hout <<"("<<point_list_gnp[P2].x<<", "<<point_list_gnp[P2].y<<", "<<point_list_gnp[P2].z<<')'<<endl;
+                    particle1 = point_list_gnp[P1].flag;
+                    type1 = "GNP";
+                }
+                
+                
+                hout << "node " << i << " P1="<<P1<<' '<<type1<<"="<<particle1<<endl;
+                if (type1 == "GNP") {
+                    hout <<"("<<point_list_gnp[P1].x<<", "<<point_list_gnp[P1].y<<", "<<point_list_gnp[P1].z<<')'<<endl;
+                } else {
+                    hout <<"("<<point_list[P1].x<<", "<<point_list[P1].y<<", "<<point_list[P1].z<<')'<<endl;
+                    hout <<" n_points="<<structure[particle1].size() <<endl;
+                    hout <<" CNT[0]="<<structure[particle1].front()<<" CNT[last]="<<structure[particle1].back()<< endl;
+                    hout <<" nodes in CNT: ";
+                    for (int nn = 0; nn < (int)elements[particle1].size(); nn++) {
+                        hout << LM_matrix[elements[particle1][nn]] << ' ';
+                    }
+                    hout<<endl;
+                }
+                
+                hout << "repeated elements: "<<repeated_elements.size()<<endl;
+                for (int j = 0; j < (int)repeated_elements.size(); j++) {
+                    if (repeated_elements[j] < reserved_nodes) {
+                        
+                        //Activate print flag
+                        print_flag = 1;
+                        
+                        //boundary node has repeated resistors with another boundary node
+                        hout << j << ") boundary node " << repeated_elements[j] <<endl;
+                    }
+                    else {
+                        
+                        //store the repeated node in a variable to ease reading
+                        long int node2 = repeated_elements[j];
+                        
+                        //Get the point number of the repeated node
+                        long int P2 = LM_inverse[node2];
+                        
+                        int particle2;
+                        string type2;
+                        
+                        //Get particle number and type of repeated point
+                        if (point_flag[node2]) {
+                            particle2 = point_list[P2].flag;
+                            type2 = "CNT";
+                        } else {
+                            particle2 = point_list_gnp[P2].flag;
+                            type2 = "GNP";
+                        }
+                        
+                        //Print info of repeated point
+                        hout << j << ") node " << node2 << " P2="<<P2<<' '<<type2<<"="<<particle2<<endl;
+                        if (type2 == "GNP") {
+                            hout <<"("<<point_list_gnp[P2].x<<", "<<point_list_gnp[P2].y<<", "<<point_list_gnp[P2].z<<')'<<endl;
+                        } else {
+                            hout <<"("<<point_list[P2].x<<", "<<point_list[P2].y<<", "<<point_list[P2].z<<')'<<endl;
+                            hout <<" CNT[0]="<<structure[particle2].front()<<" n_points="<<structure[particle2].size();
+                            hout <<" CNT[last]="<<structure[particle2].back()<< endl;
+                            hout <<" nodes in CNT: ";
+                            for (int nn = 0; nn < (int)elements[particle2].size(); nn++) {
+                                hout << LM_matrix[elements[particle2][nn]] << ' ';
+                            }
+                            hout<<endl;
+                        }
+                    }
                 }
                 
                 
             }
+            
             hout << endl;
+        }
+        
+    }
+    
+    //If the print flag was activated, print all points at the boundaries for both CNTs and GNPs
+    if (print_flag) {
+        
+        hout << "GNP boundary points:" << endl;
+        for (int i = 0; i<(int)gnp_boundary_points.size(); i++) {
+            hout << "boundary " << i << ": " << endl;
+            for (int j = 0; j < (int)gnp_boundary_points[i].size(); j++) {
+                hout << gnp_boundary_points[i][j] << " ";
+            }
+            hout<<endl;
+        }
+        hout << "CNT boundary points:" << endl;
+        for (int i = 0; i<(int)cnt_boundary_points.size(); i++) {
+            hout << "boundary " << i << ": " << endl;
+            for (int j = 0; j < (int)cnt_boundary_points[i].size(); j++) {
+                hout << cnt_boundary_points[i][j] << " ";
+            }
+            hout<<endl;
         }
     }
     return 1;
@@ -1324,9 +1874,7 @@ int Direct_Electrifying::Solve_DEA_equations_CG_SSS(const int &R_flag, long int 
     } else {
         Pr->Print_1d_vec(voltages, "voltages_unit.txt");
     }
-    //hout << "delete Pr" << endl;
-    delete Pr;
-    //hout << "deleted Pr" << endl;
+    delete Pr;//*/
     
     return 1;
 }

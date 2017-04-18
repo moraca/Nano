@@ -52,10 +52,12 @@ int Backbone_Network::Determine_backbone_network(const int &family, const int &n
                 hout << "Error in Determine_backbone_network when calling Find_dead_gnps" << endl;
                 return 0;
             }
+            /*/
             Printer *P = new Printer;
             P->Print_1d_vec(HoKo->clusters_gch[n_cluster], "cluster_gnp.txt");
             P->Print_1d_vec(percolated_gnps, "percolated_gnps.txt");
-            delete P;
+            P->Print_1d_vec(dead_gnps, "dead_gnps.txt");
+            delete P;//*/
         }
 
     }
@@ -217,7 +219,8 @@ double Backbone_Network::Zero_current(const int &n_cluster, const int &R_flag, D
             //If R_flag is 1, then use the actual resistance
             
             //Calculate the Resistance of the tunnel
-            double Re = DEA->Calculate_resistance_tunnel(0, radii[point_list[P1].flag], radii[point_list[P2].flag], electric_param, point_list[P1], point_list[P2], cutoffs.van_der_Waals_dist);
+            double Re = DEA->Calculate_resistance_tunnel(radii[point_list[P1].flag], point_list[P1], radii[point_list[P2].flag], point_list[P2], electric_param, cutoffs.van_der_Waals_dist);
+            
             //Calculate current
             I = I/Re;
         }
@@ -241,7 +244,8 @@ double Backbone_Network::Zero_current(const int &n_cluster, const int &R_flag, D
             //If R_flag is 1, then use the actual resistance
             
             //Calculate the Resistance of the tunnel
-            double Re = DEA->Calculate_resistance_tunnel(1, hybrid_particles[point_list_gnp[P1].flag].gnp.hei_z, hybrid_particles[point_list_gnp[P2].flag].gnp.hei_z, electric_param, point_list_gnp[P1], point_list_gnp[P2], cutoffs.van_der_Waals_dist);
+            double Re = DEA->Calculate_resistance_tunnel(1, hybrid_particles[point_list_gnp[P1].flag], point_list_gnp[P1], hybrid_particles[point_list_gnp[P2].flag].gnp.hei_z, point_list_gnp[P2], electric_param, cutoffs.van_der_Waals_dist);
+            
             //Calculate current
             I = I/Re;
         }
@@ -269,7 +273,8 @@ double Backbone_Network::Zero_current(const int &n_cluster, const int &R_flag, D
             //If R_flag is 1, then use the actual resistance
             
             //Calculate the Resistance of the tunnel
-            double Re = DEA->Calculate_resistance_tunnel(2, radii[point_list[P1].flag], radii[point_list[P1].flag], electric_param, point_list[P1], point_list_gnp[P2], cutoffs.van_der_Waals_dist);
+            double Re = DEA->Calculate_resistance_tunnel(2, hybrid_particles[point_list_gnp[P2].flag], point_list_gnp[P2], radii[point_list[P1].flag], point_list[P1], electric_param, cutoffs.van_der_Waals_dist);
+            
             //Calculate current
             I = I/Re;
         }
@@ -285,13 +290,16 @@ double Backbone_Network::Zero_current(const int &n_cluster, const int &R_flag, D
     //in the current gave good results.
     zero_cutoff = currents.back()*1e-9;
     
+    /*/
     Printer *P = new Printer;
     if (R_flag) {
         P->Print_1d_vec(currents, "currents_R.txt");
+        P->Print_2d_vec(currents_gnp, "currents_gnp_R.txt");
     } else {
         P->Print_1d_vec(currents, "currents.txt");
+        P->Print_2d_vec(currents_gnp, "currents_gnp.txt");
     }
-    delete P;
+    delete P;//*/
     
     return zero_cutoff;
 }

@@ -29,31 +29,46 @@ int Triangulation::Generate_3d_trangulation(const long int &last_cnt_node, const
         hout << "Error in Generate_3d_trangulation when calling Points_to_triangulate" << endl;
         return 0;
     }
-    //Create a vector of consecutive numbers that will represent the points in points_t
-    vector<int> vertices_t(points_t.size(),0);
-    for (int i = 1; i < (int)vertices_t.size(); i++) {
-        vertices_t[i] = i;
-    }
     
-    //------------------------------------------------------------------------------------------------------------------
-    //SUPER TRIANGLE
-    vector<Point_3D> vertices_s;
-    if (!Generate_supertriangle(hybrid, vertices_s)) {
-        hout << "Error in Generate_3d_trangulation when calling Generate_supertetrahedron" << endl;
-        return 0;
+    //Check if the number of points to triangulate is 3 or less, which would be a trivial case
+    if (points_t.size() <= 3) {
+        
+        //If there are 3 points or less, make a trivial triangulation
+        if (!Generate_trivial_triangulation(points_t, points_t_flags, hybrid)) {
+            hout << "Error in Generate_3d_trangulation when calling Generate_trivial_triangulation" << endl;
+            return 0;
+        }
     }
-    //Vector of triangles
-    vector<vector<int> > triangles;
-    vector<int> tmp;
-    //The initial triangulation consists only of the supertriangle
-    tmp.push_back(-1);tmp.push_back(-2);tmp.push_back(-3);
-    triangles.push_back(tmp);
-    
-    //------------------------------------------------------------------------------------------------------------------
-    //Add points to the triangulation sequentially using the Bowyer-Watson algorithm
-    if (!Bowyer_watson(points_t_3d, vertices_s, points_t, points_t_flags, vertices_t, triangles, hybrid)) {
-        hout << "Error in Generate_3d_trangulation when calling Bowyer_watson" << endl;
-        return 0;
+    //If more than 3 points, make the triangulation using the Bowyer-Watson algorithm
+    else {
+        
+        //Create a vector of consecutive numbers that will represent the points in points_t
+        vector<int> vertices_t(points_t.size(),0);
+        for (int i = 1; i < (int)vertices_t.size(); i++) {
+            vertices_t[i] = i;
+        }
+        
+        //------------------------------------------------------------------------------------------------------------------
+        //SUPER TRIANGLE
+        vector<Point_3D> vertices_s;
+        if (!Generate_supertriangle(hybrid, vertices_s)) {
+            hout << "Error in Generate_3d_trangulation when calling Generate_supertetrahedron" << endl;
+            return 0;
+        }
+        //Vector of triangles
+        vector<vector<int> > triangles;
+        vector<int> tmp;
+        //The initial triangulation consists only of the supertriangle
+        tmp.push_back(-1);tmp.push_back(-2);tmp.push_back(-3);
+        triangles.push_back(tmp);
+        
+        //------------------------------------------------------------------------------------------------------------------
+        //Add points to the triangulation sequentially using the Bowyer-Watson algorithm
+        if (!Bowyer_watson(points_t_3d, vertices_s, points_t, points_t_flags, vertices_t, triangles, hybrid)) {
+            hout << "Error in Generate_3d_trangulation when calling Bowyer_watson" << endl;
+            return 0;
+        }
+        
     }
     
     return 1;
@@ -140,6 +155,57 @@ int Triangulation::Gnp_points_to_triangulate(const int &n_cnt_points, const vect
     
     return 1;
 }
+//This functions directly calculates generates a triangulation for the trivial cases (3 points or less)
+int Triangulation::Generate_trivial_triangulation(const vector<long int> &points_out, const vector<short int> &points_out_flags, GCH &hybrid)
+{
+    //Get the number of points
+    int n_case = (int)points_out.size();
+    
+    //Empty vectors
+    vector<long int> empty_long;
+    vector<short int> empty_short;
+    
+    //Check the trivial case
+    if (n_case == 3) {
+        
+        //Generate a triangulation with three edges
+        hybrid.triangulation.push_back(empty_long);
+        hybrid.triangulation.back().push_back(points_out[0]);
+        hybrid.triangulation.back().push_back(points_out[1]);
+        hybrid.triangulation_flags.push_back(empty_short);
+        hybrid.triangulation_flags.back().push_back(points_out_flags[0]);
+        hybrid.triangulation_flags.back().push_back(points_out_flags[1]);
+        
+        hybrid.triangulation.push_back(empty_long);
+        hybrid.triangulation.back().push_back(points_out[2]);
+        hybrid.triangulation.back().push_back(points_out[1]);
+        hybrid.triangulation_flags.push_back(empty_short);
+        hybrid.triangulation_flags.back().push_back(points_out_flags[2]);
+        hybrid.triangulation_flags.back().push_back(points_out_flags[1]);
+        
+        hybrid.triangulation.push_back(empty_long);
+        hybrid.triangulation.back().push_back(points_out[0]);
+        hybrid.triangulation.back().push_back(points_out[2]);
+        hybrid.triangulation_flags.push_back(empty_short);
+        hybrid.triangulation_flags.back().push_back(points_out_flags[0]);
+        hybrid.triangulation_flags.back().push_back(points_out_flags[2]);
+
+    }
+    else if (n_case == 2) {
+        
+        //Generate a triangulation with one edge
+        hybrid.triangulation.push_back(empty_long);
+        hybrid.triangulation.back().push_back(points_out[0]);
+        hybrid.triangulation.back().push_back(points_out[1]);
+        hybrid.triangulation_flags.push_back(empty_short);
+        hybrid.triangulation_flags.back().push_back(points_out_flags[0]);
+        hybrid.triangulation_flags.back().push_back(points_out_flags[1]);
+        
+    }
+    
+    //If there is one point or no points then there is no need to make a triangulation
+    return 1;
+}
 //Generate supertriangle for a GNP surface
 int Triangulation::Generate_supertriangle(const GCH &hybrid, vector<Point_3D> &vertices)
 {
@@ -156,15 +222,15 @@ int Triangulation::Generate_supertriangle(const GCH &hybrid, vector<Point_3D> &v
     Point_3D vertex_rot;
     
     //Base vertex A
-    vertex.y = 0.5*(ly + sqrt(3)*lx); //x is (still) zero
+    vertex.y = 0.5*(ly + sqrt(3)*lx) + 1; //x is (still) zero
     //Rotate vertex (the center of the GNP is the origin of coordinates)
     vertex_rot = vertex.rotation(hybrid.rotation, hybrid.center);
     //Add to vector of vertices
     vertices.push_back(vertex_rot);
     
     //Base vertex B
-    vertex.x = -0.5*leq;
-    vertex.y = -0.5*ly;
+    vertex.x = -0.5*leq - 1;
+    vertex.y = -0.5*ly - 1;
     vertex_rot = vertex.rotation(hybrid.rotation, hybrid.center);
     //Add to vector of vertices
     vertices.push_back(vertex_rot);
@@ -245,7 +311,7 @@ int Triangulation::Is_in_circumcircle(const int &point, const vector<Point_3D> &
     
     //If the squared distance between the point and C is smaller or equal than the squared radius,
     //then the point is inside the circumcircle so return 1
-    return (dist <= rad2);
+    return ( dist - rad2 <= Zero);
 }
 //Given a triangle, this function calculates its circumcenter
 Point_3D Triangulation::Calculate_circumcenter(const vector<Point_3D> &points_t, vector<Point_3D> &vertices_s, const vector<int> &triangle)
@@ -310,37 +376,37 @@ void Triangulation::Add_triangle_as_edges(const vector<int> &triangle, vector<ve
     
 }
 //This function finds the edges that will make the new triangles in the triangulation
-//then they new triangles are added to the triangulation with the edges found and a given point
+//then the new triangles are added to the triangulation with the edges found and a given point
 int Triangulation::Add_new_triangles(const int &point, vector<vector<int> > &triangles, vector<vector<int> > &bad_triangles_edges)
 {
-    //Scan each edge in bad triangles (except the last one) and compare it with the rest
-    for (int j = 0; j < (int)bad_triangles_edges.size()-1; j++) {
-        //Falg that indicates if an edge is shared (repeated)
-        int shared = 0;
+    //Vector that counts the repetitions of each edge
+    vector<int> repetitions_count(bad_triangles_edges.size(), 0);
+    
+    //Scan each edge in bad triangles and compare it with the rest
+    for (int j = 0; j < (int)bad_triangles_edges.size(); j++) {
+        
+        //Scan all edges after edge j
         for (int k=j+1; k < (int)bad_triangles_edges.size(); k++) {
+            
             //Check if the two edges are the same
             if (Is_same_edge(bad_triangles_edges[j], bad_triangles_edges[k])) {
-                //Change the value of the shared flag
-                shared = 1;
-                //Delete the repeated edge
-                bad_triangles_edges.erase(bad_triangles_edges.begin()+k);
-                //There is no need to continue checking so break the loop
-                break;
+                
+                //If there are the same edge, increase the count for edges j and k
+                repetitions_count[j] = repetitions_count[j] + 1;
+                repetitions_count[k] = repetitions_count[k] + 1;
+                
             }
         }
+    }
+    
+    //Scan the vector of repetitions_count and add a new triangle if an edge has 0 repetitions
+    for (int i = 0; i < (int)repetitions_count.size(); i++) {
         
-        //Check if the edge was not shared
-        if (!shared) {
-            //If the edge is not shared, the two points of the edge and the current point make a new triangle
-            triangles.push_back(bad_triangles_edges[j]);
-            triangles.back().push_back(point);
-        }
-        
-        //Check if it reached the last element in the iteration, that is if j==bad_triangles_edges.size()-2
-        if ( j==((int)bad_triangles_edges.size()-2) ) {
-            //If it reached this index value, it means that the last edge is was not repeated but was not scanned
-            //Thus add it as a new triangle
-            triangles.push_back(bad_triangles_edges.back());
+        //Check if the count is zero
+        if (!repetitions_count[i]) {
+            
+            //Add a new triangle using the two points of the edge and the current point
+            triangles.push_back(bad_triangles_edges[i]);
             triangles.back().push_back(point);
         }
     }
@@ -367,6 +433,14 @@ int Triangulation::Final_triangulation_edges(const vector<vector<int> > &triangl
             return 0;
         }
     }
+    /*/
+    for (int i = 0; i < (int)edges.size(); i++) {
+        hout << "edge" << i << ": ";
+        for (int j = 0; j < (int)edges[i].size(); j++) {
+            hout << edges[i][j] << ' ';
+        }
+        hout << endl;
+    }//*/
     
     //Delete repeated edges
     for (int i = 0; i < (int)edges.size()-1; i++) {
@@ -380,6 +454,15 @@ int Triangulation::Final_triangulation_edges(const vector<vector<int> > &triangl
             }
         }
     }
+    /*/
+    hout << "Delete repeated edges" << endl;
+    for (int i = 0; i < (int)edges.size(); i++) {
+        hout << "edge" << i << ": ";
+        for (int j = 0; j < (int)edges[i].size(); j++) {
+            hout << edges[i][j] << ' ';
+        }
+        hout << endl;
+    }//*/
     
     //Add the edges and flags to the hybrid using the point numbers
     

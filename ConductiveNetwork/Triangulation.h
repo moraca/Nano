@@ -26,6 +26,7 @@ public:
     int Points_to_triangulate(const long int &last_cnt_node, const vector<Point_3D> &point_list, const vector<vector<long int> > &structure, const vector<Point_3D> &point_list_gnp, const vector<long int> &gnp_junctions, vector<Point_3D> &points_out_3d, vector<long int> &points_out, vector<short int> &points_out_flags, GCH &hybrid);
     int Cnt_points_to_triangulate(const vector<vector<long int> > &structure, const vector<Point_3D> &point_list, const vector<int> &cnt_list, vector<long int> &points_out, vector<Point_3D> &points_out_3d);
     int Gnp_points_to_triangulate(const int &n_cnt_points, const vector<Point_3D> &point_list_gnp, const vector<long int> &gnp_junctions, vector<Point_3D> &points_out_3d, vector<long int> &points_out, vector<short int> &points_out_flags);
+    int Generate_trivial_triangulation(const vector<long int> &points_out, const vector<short int> &points_out_flags, GCH &hybrid);
     int Generate_supertriangle(const GCH &hybrid, vector<Point_3D> &vertices);
     int Bowyer_watson(const vector<Point_3D> &points_t_3d, vector<Point_3D> &vertices_s, const vector<long int> &points_t, const vector<short int> &points_t_flags, const vector<int> &vertices_t, vector<vector<int> > &triangles, GCH &hybrid);
     int Find_bad_triangles(const vector<Point_3D> &points_t, vector<Point_3D> &vertices_s, const int &point, vector<vector<int> > &triangles, vector<vector<int> > &bad_triangles_edges);

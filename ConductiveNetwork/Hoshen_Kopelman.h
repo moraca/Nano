@@ -47,6 +47,8 @@ public:
     int Merge_labels(const int &root1, const int &root2, vector<int> &labels_labels);
     int Scan_sub_regions_gnp(const vector<Point_3D> &points_gnp, const vector<GCH> &hybrid_particles, const double &tunnel, const vector<vector<long int> > &sectioned_domain_gnp);
     int Initialize_contact_matrices(const int &n_GNPs,vector<vector<long int> > &point_matrix, vector<vector<double> > &distance_matrix);
+    Point_3D Demap_gnp_point(const GCH &hybrid, const Point_3D &point_gnp2);
+    int Judge_point_inside_bounding_box(const struct cuboid &gnp, const Point_3D &point, const double &extension);
     int Create_vector_of_gnp_contacts(const vector<vector<long int> > &point_matrix);
     int Make_particle_clusters(const int &n_clusters, const vector<int> &particles_inside, vector<int> &labels, vector<vector<int> > &isolated, vector<vector<int> > &clusters_particles);
     int Cleanup_labels(vector<int> &labels, vector<int> &labels_labels);
@@ -54,8 +56,7 @@ public:
     int Initialize_mixed_labels(vector<int> &labels_mixed, vector<int> &labels_labels_mixed);
     int Fill_cnt_gnp_numbers(const vector<GCH> &hybrid_particles, vector<int> &cnt_gnp_numbers);
     int Cluster_gnps_and_cnts(const vector<GCH> &hybrid_particles, const vector<int> &gnps_inside, vector<int> &labels_mixed, vector<int> &labels_labels_mixed, int &new_label);
-    int Check_repeated_or_equivalent(const long int &point_cnt, const long int &point_gnp, const double &distance, const vector<Point_3D> &points_in, const vector<Point_3D> &points_gnp, vector<contact_pair> &contacts, vector<int> &gnp_contact_vector);
-    void Update_contact(const long int &point1, const int &particle1, const long int &point2, const int &particle2, struct contact_pair &contact);
+    int Check_repeated_or_equivalent(const long int &point_cnt, const long int &point_gnp, const vector<Point_3D> &points_in, const vector<Point_3D> &points_gnp, vector<contact_pair> &contacts, vector<int> &gnp_contact_vector);
     int Merge_interparticle_labels(vector<int> &labels_mixed);
 
 private:
