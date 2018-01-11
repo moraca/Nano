@@ -48,7 +48,7 @@ int Background_vectors::Generate_shells(const struct Geom_RVE &sample, const str
     for (long int i = 0; i < (long int)points_in.size(); i++) {
         //Add to the corresponding shell
         if (!Add_to_shell(sample, points_in[i], shells_cnt)) {
-            hout << "Error in Generate_shells_and_structure."<< endl;
+            hout << "Error in Generate_shells_and_structure when calling Add_to_shell (CNT shells)."<< endl;
             return 0;
         }
     }
@@ -60,7 +60,7 @@ int Background_vectors::Generate_shells(const struct Geom_RVE &sample, const str
     for (int i = 0; i < (int)hybrid_particles.size(); i++) {
         //Add to the corresponding shell
         if (!Add_to_shells(sample, hybrid_particles[i], shells_gnps)) {
-            hout << "Error in Generate_shells_and_structure."<< endl;
+            hout << "Error in Generate_shells_and_structure when calling Add_to_shells (GNP shells)."<< endl;
             return 0;
         }    }
     

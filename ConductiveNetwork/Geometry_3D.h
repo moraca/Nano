@@ -145,7 +145,11 @@ public:
     int type;                                   //Type of particle: 1 for hybrid, 0 for GNP
     
     //Constructor
-    GCH(){};
+    GCH(){
+        //Initialize rotation matrix
+        MathMatrix tmp(3,3);
+        rotation = tmp;
+    };
     GCH(double len_x, double wid_y, double thick_z);
     
     //Member Functions

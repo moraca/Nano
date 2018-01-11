@@ -8,7 +8,7 @@ App_Electrical_Network_3D
 %========================================================================================================
 %Please input the paramters of simulation
 Simulation_Parameters
-%--------------------------------To start
+%--------------------------------Start
 %Please input the name of simulation
 Test
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -20,7 +20,16 @@ Test
 %Read_Network:	to read the data of network from a file
 Create_Network
 %Read_Network
-%--------------------------------To end
+%
+%Flag to avoid calculating the resistance of the network
+%When set to 1, the backbone networks are found but not the resistance of the cubic sample
+%This can be useful when only a geometric study or visualizations are needed
+%By avoiding calculating the resistance of the network results can be obtained much faster
+% 1: Avoid calculating the resistance of the network
+% 0: Calculate the resistance of the network
+0
+%
+%--------------------------------End
 %
 %
 %
@@ -28,7 +37,7 @@ Create_Network
 %-------------------------------- AMC
 %Define the geometric and related parameters of RVE
 RVE_Geometry
-%--------------------------------To start
+%--------------------------------Start
 %Define the type of particles inside the RVE: 
 %CNT_wires for CNTs,
 %GNP_cuboids for GNPs,
@@ -50,14 +59,14 @@ Hybrid_particles
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
 %Define minimum size for background grids (looking for contact points)
 0.05000 0.05000 0.05000
-%--------------------------------To end
+%--------------------------------End
 %
 %
 %
 %========================================================================================================
 %Define the geometric parameters of nanotubes
 Nanotube_Geometry
-%--------------------------------To start
+%--------------------------------Start
 %Define the initial growth direction type (random or specific) in a RVE
 %If you input "random", that means the initial growth directions of nanotubes are random
 %If you input "specific", that means the initial growth directions of nanotubes are along a specific direction
@@ -90,14 +99,14 @@ uniform 0.005000 0.005000
 %the mode of accumulation: 0 means every sample uses the same fraction; 1 or 2 mean every sample uses the accumulated fraction by different ways
 %wt 0.005 0 5.8E-5 1.06
 vol 0.001000 0
-%--------------------------------To end
+%--------------------------------End
 %
 %
 %
 %========================================================================================================
 %Define the geometric parameters of ellipsoid cluster of CNTs
 %Cluster_Geometry
-%--------------------------------To start
+%--------------------------------Start
 %Please input the volume fraction of ellipsoid, the length of axes of ellipsoids and the growth probability of a cnt in the cluster, and the volume fraction of cnt in the cluster and the print key: 
 % v amin amax bmin cmin p vc key, such as 0.05 0.1 0.1 0 0 1 0.4774648 2
 %where the long axis a of ellipsoid obeys the uniform distribution among (amin, amax), the middle axis b obeys the uniform distribution among (bmin, a),
@@ -108,7 +117,7 @@ vol 0.001000 0
 %the print key: 0 denotes "no print"; 1 denotes "only print the nanotubes in the ellipsoids"; 2 denotes "print the nanotubes in the ellipsoids and the surfaces of all ellipsoids"
 %0.00418879 0.1 0.1 0 0 1 0.4774648 2
 %0
-%--------------------------------To end
+%--------------------------------End
 %
 %
 %
@@ -116,7 +125,7 @@ vol 0.001000 0
 %-------------------------------- AMC
 %Define the geometric parameters of the GNPs
 GNP_Geometry
-%--------------------------------To start
+%--------------------------------Start
 %Define if the generation of the CNTs on the GNP surface should be parallel or independent
 independent
 %Define the GNP orientation type (random or specific) in a RVE
@@ -146,19 +155,19 @@ uniform 0.03 0.03
 %or if you input "wt", the weight fraction is the criterion 
 %wt 0.005
 vol 0.001000 
-%-------------------------------- To end
+%--------------------------------End
 %
 %========================================================================================================
 %-------------------------------- AMC
 %Define the geometry of the GNP
 Cutoff_Distances
-%--------------------------------To start
+%--------------------------------Start
 %Define van der Waals distance
 0.000340
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
 %Define cutoff distance for tunneling
 0.001800
-%-------------------------------- To end
+%--------------------------------End
 %
 %
 %
@@ -166,7 +175,7 @@ Cutoff_Distances
 %-------------------------------- AMC
 %Define the electrical parameters
 Electrical_Parameters
-%--------------------------------To start
+%--------------------------------Start
 %Provide the magnitude of the applied voltage
 1
 %------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -177,9 +186,46 @@ Electrical_Parameters
 %Provide the value of resistivity of the polymer matrix (Ohm.micron)
 1.03e20
 %Li et al approach
-%Electrical constants: electron charge (C), permitivity of vaccum (F/m), CNT work function (V), dielectric constant of polymer 
+%Electrical constants: electron charge (C), permittivity of vacuum (F/m), CNT work function (V), dielectric constant of polymer 
 %1.60217662e-19 8.85e-12 5.0 3.98
 %Hu et al approach
 %Electrical constants:Planck’s constant (e-34 m2kg/s), electron charge (e-19 C), electron mass (e-31 Kg), height barrier (eV)
 6.62606957 1.60217662 9.10938291 2.0
-%-------------------------------- To end
+%--------------------------------End
+%========================================================================================================
+%-------------------------------- AMC
+%Define the electrical parameters
+Tecplot_flags
+%--------------------------------Start
+%
+%Flag to export generated CNTs:
+% 1: wires
+% 2: singlezone meshes
+% 3: multizone meshes
+%Do not export if flag set to 0
+0
+%Flag to export generated GNPs if set to 1
+%Do not export if flag set to 0
+0
+%Flag to export clusters as obtained from the Hoshen-Kopelman algorithm:
+% 1: wires (3D lines)
+% 2: meshes
+% 3: wires (3D lines) & meshes
+%Do not export if flag set to 0
+0
+%Flag to export percolated clusters:
+% 1: wires (3D lines)
+% 2: meshes
+% 3: wires (3D lines) & meshes
+%Do not export if flag set to 0
+0   
+%Flag to export the backbone:
+% 1: wires (3D lines)
+% 2: meshes
+% 3: wires (3D lines) & meshes
+%Do not export if flag set to 0
+0
+%Flag to export triangulations if set to 1
+%Do not export if flag set to 0
+0
+%-------------------------------- End

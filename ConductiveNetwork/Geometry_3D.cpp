@@ -313,5 +313,8 @@ GCH::GCH(double len_x, double wid_y, double thick_z)
     gnp.len_x = len_x;
     gnp.wid_y = wid_y;
     gnp.hei_z = thick_z;
+    //Initialize rotation matrix
+    MathMatrix tmp(3,3);
+    rotation = tmp;
 }
 //===========================================================================

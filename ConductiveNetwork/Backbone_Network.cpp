@@ -9,7 +9,7 @@
 #include "Backbone_Network.h"
 
 
-int Backbone_Network::Determine_backbone_network(const int &family, const int &n_cluster, const int &R_flag, const int &tecplot_flag, Direct_Electrifying *DEA, Hoshen_Kopelman *HoKo, const Electric_para &electric_param, const Cutoff_dist &cutoffs, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<double> &radii, const vector<vector<long int> > &structure_gnp, const vector<Point_3D> &points_in_gnp, const vector<GCH> &hybrid_particles, vector<double> &families_lengths, vector<double> &branches_lengths, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices, vector<vector<int> > &gnp_dead_indices, vector<vector<int> > &gnp_indices)
+int Backbone_Network::Determine_backbone_network(const int &family, const int &n_cluster, const int &R_flag, Direct_Electrifying *DEA, Hoshen_Kopelman *HoKo, const Electric_para &electric_param, const Cutoff_dist &cutoffs, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<double> &radii, const vector<vector<long int> > &structure_gnp, const vector<Point_3D> &points_in_gnp, const vector<GCH> &hybrid_particles, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_percolated_indices, vector<vector<int> > &all_dead_gnps, vector<vector<int> > &all_percolated_gnps)
 {
     //First check if the CNT cluster has only one CNT, in that case there are no dead branches and the backbone extraction can be simplified a lot
     //Otherwise look for dead branches
@@ -42,6 +42,12 @@ int Backbone_Network::Determine_backbone_network(const int &family, const int &n
                 hout << "Error in Determine_backbone_network when calling Find_dead_branches" << endl;
                 return 0;
             }
+            
+            //Add the indices of percolated and non percolated CNTs
+            if (!Add_indices_to_global_vectors(family, all_dead_indices, all_percolated_indices)) {
+                hout << "Error in Determine_backbone_network when calling Add_indices_to_global_vectors" << endl;
+                return 0;
+            }
         }
         
         //If there are GNP clusters and there are GNPs in the cluster n_cluster, find the dead GNPs
@@ -52,6 +58,13 @@ int Backbone_Network::Determine_backbone_network(const int &family, const int &n
                 hout << "Error in Determine_backbone_network when calling Find_dead_gnps" << endl;
                 return 0;
             }
+            
+            //Add the indices of percolated and non percolated CNTs
+            if (!Add_gnps_to_global_vectors(family, all_dead_gnps, all_percolated_gnps)) {
+                hout << "Error in Determine_backbone_network when calling Add_gnps_to_global_vectors" << endl;
+                return 0;
+            }
+            
             /*/
             Printer *P = new Printer;
             P->Print_1d_vec(HoKo->clusters_gch[n_cluster], "cluster_gnp.txt");
@@ -71,11 +84,14 @@ double Backbone_Network::Zero_current(const int &n_cluster, const int &R_flag, D
     //Valiable to store the current
     double I;
     
+    //Variable to store the maximum current
+    double I_max = Zero;
+    
     //Variable to store the cutoff for zero voltage
     double zero_cutoff;
     
     //Vector to store all the currents
-    vector<double> currents;
+    //vector<double> currents;
     
     //Check if there is any CNT cluster and the current n_cluster has CNTs
     if (HoKo->clusters_cnt.size() && HoKo->clusters_cnt[n_cluster].size()) {
@@ -111,7 +127,11 @@ double Backbone_Network::Zero_current(const int &n_cluster, const int &R_flag, D
                     I = I/Re;
                 }
                 //Add current to vector of all currents
-                currents.push_back(I);
+                //currents.push_back(I);
+                //Check if I is the maximum current so far
+                if (I > I_max) {
+                    I_max = I;
+                }
                 //Add current to the vector of element currents
                 currents_cnt[i].push_back(I);
             }
@@ -196,7 +216,11 @@ double Backbone_Network::Zero_current(const int &n_cluster, const int &R_flag, D
                 }
                 
                 //Add current to vector of all currents
-                currents.push_back(I);
+                //currents.push_back(I);
+                //Check if I is the maximum current so far
+                if (I > I_max) {
+                    I_max = I;
+                }
                 //Add current to the vector of element currents
                 currents_gnp[i].push_back(I);
             }
@@ -225,7 +249,11 @@ double Backbone_Network::Zero_current(const int &n_cluster, const int &R_flag, D
             I = I/Re;
         }
         //Add current to vector of all currents
-        currents.push_back(I);
+        //currents.push_back(I);
+        //Check if I is the maximum current so far
+        if (I > I_max) {
+            I_max = I;
+        }
     }
     
     //Calculate all currents from GNP-GNP tunnels
@@ -250,7 +278,11 @@ double Backbone_Network::Zero_current(const int &n_cluster, const int &R_flag, D
             I = I/Re;
         }
         //Add current to vector of all currents
-        currents.push_back(I);
+        //currents.push_back(I);
+        //Check if I is the maximum current so far
+        if (I > I_max) {
+            I_max = I;
+        }
     }
     
     //Calculate all currents from CNT-GNP tunnels
@@ -279,16 +311,21 @@ double Backbone_Network::Zero_current(const int &n_cluster, const int &R_flag, D
             I = I/Re;
         }
         //Add current to vector of all currents
-        currents.push_back(I);
+        //currents.push_back(I);
+        //Check if I is the maximum current so far
+        if (I > I_max) {
+            I_max = I;
+        }
     }
     
     //Sort currents
-    sort(currents.begin(),currents.end());
+    //sort(currents.begin(),currents.end());
     
     //The error cutoff seems to work well with a drop in 9 orders of magnitude of the current. So that is how the cutoff is set.
     //This idea comes from Li and Chou's paper of the DEA in which using a voltage of 1V, a drop in 9 orders of magnitude
     //in the current gave good results.
-    zero_cutoff = currents.back()*1e-9;
+    //zero_cutoff = currents.back()*1e-9;
+    zero_cutoff = I_max*1e-9;
     
     /*/
     Printer *P = new Printer;
@@ -464,69 +501,8 @@ int Backbone_Network::Find_dead_gnps(const double &zero_cutoff, const vector<vec
     
     return 1;
 }
-//------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------
-//This vector calculates the lengths of the CNTs that form part of the backbone and the dead branches
-//It is assumed that the vectors are initialized and the quantities calculated for the current cluster are added
-//To the corresponding element of the vector
-//In both vectors, except for the last one, each element corresponds to a families in the following order:
-//[0] - X
-//[1] - Y
-//[2] - Z
-//[3] - XY
-//[4] - XZ
-//[5] - YZ
-//[6] - XYZ
-//[7] - NP (only families_lengths)
-int Backbone_Network::Calculate_lengths(const int &family, const vector<Point_3D> &points_in, vector<double> &families_lengths, vector<double> &branches_lengths)
-{
-    //Variables to store lengths
-    double backbone = 0, branches = 0;
-    
-    //Scan the percolated_indices vector to calculate the length of the backbone
-    //Since the branches_lengths has the same length as percolated_indices, both vectors can be scanned in the same loop
-    for (int i = 0; i < (int)percolated_indices.size(); i++) {
-        //Check if there is a conducting segment, if there is add the corresponding length
-        if (percolated_indices[i].size()){
-            backbone = backbone + Segment_length(percolated_indices[i][0], percolated_indices[i][1], points_in);
-        }
-        //Check if there is one or two non-conducting segments
-        if (dead_indices[i].size() == 2) {
-            branches = branches + Segment_length(dead_indices[i][0], dead_indices[i][1], points_in);
-        } else if (dead_indices[i].size() == 4){
-            branches = branches + Segment_length(dead_indices[i][0], dead_indices[i][1], points_in);
-            branches = branches + Segment_length(dead_indices[i][2], dead_indices[i][3], points_in);
-        }
-    }
-    
-    //Add the calculated lengths to the corresponding family
-    families_lengths[family] = families_lengths[family] + backbone;
-    branches_lengths[family] = branches_lengths[family] + branches;
-    
-    return 1;
-}
-
-//This function calculates the length of a segement of a CNT given by a sequence of points from (global number) index1 to index2
-double Backbone_Network::Segment_length(long int index1, long int index2, const vector<Point_3D> &points_in)
-{
-    double length = 0;
-    for (int long j = index1; j < index2; j++) {
-        length = length + points_in[j].distance_to(points_in[j+1]);
-    }
-    return length;
-}
-
 //
-void Backbone_Network::Add_indices_to_global_vectors(const int &family, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices)
+int Backbone_Network::Add_indices_to_global_vectors(const int &family, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices)
 {
     //Add indices for percolated segments
     for (int i = 0; i < (int)percolated_indices.size(); i++) {
@@ -542,4 +518,21 @@ void Backbone_Network::Add_indices_to_global_vectors(const int &family, vector<v
         }
     }
     
+    return 1;    
 }
+//
+int Backbone_Network::Add_gnps_to_global_vectors(const int &family, vector<vector<int> > &all_dead_gnps, vector<vector<int> > &all_percolated_gnps)
+{
+    //Add indices for percolated GNPs
+    for (int i = 0; i < (int)percolated_gnps.size(); i++) {
+        all_percolated_gnps[family].push_back(percolated_gnps[i]);
+    }
+    
+    //Add indices for dead GNPs
+    for (int i = 0; i < (int)dead_gnps.size(); i++) {
+        all_dead_gnps[family].push_back(dead_gnps[i]);
+    }
+    
+    return 1;
+}
+

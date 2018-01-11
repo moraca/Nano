@@ -45,11 +45,11 @@ public:
     int Get_intersecting_point_RVE_surface(const Point_3D &point0, const Point_3D &point1, vector<Point_3D> &ipoi_vec);
     void Add_to_boundary_vectors(Point_3D point3d, long int point, int new_CNT);
     void Add_CNT_to_boundary(vector<int> &boundary, int CNT, long int point, short int flag1, short int flag2);
-    int Change_repeated_seed(const int &CNT_original, int &index1_previous, int &index2_previous, int &index1_current, vector<vector<long int> > &structure, vector<Point_3D> &points_in);
+    int Change_repeated_seed(const int &CNT_original, const int &CNT_previous, int &index2_previous, int &index1_current, vector<vector<long int> > &structure, vector<Point_3D> &points_in);
     int Fill_cnts_inside(const vector<vector<long int> > &structure);
-    int Trim_boundary_gnps(const struct GNP_Geo &gnps, const vector<GCH> &hybrid_particles, const vector<int> &shell_gnp, vector<Point_3D> &points_gnp, vector<vector<long int> > &structure_gnp);
+    int Trim_boundary_gnps(const int &hybrid_flag, const struct GNP_Geo &gnps, const vector<GCH> &hybrid_particles, const vector<int> &shell_gnp, vector<Point_3D> &points_gnp, vector<vector<long int> > &structure_gnp);
     int Is_close_to_boundaries(const GCH &hybrid);
-    int Remove_gnp_points_outside(const struct GNP_Geo &gnps, const GCH &hybrid, vector<Point_3D> &points_gnp, vector<long int> &gnp_discrete);
+    int Remove_gnp_points_outside(const int &hybrid_flag, const struct GNP_Geo &gnps, const GCH &hybrid, vector<Point_3D> &points_gnp, vector<long int> &gnp_discrete);
     int Find_inside_point(const GCH &hybrid, Point_3D &inside_point);
     int Find_projection_in_boundary(const Point_3D &inside, Point_3D &outside, const int &iterator, vector<vector<int> > &boundaries);
     int Add_GNPs_to_boundary(const vector<long int> &gnp_discrete, const vector<vector<int> > &boundaries, vector<Point_3D> &points_gnp);

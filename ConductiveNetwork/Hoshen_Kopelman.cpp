@@ -66,7 +66,7 @@
  */
 
 //To determinate hybrid particle clusters using Hoshen Kopelman Algorithm
-int Hoshen_Kopelman::Determine_clusters(const struct Geom_RVE &sample, const struct Cutoff_dist &cutoffs, const vector<int> &cnts_inside, const vector<vector<long int> > &sectioned_domain, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<double> &radii, const vector<int> &gnps_inside, const vector<vector<long int> > &sectioned_domain_gnp, const vector<vector<long int> > &structure_gnp, const vector<Point_3D> &points_gnp, const vector<GCH> &hybrid_particles)
+int Hoshen_Kopelman::Determine_clusters(const struct Geom_RVE &sample, const struct Cutoff_dist &cutoffs, const vector<int> &cnts_inside, const vector<vector<long int> > &sectioned_domain, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<double> &radii, const vector<int> &gnps_inside, const vector<vector<long int> > &sectioned_domain_gnp, const vector<vector<int> > &sectioned_domain_hyb, const vector<vector<long int> > &structure_gnp, const vector<Point_3D> &points_gnp, const vector<GCH> &hybrid_particles)
 {
     //There are three distinct cases to make clusters: CNTs, GNPs or having both (either hybrid or mixed
     //============================================================================================
@@ -100,37 +100,58 @@ int Hoshen_Kopelman::Determine_clusters(const struct Geom_RVE &sample, const str
     }
     //============================================================================================
     else {
+        
+        //Time markers
+        time_t ct0, ct1;
+        
+        ct0 = time(NULL);
         //Label the CNTs and make the data structures for the direct electrifying algorithm
         if (!Scan_sub_regions_cnt(sample, points_in, gnps_inside, hybrid_particles, radii, cutoffs.tunneling_dist, sectioned_domain, structure)){
             hout << "Error in Determine_clusters when calling Scan_sub_regions_cnt." <<endl;
             return 0;
         }
+        ct1 = time(NULL);
+        hout << "Scan_sub_regions_cnt: " << (int)(ct1-ct0) <<" secs." << endl;
+        
+        ct0 = time(NULL);
         //Label the GNPs and make the data structures for the direct electrifying algorithm
         if (!Scan_sub_regions_gnp(points_gnp, hybrid_particles, cutoffs.tunneling_dist, sectioned_domain_gnp)){
             hout << "Error in Determine_clusters when calling Scan_sub_regions_gnp." <<endl;
             return 0;
         }
+        ct1 = time(NULL);
+        hout << "Scan_sub_regions_gnp: " << (int)(ct1-ct0) <<" secs." << endl;
         
         //Vectors for the HK76 for clustering the CNT and GNP clusters
         vector<int> labels_mixed;
         vector<int> labels_labels_mixed;
+        ct0 = time(NULL);
         //Search for mixed contacts
-        if (!Scan_sub_regions_cnt_and_gnp(sample, cutoffs.tunneling_dist, points_in, radii, sectioned_domain, points_gnp, hybrid_particles, gnps_inside, sectioned_domain_gnp, labels_mixed, labels_labels_mixed)) {
+        if (!Scan_sub_regions_cnt_and_gnp(sample, cutoffs.tunneling_dist, points_in, radii, sectioned_domain, structure, points_gnp, hybrid_particles, gnps_inside, sectioned_domain_gnp, sectioned_domain_hyb, labels_mixed, labels_labels_mixed)) {
             hout << "Error in Determine_clusters when calling Scan_sub_regions_cnt_and_gnp" << endl;
             return 0;
         }
+        ct1 = time(NULL);
+        hout << "Scan_sub_regions_cnt_and_gnp: " << (int)(ct1-ct0) <<" secs." << endl;
         
         //Make the CNT clusters
         int n_clusters = (int)labels_labels_mixed.size();
+        ct0 = time(NULL);
         if (!Make_particle_clusters(n_clusters, cnts_inside, labels, isolated, clusters_cnt)){
             hout << "Error in Determine_clusters when calling Make_particle_clusters for CNT clusters." <<endl;
             return 0;
         }
+        ct1 = time(NULL);
+        hout << "Scan_sub_regions_cnt: " << (int)(ct1-ct0) <<" secs." << endl;
+        
+        ct0 = time(NULL);
         //Make the GNP clusters
         if (!Make_particle_clusters(n_clusters, gnps_inside, labels_gnp, isolated_gch, clusters_gch)){
             hout << "Error in Determine_clusters when calling Make_particle_clusters for GNP clusters." <<endl;
             return 0;
         }
+        ct1 = time(NULL);
+        hout << "Scan_sub_regions_cnt: " << (int)(ct1-ct0) <<" secs." << endl;
         
     }
     
@@ -594,11 +615,11 @@ int Hoshen_Kopelman::Cleanup_labels(vector<int> &labels, vector<int> &labels_lab
 }
 //This function scans all the subregions to look for points close enough for tunneling to happen, i.e. points that are in contact.
 //When points are in contact use the Hoshen-Kopelman algorithm
-int Hoshen_Kopelman::Scan_sub_regions_cnt_and_gnp(const struct Geom_RVE &sample, const double &tunnel, const vector<Point_3D> &points_in, const vector<double> &radii, const vector<vector<long int> > &sectioned_domain, const vector<Point_3D> &points_gnp, const vector<GCH> &hybrid_particles, const vector<int> &gnps_inside, const vector<vector<long int> > &sectioned_domain_gnp, vector<int> &labels_mixed, vector<int> &labels_labels_mixed)
+int Hoshen_Kopelman::Scan_sub_regions_cnt_and_gnp(const struct Geom_RVE &sample, const double &tunnel, const vector<Point_3D> &points_in, const vector<double> &radii, const vector<vector<long int> > &sectioned_domain, const vector<vector<long int> > &structure, const vector<Point_3D> &points_gnp, const vector<GCH> &hybrid_particles, const vector<int> &gnps_inside, const vector<vector<long int> > &sectioned_domain_gnp, const vector<vector<int> > &sectioned_domain_hyb, vector<int> &labels_mixed, vector<int> &labels_labels_mixed)
 {
     //These ints are just to store the global point number and the CNTs they belong to.
     //They are just intermediate variables and I only use them to make the code more readable
-    long int P1, P2;
+    long int P1;
     int CNT1, GNP2;
     
     //Temporary vector of int's to store the contact pair
@@ -638,33 +659,33 @@ int Hoshen_Kopelman::Scan_sub_regions_cnt_and_gnp(const struct Geom_RVE &sample,
     
     //hout << "gnp_labels="<<gnp_labels<<" cnt_labels="<<cnt_labels<<endl;
     //hout <<"L_cnt="<<labels.size()<<" LL_cnt="<<labels_labels.size()<<"L_gnp="<<labels_gnp.size()<<" LL_gnp="<<labels_labels_gnp.size()<<endl;
-    //Scan every overlapping sub-region and compare each point on CNT sub-regions with the points in the GNP sub-regions
+    //Scan every overlapping sub-region and compare each point on CNT sub-regions with the GNP in the same sub-region
     //This is possible because both vectors have the same size
     for (long int i = 0; i < (long int)sectioned_domain.size(); i++) {
         
         //number of elements in sectioned_domain[i]
         long int inner1 = (long int)sectioned_domain[i].size();
         
+        //Scan CNT points in subregion[i]
         for (long int j = 0; j < inner1; j++) {
             
             //Current point in the CNT sub-regions
             P1 = sectioned_domain[i][j];
             CNT1 = points_in[P1].flag;
             
-            //Number of elements in sectioned_domain_gnp[i]
-            long int inner2 = (long int)sectioned_domain_gnp[i].size();
+            //Number of elements in sectioned_domain_hyb[i]
+            long int inner2 = (long int)sectioned_domain_hyb[i].size();
             
             for (long int k = 0; k < inner2; k++) {
                 
-                //Current point in the GNP sub-regions
-                P2 = sectioned_domain_gnp[i][k];
-                GNP2 = points_gnp[P2].flag;
+                //Current GNP in the sub-regions
+                GNP2 = sectioned_domain_hyb[i][k];
                 
                 //First check if the CNT is not attached to the GNP. This eliminates adding resistors between a CNT seed, or close to a CNT seed, and a GNP point
                 if (cnt_gnp_numbers[CNT1] != GNP2) {
                     
                     //Map the CNT point P to the local coordinates of the GNP
-                    Point_3D demapped = Demap_gnp_point(hybrid_particles[GNP2], points_gnp[P1]);
+                    Point_3D demapped = Demap_gnp_point(hybrid_particles[GNP2], points_in[P1]);
                     
                     //Calculate the extension of the GNP bounding box, which is the same as the cutoff for tunneling
                     double extension = tunnel + radii[CNT1];
@@ -674,14 +695,16 @@ int Hoshen_Kopelman::Scan_sub_regions_cnt_and_gnp(const struct Geom_RVE &sample,
                         
                         //If the CNT point is inside the boundaing box, then there us a contact
                         //Check if the contact is repeated or it is equivalent to an existing one
-                        if (!Check_repeated_or_equivalent(P1, P2, points_in, points_gnp, mixed_contacts, gnp_contact_matrix[GNP2])) {
+                        //if (!Check_repeated_or_equivalent(P1, P2, points_in, points_gnp, mixed_contacts, gnp_contact_matrix[GNP2])) {
+                        if (!Check_repeated_or_equivalent_mixed_contact(P1, mixed_contacts, gnp_contact_matrix[GNP2])) {
                             
                             //If not repeated or equivalent, create a new contact
                             struct contact_pair tmp;
                             tmp.point1 = P1;
                             tmp.particle1 = CNT1;
                             tmp.type1 = "CNT";
-                            tmp.point2 = P2;
+                            //Temporaryly store the subregion where the contact was located in the variable point2
+                            tmp.point2 = i;
                             tmp.particle2 = GNP2;
                             tmp.type2 = "GNP";
                             
@@ -704,6 +727,18 @@ int Hoshen_Kopelman::Scan_sub_regions_cnt_and_gnp(const struct Geom_RVE &sample,
                 }
             }
         }
+    }
+    
+    //Delete repeated and equivalent mixed contacts
+    if (!Remove_equivalent_mixed_contacs(structure, mixed_contacts, gnp_contact_matrix)) {
+        hout << "Error in Scan_sub_regions_cnt_and_gnp when calling Remove_equivalent_mixed_contacs" << endl;
+        return 0;
+    }
+    
+    //Add the GNP point of the mixed contacts found
+    if (!Add_gnp_point_to_contact(sectioned_domain_gnp, points_in, points_gnp, mixed_contacts)) {
+        hout << "Error in Scan_sub_regions_cnt_and_gnp when calling Add_gnp_point_to_contact" << endl;
+        return 0;
     }
     
     //Cleanup the mixed labels
@@ -829,6 +864,240 @@ int Hoshen_Kopelman::Cluster_gnps_and_cnts(const vector<GCH> &hybrid_particles, 
                 return 0;
             }
         }
+    }
+    
+    return 1;
+}
+//This function checks if a contact has alraedy been created
+//It is assumed that the CNT is the first particle
+int Hoshen_Kopelman::Check_repeated_or_equivalent_mixed_contact(const long int &point_cnt, const vector<contact_pair> &contacts, const vector<int> &gnp_contact_vector)
+{
+    //Iterate over the contacts of the GNP and check if it the contact has already been created
+    for (int i = 0; i < (int)gnp_contact_vector.size(); i++) {
+        
+        //Current contact
+        int cont_pair = gnp_contact_vector[i];
+        
+        //Check if the CNT point is the same
+        if (point_cnt == contacts[cont_pair].point1) {
+            
+            //The CNt point is the same, thus the contact is repeated or equivalent and terminate the function with 1
+            //There is no neeed to check the GNP point, since another contact between this CNT point
+            //and another GNP point from the same GNP is possible
+            //If I also check that the GNP point is the same, then the contacts would be different i
+            return 1;
+        }
+    }
+    
+    //The contact was not found, so return 0
+    return 0;
+}
+int Hoshen_Kopelman::Remove_equivalent_mixed_contacs(const vector<vector<long int> > &structure, vector<contact_pair> &contacts, vector<vector<int> > &gnp_contact_matrix)
+{
+    //Vector that will store all contacts to be deleted
+    vector<int> to_delete;
+    
+    //Scan the contacts that each GNP has
+    for (int i = 0; i < (int)gnp_contact_matrix.size(); i++) {
+        
+        //i is the current GNP
+        
+        //Group the contacts of the current GNP by CNTs
+        vector<vector<int> > grouped_contacts;
+        if(!Group_mixed_contacts_by_cnt(structure, contacts, gnp_contact_matrix[i], grouped_contacts)) {
+            hout << "Error in Remove_equivalent_mixed_contacs when calling Group_mixed_contacts_by_cnt" <<endl;
+            return 0;
+        }
+        
+        //Group into CNT segments, select one contact per segment and delete the rest
+        if (!Group_and_merge_consecutive_contacts(gnp_contact_matrix[i], grouped_contacts, contacts, to_delete)) {
+            hout << "Error in Remove_equivalent_mixed_contacs when calling Group_and_merge_consecutive_contacts" <<endl;
+            return 0;
+        }
+        
+    }
+    
+    //Sort the vector to_delete
+    sort(to_delete.begin(), to_delete.end());
+    
+    //Delete all contacts indicated by the to_delete vector, starting on the last element (which is the largest index)
+    for (int i = (int)to_delete.size()-1; i >=0; i--) {
+        contacts.erase(contacts.begin()+to_delete[i]);
+    }
+    
+    return 1;
+}
+int Hoshen_Kopelman::Add_gnp_point_to_contact(const vector<vector<long int> > &sectioned_domain_gnp, const vector<Point_3D> &points_cnt, const vector<Point_3D> &points_gnp, vector<contact_pair> &contacts)
+{
+    
+    //Scan the mixed contacts found
+    for (int i = 0; i < (int)contacts.size(); i++) {
+        
+        //Get the sub-region number
+        long int subregion = contacts[i].point2;
+        
+        //Get the GNP number
+        int GNP = contacts[i].particle2;
+        
+        //Set the minimum distance equal to 1 micron, which is a lot larger than any contact
+        double dist_min = 1;
+        
+        //Scan the points in the subregion and find the closest to point 1
+        for (int j = 0; j < (int)sectioned_domain_gnp[subregion].size(); j++) {
+            
+            //Get the GNP point in the sectioned domain
+            long int P_GNP = sectioned_domain_gnp[subregion][j];
+            
+            //Check the point is in the GNP
+            if (points_gnp[P_GNP].flag == GNP) {
+                
+                //Get the CNT point
+                long int P_CNT = contacts[i].point1;
+                
+                //If the GNP point is in in the GNP, then check if it is the closes to point1
+                //Use squared distance to redue computations
+                double dist2 = points_cnt[P_CNT].squared_distance_to(points_gnp[P_GNP]);
+                if (dist2 < dist_min) {
+                    
+                    //Update GNP point in contact
+                    contacts[i].point2 = P_GNP;
+                    
+                    //Update distance
+                    dist_min = dist2;
+                }
+            }
+        }
+        
+    }
+    
+    
+    return 1;
+}
+//This function creates vectors with equal length as that of a CNT in the structure vector
+//but instead of point numbers it has contact numbers
+//Thus this vectors can be used to group several consecutive mixed contacts and then merge them into a single mixed contact
+int Hoshen_Kopelman::Group_mixed_contacts_by_cnt(const vector<vector<long int> > &structure, const vector<contact_pair> &contacts, const vector<int> &gnp_contact_vector, vector<vector<int> > &grouped_contacts)
+//int Hoshen_Kopelman::Group_mixed_contacts_by_cnt(const vector<Point_3D> &points_in, const vector<vector<long int> > &structure, const vector<contact_pair> &contacts, const vector<int> &gnp_contact_vector, vector<vector<int> > &grouped_contacts)
+{
+    //Mapping vector
+    vector<int> cnt_map(structure.size(), -1);
+    
+    //Counter to map the CNTs
+    int counter = 0;
+    
+    //Scan all the contacts in the current contact vector
+    for (int i = 0; i < (int)gnp_contact_vector.size(); i++) {
+        
+        //get the current contact number
+        int cont = gnp_contact_vector[i];
+        
+        //get the CNT number of contact i
+        int CNT = contacts[cont].particle1;
+        
+        //Check if the CNT has already been mapped
+        if (cnt_map[CNT] == -1) {
+            
+            //Map the CNT
+            cnt_map[CNT] = counter;
+            
+            //Create a vector of -1 with the same size as the CNT in the structure
+            //An extra -1 is added to the vector
+            //In case the last point has a valid contact, the -1 makes easier to find the end of
+            //a segment of consecutive contacts since this ensures all CNT will have a -1 at the end
+            vector <int> cnt_contacts(structure[CNT].size()+1,-1);
+            
+            //Add this vector to the vector of grouped contacts
+            grouped_contacts.push_back(cnt_contacts);
+            
+            //Increase the counter to map the next unmapped CNT
+            counter++;
+        }
+        
+        //get the mapped CNT number
+        int CNT_mapped = cnt_map[CNT];
+        
+        //get the CNT point number
+        long int P1 = contacts[cont].point1;
+        
+        //Get the positon on the structure[CNT] vector
+        long int pos = P1 - structure[CNT].front();
+        
+        //Add the contact to the corresponding position on the grouped_contacts vector
+        grouped_contacts[CNT_mapped][pos] = cont;
+        
+    }
+    
+    return 1;
+}
+//
+int Hoshen_Kopelman::Group_and_merge_consecutive_contacts(const vector<int> &gnp_contact_vector, vector<vector<int> > &grouped_contacts, vector<contact_pair> &contacts, vector<int> &to_delete)
+{
+    //Scan every CNT in contact with the GNP
+    for (int i = 0; i < (int)grouped_contacts.size(); i++) {
+        
+        //Flags that determine which point in the segment of consecutive contacts I am looking for
+        int initial_flag = 1; //I will start looking for the initial point of a segment of consecutive contacts
+        int final_flag = 0;
+        
+        //variables to store the initial and final contacts in a segment
+        int initial = 0, final = 0;
+        
+        //Scan every contact in the CNT
+        for (int j = 0; j < (int) grouped_contacts[i].size(); j++) {
+            
+            //If am looking fot the initial point check if the current contact is valid (!= -1)
+            if (initial_flag && grouped_contacts[i][j] != -1) {
+                
+                //When an initial valid contact is found save the current contact as the initial contact of the segment
+                initial = j;
+                
+                //Change the flag to zero as I will not be looking for an initial point
+                initial_flag = 0;
+                
+                //Make sure the flag for the final point is 1
+                final_flag = 1;
+            }
+            
+            //If am looking fot the initial point check if the current contact is valid (!= -1)
+            if (final_flag && grouped_contacts[i][j] == -1) {
+                
+                //When a final valid contact is found save the previous contact as the final contact of the segment
+                final = j-1;
+                
+                //Change the flag to zero as I will not be looking for a final point
+                final_flag = 0;
+                
+                //Make sure the flag for the initial point is 1
+                initial_flag = 1;
+                
+                //A segment has been found, if the difference between final and initial is 0
+                //thre is nothing to do as the contact will stay
+                //but if the difference is 1 or more, then some contacts will be deleted
+                int difference = final - initial;
+                if ( difference > 0) {
+                    
+                    //find the middle contact
+                    int middle = initial + (int)(difference/2);
+                    
+                    //Set the initial contact equal to the middle one
+                    int initial_contact = grouped_contacts[i][initial];
+                    int middle_contact = grouped_contacts[i][middle];
+                    contacts[initial_contact] = contacts[middle_contact];
+                    contacts[initial_contact] = contacts[middle_contact];
+                    
+                    
+                    //Now, add all other contacts to the vector to_delete
+                    for (int ii = initial+1; ii <= final; ii++) {
+                        
+                        to_delete.push_back(grouped_contacts[i][ii]);
+                    }
+                    
+                }
+                
+            }
+            
+        }
+        
     }
     
     return 1;

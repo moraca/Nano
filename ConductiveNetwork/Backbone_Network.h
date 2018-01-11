@@ -30,25 +30,14 @@ public:
     Backbone_Network(){};
     
     //Member Functions
-    int Determine_backbone_network(const int &family, const int &n_cluster, const int &R_flag, const int &tecplot_flag, Direct_Electrifying *DEA, Hoshen_Kopelman *HoKo, const Electric_para &electric_param, const Cutoff_dist &cutoffs, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<double> &radii, const vector<vector<long int> > &structure_gnp, const vector<Point_3D> &points_in_gnp, const vector<GCH> &hybrid_particles, vector<double> &families_lengths, vector<double> &branches_lengths, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices, vector<vector<int> > &gnp_dead_indices, vector<vector<int> > &gnp_indices);
+    int Determine_backbone_network(const int &family, const int &n_cluster, const int &R_flag, Direct_Electrifying *DEA, Hoshen_Kopelman *HoKo, const Electric_para &electric_param, const Cutoff_dist &cutoffs, const vector<vector<long int> > &structure, const vector<Point_3D> &points_in, const vector<double> &radii, const vector<vector<long int> > &structure_gnp, const vector<Point_3D> &points_in_gnp, const vector<GCH> &hybrid_particles, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_percolated_indices, vector<vector<int> > &all_dead_gnps, vector<vector<int> > &all_percolated_gnps);
     double Zero_current(const int &n_cluster, const int &R_flag, Direct_Electrifying *DEA, Hoshen_Kopelman *HoKo, const struct Electric_para &electric_param, const Cutoff_dist &cutoffs, const vector<Point_3D> &point_list, const vector<Point_3D> &points_in_gnp, const vector<double> &radii, const vector<GCH> &hybrid_particles, vector<vector<double> > &currents_cnt, vector<vector<double> > &currents_gnp);
     double Voltage_difference(const long int &P1, const long int &P2, const vector<int> &LM_matrix, const vector<double> &voltages);
     int Find_dead_branches(const double &zero_cutoff, const vector<vector<double> > &currents_cnt, const vector<int> &cluster, vector<vector<long int> > &elements);
     int Find_dead_gnps(const double &zero_cutoff, const vector<vector<double> > &currents_gnp, const vector<int> &cluster_gch);
-    //------------------------------------------------------------------------------------------
-    //------------------------------------------------------------------------------------------
-    //------------------------------------------------------------------------------------------
-    //------------------------------------------------------------------------------------------
-    //------------------------------------------------------------------------------------------
-    //------------------------------------------------------------------------------------------
-    //------------------------------------------------------------------------------------------
-    //------------------------------------------------------------------------------------------
-    //------------------------------------------------------------------------------------------
-    //------------------------------------------------------------------------------------------
-    //------------------------------------------------------------------------------------------
-    int Calculate_lengths(const int &family, const vector<Point_3D> &points_in, vector<double> &families_lengths, vector<double> &branches_lengths);
-    double Segment_length(long int index1, long int index2, const vector<Point_3D> &points_in);
-    void Add_indices_to_global_vectors(const int &family, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices);
+    int Add_indices_to_global_vectors(const int &family, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_percolated_indices);
+    int Add_gnps_to_global_vectors(const int &family, vector<vector<int> > &all_dead_gnps, vector<vector<int> > &all_percolated_gnps);
+
     
 private:
     

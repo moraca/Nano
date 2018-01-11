@@ -8,7 +8,7 @@
 
 #include "Electrical_analysis.h"
 
-int Electrical_analysis::Perform_analysis_on_clusters(const int &iteration, const vector<int> &family, Hoshen_Kopelman *HoKo, Cutoff_Wins *Cutwins, const vector<vector<long int> > &structure, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<vector<long int> > &structure_gnp, const vector<Point_3D> &point_list_gnp, const struct Geom_RVE &geom_rve, const struct Electric_para &electric_param, const struct Cutoff_dist &cutoffs, vector<GCH> &hybrid_particles, vector<double> &families_lengths, vector<double> &branches_lengths, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices, vector<vector<int> > &gnp_dead_indices, vector<vector<int> > &gnp_indices)
+int Electrical_analysis::Perform_analysis_on_clusters(const int &avoid_resistance_flag, const vector<int> &family, Hoshen_Kopelman *HoKo, Cutoff_Wins *Cutwins, const vector<vector<long int> > &structure, const vector<Point_3D> &point_list, const vector<double> &radii, const vector<vector<long int> > &structure_gnp, const vector<Point_3D> &point_list_gnp, const struct Geom_RVE &window, const struct Electric_para &electric_param, const struct Cutoff_dist &cutoffs, vector<GCH> &hybrid_particles, vector<vector<long int> > &all_dead_indices, vector<vector<long int> > &all_indices, vector<vector<int> > &gnp_dead_indices, vector<vector<int> > &gnp_indices)
 {
     //Time variables
     time_t ct0, ct1;
@@ -59,47 +59,59 @@ int Electrical_analysis::Perform_analysis_on_clusters(const int &iteration, cons
         //Determine the backbone and dead branches
         Backbone_Network *Backbonet = new Backbone_Network;
         ct0 = time(NULL);
-        if (!Backbonet->Determine_backbone_network(family[j], j, R_flag, 1, DEA, HoKo, electric_param, cutoffs, structure, point_list, radii, structure_gnp, point_list_gnp, hybrid_particles, families_lengths, branches_lengths, all_dead_indices, all_indices, gnp_dead_indices, gnp_indices)) {
+        if (!Backbonet->Determine_backbone_network(family[j], j, R_flag, DEA, HoKo, electric_param, cutoffs, structure, point_list, radii, structure_gnp, point_list_gnp, hybrid_particles, all_dead_indices, all_indices, gnp_dead_indices, gnp_indices)) {
             hout << "Error in Perform_analysis_on_cluster when calling Determine_backbone_network" << endl;
             return 0;
         }
         ct1 = time(NULL);
         hout << "Determine backbone network time: "<<(int)(ct1-ct0)<<" secs."<<endl;
         
-        //-----------------------------------------------------------------------------------------------------------------------------------------
-        //Set now the R_flag to 1 to indicate that actual resistances will be used
-        R_flag = 1;
+        //Delete objects to free memory
+        delete DEA;
         
-        //Calculate the electrical resistances along each direction for current clusters
-        if (!Electrical_analysis_along_each_percolated_direction(R_flag, j, family, HoKo, Cutwins, Backbonet, electric_param, cutoffs, structure, point_list, radii, contacts_initial, structure_gnp, point_list_gnp, hybrid_particles, paralel_resistors)) {
-            hout << "Error in Perform_analysis_on_cluster when calling Electrical_analysis_along_each_percolated_direction" << endl;
-            return 0;
+        //-----------------------------------------------------------------------------------------------------------------------------------------
+        //Check if it is requested to avoid calculating the resistor network
+        if (!avoid_resistance_flag) {
+            
+            //Set now the R_flag to 1 to indicate that actual resistances will be used
+            R_flag = 1;
+            
+            //Calculate the electrical resistances along each direction for current clusters
+            if (!Electrical_analysis_along_each_percolated_direction(R_flag, j, family, HoKo, Cutwins, Backbonet, electric_param, cutoffs, structure, point_list, radii, contacts_initial, structure_gnp, point_list_gnp, hybrid_particles, paralel_resistors)) {
+                hout << "Error in Perform_analysis_on_cluster when calling Electrical_analysis_along_each_percolated_direction" << endl;
+                return 0;
+            }
+            
         }
         
         //Delete objects to free memory
-        delete DEA;
         delete Backbonet;
     }
     
-    //Calculate the matrix resistances on each direction
-    vector<double> matrix_resistances;
-    if (!Calculate_matrix_resistances(electric_param.resistivity_matrix, geom_rve, matrix_resistances)) {
-        hout << "Error in Perform_analysis_on_cluster when calling Calculate_matrix_resistances" << endl;
-        return 0;
-    }
+    //Check if it is requested to avoid calculating the resistor network
+    if (!avoid_resistance_flag) {
+        
+        //Calculate the matrix resistances on each direction
+        vector<double> matrix_resistances;
+        if (!Calculate_matrix_resistances(electric_param.resistivity_matrix, window, matrix_resistances)) {
+            hout << "Error in Perform_analysis_on_cluster when calling Calculate_matrix_resistances" << endl;
+            return 0;
+        }
+        
+        //Calculate the resistances and resistivities along each direction
+        vector<double> resistivities;
+        if (!Calculate_resistances_and_resistivities(window, matrix_resistances, paralel_resistors, resistors, resistivities)) {
+            hout << "Error in Perform_analysis_on_cluster when calling Calculate_resistances_and_resistivities" << endl;
+            return 0;
+        }
+        
+        //Append resistors to a file
+        Printer *P = new Printer;
+        P->Append_1d_vec(resistors, "resistors.txt");
+        P->Append_1d_vec(resistivities, "resistivities.txt");
+        delete P;
     
-    //Calculate the resistances and resistivities along each direction
-    vector<double> resistivities;
-    if (!Calculate_resistances_and_resistivities(geom_rve, matrix_resistances, paralel_resistors, resistors, resistivities)) {
-        hout << "Error in Perform_analysis_on_cluster when calling Calculate_resistances_and_resistivities" << endl;
-        return 0;
     }
-    
-    //Append resistors to a file
-    Printer *P = new Printer;
-    P->Append_1d_vec(resistors, "resistors.txt");
-    P->Append_1d_vec(resistivities, "resistivities.txt");
-    delete P;
     
     return 1;
 }
@@ -120,9 +132,6 @@ int Electrical_analysis::Electrical_analysis_along_each_percolated_direction (co
     ct1 = time(NULL);
     hout << "Vector_of_directions time: "<<(int)(ct1-ct0)<<" secs."<<endl;
     
-    //Set now the R_flag to 1 to indicate that actual resistances will be used
-    //R_flag = 1;
-    
     //Calculate the electrical resistance per direction
     for (int k = 0; k < (int)directions.size(); k++) {
         //-----------------------------------------------------------------------------------------------------------------------------------------
@@ -142,13 +151,12 @@ int Electrical_analysis::Electrical_analysis_along_each_percolated_direction (co
             hout << "Convert_index_to_structure" << endl;
         }
         
-        
         //Update the hybrid particles that belong to the backbone
         if (!Update_hybrids(Backbonet->percolated_gnps, structure, backbone_structure, hybrid_particles)) {
             hout << "Error in Perform_analysis_on_cluster when calling Update_hybrids" << endl;
             return 0;
         }
-        //hout << "Update_hybrids" << endl;
+        hout << "Update_hybrids" << endl;
         
         //Temporary HoKo and Cutwins
         Hoshen_Kopelman *HoKo_Re = new Hoshen_Kopelman;
@@ -157,7 +165,7 @@ int Electrical_analysis::Electrical_analysis_along_each_percolated_direction (co
             hout << "Error in Perform_analysis_on_cluster when calling Update_vectors_for_hoko_cutwins" << endl;
             return 0;
         }
-        //hout << "Update_vectors_for_hoko_cutwins" << endl;
+        hout << "Update_vectors_for_hoko_cutwins" << endl;
         
         //Run a new DEA to obtain the new voltage field in the backbone using the actual resistances
         ct0 = time(NULL);
@@ -168,16 +176,18 @@ int Electrical_analysis::Electrical_analysis_along_each_percolated_direction (co
         ct1 = time(NULL);
         hout << "Calculate voltage field on backbone network time: "<<(int)(ct1-ct0)<<" secs."<<endl;
         
+        //Delete object to free memory
+        delete HoKo_Re;
+        
         //With the new voltage field calculate the current going through a face and calculate the resistance along that direction
         if (!Calculate_parallel_resistor(directions[k], DEA_Re, point_list, radii, HoKo->clusters_cnt, Cutwins_Re->boundary_cnt, point_list_gnp, hybrid_particles, HoKo->clusters_gch, Cutwins_Re->boundary_gnp, Cutwins_Re->boundary_flags_gnp, electric_param, paralel_resistors)) {
             hout << "Error in Perform_analysis_on_cluster when calling Calculate_parallel_resistor" << endl;
             return 0;
         }
-        //hout << "Calculate_parallel_resistor" << endl;
+        hout << "Calculate_parallel_resistor" << endl;
         
         //Delete objects to free memory
         delete DEA_Re;
-        delete HoKo_Re;
         delete Cutwins_Re;
         
     }//*/
@@ -189,20 +199,20 @@ int Electrical_analysis::Electrical_analysis_along_each_percolated_direction (co
 int Electrical_analysis::Vector_of_directions(const int &family, vector<int> &directions)
 {
     if (family == 6) {
-        //If the family is 6 (XYZ); then this the resistance needs to be calculated in the three directions
+        //If the family is 6 (XYZ); then the resistance needs to be calculated in the three directions
         directions.assign(3, 0);
         directions[1] = 1;
         directions[2] = 2;
     } else if (family == 5) {
-        //If the family is 5 (YZ); then this the resistance needs to be calculated in two directions: 1 and 2
+        //If the family is 5 (YZ); then the resistance needs to be calculated in two directions: 1 and 2
         directions.push_back(1);
         directions.push_back(2);
     } else if (family == 4) {
-        //If the family is 4 (XZ); then this the resistance needs to be calculated in two directions: 0 and 2
+        //If the family is 4 (XZ); then the resistance needs to be calculated in two directions: 0 and 2
         directions.push_back(0);
         directions.push_back(2);
     } else if (family == 3) {
-        //If the family is 5 (XY); then this the resistance needs to be calculated in two directions: 0 and 1
+        //If the family is 5 (XY); then the resistance needs to be calculated in two directions: 0 and 1
         directions.push_back(0);
         directions.push_back(1);
     } else if (family <= 2) {
@@ -431,7 +441,7 @@ int Electrical_analysis::Calculate_parallel_resistor(const int &direction, Direc
         }
         
         //=========================== CURRENT Check
-        hout <<"//=========================== CURRENT Check"<<endl;
+        //hout <<"//=========================== CURRENT Check"<<endl;
         //Scan all CNTs at the boundary
         for (int i = 0; i < (int)boundary_cnt[2*direction+1].size(); i++) {
             //Current CNT
@@ -486,7 +496,7 @@ int Electrical_analysis::Calculate_parallel_resistor(const int &direction, Direc
             //First check if there are any triangulation edges on the GNP, if there are no edges there, skip the GNP
             if (hybrid_particles[GNP].triangulation.size()) {
                 
-                hout << "GNP="<<GNP<<" dir="<<direction<<" boundary="<<2*direction<<endl;
+                //hout << "GNP="<<GNP<<" dir="<<direction<<" boundary="<<2*direction<<endl;
                 
                 //Add the currents from the triangulation edges at the boundary
                 I_total_gnp = I_total_gnp + Current_of_edges_in_boundary(0, DEA, electric_param, point_list, radii, point_list_gnp, hybrid_particles[GNP]);
@@ -496,7 +506,7 @@ int Electrical_analysis::Calculate_parallel_resistor(const int &direction, Direc
         
         
         //=========================== CURRENT Check GNP
-        hout <<"//=========================== CURRENT Check GNP"<<endl;
+        //hout <<"//=========================== CURRENT Check GNP"<<endl;
         //Scan all GNPs at the boundary
         for (int i = 0; i < (int)boundary_gnp[2*direction+1].size(); i++) {
             
@@ -507,7 +517,7 @@ int Electrical_analysis::Calculate_parallel_resistor(const int &direction, Direc
             //First check if there are any triangulation edges on the GNP, if there are no edges there, skip the GNP
             if (hybrid_particles[GNP].triangulation.size()) {
                 
-                hout << "GNP="<<GNP<<" dir="<<direction<<" boundary="<<2*direction+1<<endl;
+                //hout << "GNP="<<GNP<<" dir="<<direction<<" boundary="<<2*direction+1<<endl;
                 
                 //Add the currents from the triangulation edges at the boundary
                 I_total_gnp_check = I_total_gnp_check + Current_of_edges_in_boundary(1, DEA, electric_param, point_list, radii, point_list_gnp, hybrid_particles[GNP]);
@@ -549,12 +559,12 @@ double Electrical_analysis::Current_of_element_in_boundary(const long int &P1, c
     int node2 = DEA->LM_matrix[P2];
     if (node1 <= 1) {
         
-        hout <<"P1="<<P1<<" node1="<<DEA->LM_matrix[P1]<<" ("<<point_list[P1].x<<", "<<point_list[P1].y<<", "<<point_list[P1].z<<")"<<endl;//Get the node numbers
-        hout << "P2="<<P2<<" node2="<<node2<<endl;
+        //hout <<"P1="<<P1<<" node1="<<DEA->LM_matrix[P1]<<" ("<<point_list[P1].x<<", "<<point_list[P1].y<<", "<<point_list[P1].z<<")"<<endl;//Get the node numbers
+        //hout << "P2="<<P2<<" node2="<<node2<<endl;
         //Calculate voltage difference on the element, node1 is at the boundary with voltage 0
         //so the voltage drop is from node2 to node1
         double V = DEA->voltages[node2] - DEA->voltages[node1];
-        hout << "V1="<<DEA->voltages[node1]<<" V2="<<DEA->voltages[node2]<<"\nDV=" << V;
+        //hout << "V1="<<DEA->voltages[node1]<<" V2="<<DEA->voltages[node2]<<"\nDV=" << V;
         //Calculate resistance of the element
         double Re;
         if (P1 > P2)
@@ -565,7 +575,7 @@ double Electrical_analysis::Current_of_element_in_boundary(const long int &P1, c
         else
             Re = DEA->Calculate_resistance_cnt(point_list, P1, P2, radius, electric_param.resistivity_CF);
         //Calculate current and add it to the total current
-        hout << " Re=" << Re << " I=" << V/Re << endl;
+        //hout << " Re=" << Re << " I=" << V/Re << endl;
         return V/Re;
     }
     
@@ -630,13 +640,13 @@ double Electrical_analysis::Current_of_edges_in_boundary(const int &side, Direct
         //If P1 is on the right side and is a GNP point, then the current is calculated as V(node2) - V(node1)
         if (node1 == side && !hybrid.triangulation_flags[i][0]) {
             
-            hout << "flag1="<<hybrid.triangulation_flags[i][0]<<" P1="<<P1<<" node1="<<node1<<" flag2="<<hybrid.triangulation_flags[i][1]<<" P2="<<P2<<" node2="<<node2<<endl;
-            hout << " ("<<point1.x<<","<<point1.y<<","<<point1.z<<") ("<<point2.x<<","<<point2.y<<","<<point2.z<<")"<<endl;
+            //hout << "flag1="<<hybrid.triangulation_flags[i][0]<<" P1="<<P1<<" node1="<<node1<<" flag2="<<hybrid.triangulation_flags[i][1]<<" P2="<<P2<<" node2="<<node2<<endl;
+            //hout << " ("<<point1.x<<","<<point1.y<<","<<point1.z<<") ("<<point2.x<<","<<point2.y<<","<<point2.z<<")"<<endl;
             
             //Calculate voltage difference on the triangulation edge, node1 is at the boundary with voltage 0
             //so the voltage drop is from node2 to node1
             V = DEA->voltages[node2] - DEA->voltages[node1];
-            hout << "V1="<<DEA->voltages[node1]<<" V2="<<DEA->voltages[node2]<<" DV=" <<V<<endl;
+            //hout << "V1="<<DEA->voltages[node1]<<" V2="<<DEA->voltages[node2]<<" DV=" <<V<<endl;
             
             //Calculate the flag for the type of triangulation resistor
             if (!hybrid.triangulation_flags[i][1])
@@ -648,7 +658,7 @@ double Electrical_analysis::Current_of_edges_in_boundary(const int &side, Direct
             //The CNT is particle 2, so it has to go first in the arguments
             double Re = DEA->Calculate_resistance_gnp(flag, point2, point1, rad2, rad1, hybrid,  electric_param);
             //Calculate current and add it to the total current
-            hout << " Re=" << Re << " I=" << V/Re << endl;
+            //hout << " Re=" << Re << " I=" << V/Re << endl;
             
             //Add to current
             I_edges = I_edges + V/Re;
@@ -657,13 +667,13 @@ double Electrical_analysis::Current_of_edges_in_boundary(const int &side, Direct
         //If P2 is on the right side, then the current is calculated as V(node1) - V(node2)
         else if (node2 == side && !hybrid.triangulation_flags[i][1]) {
             
-            hout << "flag1="<<hybrid.triangulation_flags[i][0]<<" P1="<<P1<<" node1="<<node1<<" flag2="<<hybrid.triangulation_flags[i][1]<<" P2="<<P2<<" node2="<<node2<<endl;
-            hout << " ("<<point1.x<<","<<point1.y<<","<<point1.z<<") ("<<point2.x<<","<<point2.y<<","<<point2.z<<")"<<endl;
+            //hout << "flag1="<<hybrid.triangulation_flags[i][0]<<" P1="<<P1<<" node1="<<node1<<" flag2="<<hybrid.triangulation_flags[i][1]<<" P2="<<P2<<" node2="<<node2<<endl;
+            //hout << " ("<<point1.x<<","<<point1.y<<","<<point1.z<<") ("<<point2.x<<","<<point2.y<<","<<point2.z<<")"<<endl;
             
             //Calculate voltage difference on the triangulation edge, node2 is at the boundary with voltage 0
             //so the voltage drop is from node1 to node2
             V = DEA->voltages[node1] - DEA->voltages[node2];
-            hout << "V1="<<DEA->voltages[node2]<<" V2="<<DEA->voltages[node1]<<" DV="<<V<<endl;
+            //hout << "V1="<<DEA->voltages[node2]<<" V2="<<DEA->voltages[node1]<<" DV="<<V<<endl;
             
             //Calculate the flag for the type of triangulation resistor
             if (!hybrid.triangulation_flags[i][0])
@@ -674,7 +684,7 @@ double Electrical_analysis::Current_of_edges_in_boundary(const int &side, Direct
             //Calculate resistance of the element
             double Re = DEA->Calculate_resistance_gnp(flag, point1, point2, rad1, rad2, hybrid,  electric_param);
             //Calculate current and add it to the total current
-            hout << " Re=" << Re << " I=" << V/Re << endl;
+            //hout << " Re=" << Re << " I=" << V/Re << endl;
             
             //Add to current
             I_edges = I_edges + V/Re;
@@ -686,7 +696,7 @@ double Electrical_analysis::Current_of_edges_in_boundary(const int &side, Direct
     return I_edges;
 }
 //This function calculates the matrix resistance, depending on the direction of the applied voltage
-int Electrical_analysis::Calculate_matrix_resistances(const double &matrix_resistivity, const struct Geom_RVE &geom_rve, vector<double> &matrix_resistances)
+int Electrical_analysis::Calculate_matrix_resistances(const double &matrix_resistivity, const struct Geom_RVE &window, vector<double> &matrix_resistances)
 {
     //The resistance is calculated as rho*l/A
     double length, A;
@@ -694,25 +704,25 @@ int Electrical_analysis::Calculate_matrix_resistances(const double &matrix_resis
     //Determine the values of A and length according to the direction in which the voltage is applied
     
     //------------------ Resistance along the x-direction
-    length = geom_rve.len_x;
-    A = geom_rve.hei_z*geom_rve.wid_y;
+    length = window.len_x;
+    A = window.hei_z*window.wid_y;
     matrix_resistances.push_back(matrix_resistivity*length/A);
     
     
     //------------------ Resistance along the y-direction
-    length = geom_rve.wid_y;
-    A = geom_rve.len_x*geom_rve.hei_z;
+    length = window.wid_y;
+    A = window.len_x*window.hei_z;
     matrix_resistances.push_back(matrix_resistivity*length/A);
     
     //------------------ Resistance along the z-direction
-    length = geom_rve.hei_z;
-    A = geom_rve.len_x*geom_rve.wid_y;
+    length = window.hei_z;
+    A = window.len_x*window.wid_y;
     matrix_resistances.push_back(matrix_resistivity*length/A);
     
     return 1;
 }
 //This function calculates the resistance on each direction from the vector of parallel resistors
-int Electrical_analysis::Calculate_resistances_and_resistivities(const struct Geom_RVE &geom_rve, const vector<double> &matrix_resistances, const vector<vector<double> > &paralel_resistors, vector<double> &resistors, vector<double> &resistivities)
+int Electrical_analysis::Calculate_resistances_and_resistivities(const struct Geom_RVE &window, const vector<double> &matrix_resistances, const vector<vector<double> > &paralel_resistors, vector<double> &resistors, vector<double> &resistivities)
 {
     //Scan each direction
     //Note that matrix_resistances and paralel_resistors have the same size
@@ -736,13 +746,13 @@ int Electrical_analysis::Calculate_resistances_and_resistivities(const struct Ge
     //Calculate resistivities along each direction
     double rho;
     //-----x-direction
-    rho = resistors[0]*geom_rve.hei_z*geom_rve.wid_y/geom_rve.len_x;
+    rho = resistors[0]*window.hei_z*window.wid_y/window.len_x;
     resistivities.push_back(rho);
     //-----y-direction
-    rho = resistors[1]*geom_rve.hei_z*geom_rve.len_x/geom_rve.wid_y;
+    rho = resistors[1]*window.hei_z*window.len_x/window.wid_y;
     resistivities.push_back(rho);
     //-----z-direction
-    rho = resistors[2]*geom_rve.len_x*geom_rve.wid_y/geom_rve.hei_z;
+    rho = resistors[2]*window.len_x*window.wid_y/window.hei_z;
     resistivities.push_back(rho);
     
     return 1;

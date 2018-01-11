@@ -221,6 +221,16 @@ int Percolation::Determine_direction_flags(const int &window, const struct Geom_
     double w_y = sample.win_max_y - window*sample.win_delt_y;
     double w_z = sample.win_max_z - window*sample.win_delt_z;
     
+    if (w_x < sample.win_min_x) {
+        w_x = sample.win_min_x;
+    }
+    if (w_y < sample.win_min_y) {
+        w_y = sample.win_min_y;
+    }
+    if (w_z < sample.win_min_z) {
+        w_z = sample.win_min_z;
+    }
+    
     //Check CNT geometry if the sample has only CNTs
     if (sample.particle_type == "CNT_wires") {
         if (cnts.len_max >= w_x)

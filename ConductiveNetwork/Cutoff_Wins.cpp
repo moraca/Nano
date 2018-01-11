@@ -96,23 +96,31 @@ int Cutoff_Wins::Extract_observation_window(const int &window, const struct Geom
         }
     }
     
+    //Flag to determine if hybrid particles are used
+    //This flag determines if GNP contacts with the boundary are ignored
+    int hybrid_flag = 0;
+    
     //Update the CNTs attached to the GNP
     //Check if particle type is hybrid
     if (sample.particle_type == "Hybrid_particles") {
-        hout << "Compare_seeds" << endl;
+        
+        //hout << "Compare_seeds" << endl;
         //Compare the initial points of the CNTs attached to the GNPs
         //If they are different, that means that the CNT is not attached to the GNP anymore
         if (!Compare_seeds(hybrid_particles, structure, seeds)) {
             hout << "Error in Extract_observation_window when calling Compare_seeds" << endl;
             return 0;
         }
+        
+        //Set the flag to 1 as hybrid particles are being used
+        hybrid_flag = 1;
     }
     
     //Remove GNPs that are outside the observation window
     //Check if the structure has GNPs, this happens when the particle type is not CNT
     if (sample.particle_type != "CNT_wires") {
         //Scan every GNP that is the boundary region. Delete GNPs and GNP points when needed.
-        if (!Trim_boundary_gnps(gnps, hybrid_particles, shells_gnp[window], points_gnp, structure_gnp)){
+        if (!Trim_boundary_gnps(hybrid_flag, gnps, hybrid_particles, shells_gnp[window], points_gnp, structure_gnp)){
             hout << "Error in Extract_observation_window when calling Trim_boundary_gnps" << endl;
             return 0;
         }
@@ -124,6 +132,10 @@ int Cutoff_Wins::Extract_observation_window(const int &window, const struct Geom
         }
     }
     
+    //Current shells are not needed, so clear them
+    shells_cnt[window].clear();
+    shells_gnp[window].clear();
+    
     return 1;
 }
 //This function sets global variables
@@ -131,9 +143,24 @@ int Cutoff_Wins::Set_global_variables_for_geometry(const struct Geom_RVE &sample
 {
     //These are variables for the geometry of the observation window
     //Dimensions of the current observation window
-    w_x = sample.win_max_x - window*sample.win_delt_x;
-    w_y = sample.win_max_y - window*sample.win_delt_y;
-    w_z = sample.win_max_z - window*sample.win_delt_z;
+    w_x = sample.win_max_x - ((double)window)*sample.win_delt_x;
+    w_y = sample.win_max_y - ((double)window)*sample.win_delt_y;
+    w_z = sample.win_max_z - ((double)window)*sample.win_delt_z;
+    
+    //Check that the current observation window is not smaller than the minimum observation window
+    if (w_x < sample.win_min_x) {
+        //If the current observation window is smaller than the minimum observation window, set the observation window equal to the minimum
+        w_x = sample.win_min_x;
+    }
+    if (w_y < sample.win_min_y) {
+        //If the current observation window is smaller than the minimum observation window, set the observation window equal to the minimum
+        w_y = sample.win_min_y;
+    }
+    if (w_z < sample.win_min_z) {
+        //If the current observation window is smaller than the minimum observation window, set the observation window equal to the minimum
+        w_z = sample.win_min_z;
+    }
+    
     //These variables are the coordinates of the lower corner of the observation window
     xmin = sample.origin.x + (sample.len_x - w_x)/2;
     ymin = sample.origin.y + (sample.wid_y - w_y)/2;
@@ -263,7 +290,7 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, const int 
         }
         
         //If the last two segments of a CNT are "outside"-"inside", then the vector branches_indices[CNT] will have odd size
-        //in such case, the last point needs to be added
+        //in such case, the last index needs to be added
         if (branches_indices_CNT.size()%2 == 1) {
             int s = (int)structure[CNT].size()-1;
             branches_indices_CNT.push_back(s);
@@ -276,6 +303,7 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, const int 
         } else {
             //Scan each segment to handle boundary points
             int new_CNT = CNT;
+            int previous_CNT = CNT;
             for (int k = 0; k < (int)branches_indices_CNT.size(); k=k+2) {
                 int index1 = branches_indices_CNT[k];
                 int index2 = branches_indices_CNT[k+1];
@@ -332,17 +360,18 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, const int 
                     if (branches_indices_CNT[k-1] == index1) {
                         
                         //Since the two points are repeated, check if it can be fixed
-                        if (!Change_repeated_seed(CNT, branches_indices_CNT[k-2], branches_indices_CNT[k-1], branches_indices_CNT[k], structure, points_in)) {
+                        if (!Change_repeated_seed(CNT, previous_CNT, branches_indices_CNT[k-1], branches_indices_CNT[k], structure, points_in)) {
                             
-                            //If the function Change_repeated_seed returns 0, then delete the last CNT segment and remove the last radius added
-                            structure.pop_back();
-                            radii.pop_back();
+                            //If the function Change_repeated_seed returns 0, then delete points for the last CNT segment (only from the structure)
+                            structure[new_CNT].clear();
+                            
                         }
-                    }
-                    
-                    //Update the new_CNT number, only when there are two or more segments the new value of this variable is used
-                    new_CNT = (int)structure.size();
+                    }                    
                 }
+                //Save value of previous CNT
+                previous_CNT = new_CNT;
+                //Update the new_CNT number, only when there are two or more segments the new value of this variable is used
+                new_CNT = (int)structure.size();
             }
             //At this point all indices are inclusive of the boundary points, and these boundary points have been added into the
             //points_in vector by substituting outside points.
@@ -356,10 +385,13 @@ int Cutoff_Wins::Trim_boundary_cnts(vector<vector<int> > &shells_cnt, const int 
                     structure[CNT][kk-index1] = structure[CNT][kk];
                 }
             }
+            
             //Remove the points that are outside or belong to other CNTs
+            //structure[CNT].erase(structure[CNT].begin()+index2+1, structure[CNT].end());
             while ((int)structure[CNT].size() > (index2-index1+1)) {
                 structure[CNT].pop_back();
             }
+            
         }
         
     }
@@ -608,14 +640,11 @@ void Cutoff_Wins::Add_CNT_to_boundary(vector<int> &boundary, int CNT, long int p
     }
 }
 //This function eliminates the case when, after a CNT is split, the last point of one CNT is the same as the frist point of the other CNT
-int Cutoff_Wins::Change_repeated_seed(const int &CNT_original, int &index1_previous, int &index2_previous, int &index1_current, vector<vector<long int> > &structure, vector<Point_3D> &points_in)
+int Cutoff_Wins::Change_repeated_seed(const int &CNT_original, const int &CNT_previous, int &index2_previous, int &index1_current, vector<vector<long int> > &structure, vector<Point_3D> &points_in)
 {
     //last point of previous CNT segment
     long int last = structure[CNT_original][index2_previous];
-    //first point of previous CNT segment
-    long int first_previous = structure[CNT_original][index1_previous];
-    //CNT number of previous CNT segment
-    int CNT_previous = points_in[first_previous].flag;
+    
     //first point of new CNT segment
     long int first = structure[CNT_original][index1_current];
     
@@ -626,8 +655,8 @@ int Cutoff_Wins::Change_repeated_seed(const int &CNT_original, int &index1_previ
         
         //increase index1 of the new segment
         index1_current++;
-        //thus, first is also increased
-        first++;
+        //thus, update the first point of the new CNT segment
+        first = structure[CNT_original][index1_current];;
         
         //remove the first point in the new CNT segment
         structure.back().erase(structure.back().begin());
@@ -649,11 +678,11 @@ int Cutoff_Wins::Change_repeated_seed(const int &CNT_original, int &index1_previ
         
         //decrease index2 of the previous segment
         index2_previous--;
-        //thus, last is also decreased
-        last--;
+        //thus, update the last point of the previous CNT segment
+        last = structure[CNT_original][index2_previous];
         
         //remove the last point of the previous segment
-        structure[CNT_original].pop_back();
+        structure[CNT_previous].pop_back();
         
         //Make the the last point of the previous segment equal to first point of the new CNT segment
         //I set them equal component wise to keep the flags unchanged
@@ -664,6 +693,10 @@ int Cutoff_Wins::Change_repeated_seed(const int &CNT_original, int &index1_previ
     }
     //If none of the two cases happened, then the two segments have two poins
     else {
+        
+        //The last point of the previous segment has the new CNT number
+        //so set it back to the previous CNT number as the new segment will be deleted
+        points_in[last].flag = CNT_previous;
         
         //return 0 and deal with the problem outside this function
         return 0;
@@ -695,25 +728,29 @@ int Cutoff_Wins::Fill_cnts_inside(const vector<vector<long int> > &structure)
         return 1;
 }
 //
-int Cutoff_Wins::Trim_boundary_gnps(const struct GNP_Geo &gnps, const vector<GCH> &hybrid_particles, const vector<int> &shell_gnp, vector<Point_3D> &points_gnp, vector<vector<long int> > &structure_gnp)
+int Cutoff_Wins::Trim_boundary_gnps(const int &hybrid_flag, const struct GNP_Geo &gnps, const vector<GCH> &hybrid_particles, const vector<int> &shell_gnp, vector<Point_3D> &points_gnp, vector<vector<long int> > &structure_gnp)
 {
     //Empty vector to increase size of other vectors
     //Initialize the vector of boundary_flags with empty vectors
     vector<short int> empty_short;
     boundary_flags_gnp.assign(points_gnp.size(), empty_short);
+    
     //Initialize the vector of boundary_flags with empty vectors
     vector<int> empty_int;
     boundary_gnp.assign(6, empty_int);
     
     //Scan all particles inside the current shell
     for (int i = 0; i < (int)shell_gnp.size(); i++) {
+        
         //Current GNP number
         int gnp_n = shell_gnp[i];
+        
         //Check if the center is outside the observation window or is close enough to the boundary of the window that part of it is outside
         if (Where_is(hybrid_particles[gnp_n].center) == "outside" || Is_close_to_boundaries(hybrid_particles[gnp_n])) {
+            
             //If it outside or close enough check which points are still inside the window
             //and remove the ones outside
-            if (!Remove_gnp_points_outside(gnps, hybrid_particles[gnp_n], points_gnp, structure_gnp[gnp_n])) {
+            if (!Remove_gnp_points_outside(hybrid_flag, gnps, hybrid_particles[gnp_n], points_gnp, structure_gnp[gnp_n])) {
                 hout << "Error in Trim_boundary_gnps when calling Remove_gnp_points_outside" << endl;
                 return 0;
             }
@@ -741,13 +778,14 @@ int Cutoff_Wins::Is_close_to_boundaries(const GCH &hybrid)
 }
 //Function that removes points from the discretization of GNPs
 //Only points outside the observation window are removed
-int Cutoff_Wins::Remove_gnp_points_outside(const struct GNP_Geo &gnps, const GCH &hybrid, vector<Point_3D> &points_gnp, vector<long int> &gnp_discrete)
+int Cutoff_Wins::Remove_gnp_points_outside(const int &hybrid_flag, const struct GNP_Geo &gnps, const GCH &hybrid, vector<Point_3D> &points_gnp, vector<long int> &gnp_discrete)
 {
     //vector to store projection points on each boundary
     vector<int> empty;
     vector<vector<int> > boundaries(6, empty);
     
-    //Select an inside point that will be used to calculate intersections with the boundary
+    //Select an inside point that will be used as a reference point to calculate intersections
+    //of the outside points with the boundary
     Point_3D inside_point;
     if (Find_inside_point(hybrid, inside_point)) {
         
@@ -766,7 +804,8 @@ int Cutoff_Wins::Remove_gnp_points_outside(const struct GNP_Geo &gnps, const GCH
             if (Where_is(points_gnp[P]) == "outside") {
                 
                 //Get projection of P into boundary if P is outside, and add it to the boundary vectors
-                if (!Find_projection_in_boundary(inside_point, points_gnp[P], i, boundaries)) {
+                //This is done only when hybrids are not being used
+                if (!hybrid_flag && !Find_projection_in_boundary(inside_point, points_gnp[P], i, boundaries)) {
                     hout << "Error in Find_inside_outside_sequence when calling Find_projection_in_boundary" << endl;
                     return 0;
                 }
@@ -807,7 +846,7 @@ int Cutoff_Wins::Remove_gnp_points_outside(const struct GNP_Geo &gnps, const GCH
         }
     }
     //If no inside point was found, then the whole GNP is outside
-    //Then delete all points form the structure
+    //Then delete all points from the structure
     else {
         
         gnp_discrete.clear();
